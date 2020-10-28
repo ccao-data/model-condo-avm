@@ -66,7 +66,8 @@ test_summary <- test_res %>%
     med_sp = median(meta_sale_price),
     count = n(),
     prop = n() / nrow(.),
-    final = ccao_cod(pred / meta_sale_price, suppress = TRUE)$COD,
+    final = cod(pred / meta_sale_price, na.rm = TRUE),
+    final_cod = ccao_cod(pred / meta_sale_price, suppress = TRUE)$COD,
     final_prd = ccao_prd(pred, meta_sale_price, suppress = TRUE)$PRD,
     final_prb = ccao_prb(pred, meta_sale_price, suppress = TRUE)$PRB,
     final_med_ratio = median(
@@ -76,12 +77,11 @@ test_summary <- test_res %>%
     )
   ) %>%
   mutate(
-    final_cod_met = cod_met(round(final, 2)),
+    final_cod_met = cod_met(round(final_cod, 2)),
     final_prd_met = prd_met(round(final_prd, 2)),
     final_prb_met = prb_met(round(final_prb, 2))
   ) %>%
-  arrange(final) %>%
-  rename_with(~ gsub("_cod", "", .x), c(ends_with("_cod")))
+  arrange(final_cod)
 
 # Create a container with custom column headers for model summary table
 headers <- htmltools::withTags(table(
@@ -92,6 +92,7 @@ headers <- htmltools::withTags(table(
       th(rowspan = 2, "Median Sale Price"),
       th(rowspan = 2, "Number of Sales"),
       th(rowspan = 2, "Proportion of Total Sales"),
+      th(rowspan = 2, "COD (Pre-filter)"),
       th(colspan = 4, "Final Model Stats")
     ),
     tr(
@@ -122,7 +123,7 @@ test_summary %>%
   formatPercentage(4, digits = 1) %>%
   formatRound(c(5:10)) %>%
   formatStyle(
-    c("final", "final_prd", "final_prb"),
+    c("final_cod", "final_prd", "final_prb"),
     c("final_cod_met", "final_prd_met", "final_prb_met"),
     backgroundColor = styleEqual(
       c(0, 1),
@@ -144,7 +145,7 @@ test_summary %>%
   left_join(ccao::town_shp, by = c("town_name" = "township_name")) %>%
   st_set_geometry("geometry") %>%
 ggplot() +
-  geom_sf(aes(fill = final, geometry = geometry)) +
+  geom_sf(aes(fill = final_cod, geometry = geometry)) +
   scale_fill_distiller(name = "COD", palette = "Spectral") +
   theme_void() +
   theme(
@@ -171,7 +172,7 @@ tibble(
   "Variable Name" = names(test_vars),
   "Variable Type" = map_chr(test_vars, class),
   "Number of Categories" = na_if(map_int(test_vars, ~ length(levels(.x))), 0),
-  "Median Value" = map_dbl(test_vars, ~ ifelse(is.factor(.x), NA, median(.x)))
+  "Median Value" = map_dbl(test_vars, ~ ifelse(is.factor(.x), NA, median(.x, na.rm = TRUE)))
 ) %>%
   knitr::kable(digits = 3)
 
