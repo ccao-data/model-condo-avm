@@ -53,7 +53,7 @@ mod_id_vars <- c("meta_pin")
 # List RHS predictors. Condos don't have characteristics like SF homes do, so
 # here we're mostly using meta characteristics like location
 mod_predictors <- c(
-  "meta_year", "meta_class", "meta_town_code", "meta_cdu",
+  "meta_year", "meta_class", "meta_town_code",
   "meta_sale_month", "char_age", "econ_tax_rate", "econ_midincome",
   "meta_nbhd_med", "meta_bldg_med"
 )

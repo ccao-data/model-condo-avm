@@ -48,7 +48,7 @@ val_townhomes_by_group <- function(data, class, estimate, townhome_adj_cols) {
 
 # Post-valuation adjustment object that saves adjustments and can be called to
 # predict new values
-postval_model <- function(data, truth, class, estimate, med_adj_cols, townhome_adj_cols) {
+postval_model <- function(data, truth, class, estimate, med_adj_cols) {
   
   med_adjustments <- data %>%
     group_by(across(all_of(med_adj_cols))) %>%
@@ -58,17 +58,8 @@ postval_model <- function(data, truth, class, estimate, med_adj_cols, townhome_a
     ) %>%
     ungroup()
   
-  townhome_adjustments <- data %>%
-    val_townhomes_by_group(
-      class = meta_class,
-      estimate = stack,
-      townhome_adj_cols = townhome_adj_cols
-    ) %>%
-    ungroup()
-  
   output <- list(
-    med_adjustments = med_adjustments,
-    townhome_adjustments = townhome_adjustments
+    med_adjustments = med_adjustments
   )
   class(output) <- "postval_model"
   
@@ -80,10 +71,6 @@ postval_model <- function(data, truth, class, estimate, med_adj_cols, townhome_a
 predict.postval_model <- function(object, new_data, truth, estimate) {
   
   new_data %>%
-    left_join(object$townhome_adjustments) %>%
-    mutate(
-      {{estimate}} := ifelse(!is.na(med_townhome_adj), med_townhome_adj, {{estimate}})
-    ) %>%
     left_join(object$med_adjustments) %>%
     mutate(
       {{estimate}} := rowSums(tibble({{estimate}}, {{estimate}} * med_pct_adj), na.rm = T),

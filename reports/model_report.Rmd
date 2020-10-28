@@ -115,7 +115,7 @@ test_summary %>%
       paging = FALSE,
       searching = FALSE,
       info = FALSE,
-      columnDefs = list(list(targets = 8:10, visible = FALSE))
+      columnDefs = list(list(targets = 9:11, visible = FALSE))
     )
   ) %>%
   formatCurrency(2, digits = 0) %>%
@@ -345,7 +345,7 @@ outlier_dist %>%
   ungroup() %>%
   filter(ratio < q01 | ratio > q99) %>%
   mutate(
-    meta_pin = pin_format_pretty(meta_pin),
+    meta_pin = pin_format_pretty(meta_pin, full_length = TRUE),
     econ_tax_rate = econ_tax_rate / 100,
     ratio = round(ratio, 2)
   ) %>%
