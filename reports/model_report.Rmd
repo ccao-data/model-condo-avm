@@ -1,0 +1,457 @@
+---
+title: "Model Summary"
+author: "Cook County Assessor's Office"
+date: "`r format(Sys.time(), '%d %B, %Y @ %r')`"
+output: html_document
+params:
+  filter: "FALSE"
+  triad: "City"
+---
+
+```{r setup, include=FALSE}
+library(arrow)
+library(assessr)
+library(ccao)
+library(dplyr)
+library(DT)
+library(forcats)
+library(ggplot2)
+library(here)
+library(purrr)
+library(recipes)
+library(scales)
+library(sf)
+library(stringr)
+library(tidyr)
+library(tune)
+source(here("R", "model_funs.R"))
+
+# Hide code output and make plots take 100% of page width
+knitr::opts_chunk$set(echo = FALSE, out.width = '100%')
+
+# Filter to specific triad. Set with system variable else param defined in yaml
+report_filter <- Sys.getenv("R_REPORT_FILTER", unset = NA)
+report_filter <- as.logical(ifelse(
+  !is.na(report_filter),
+  report_filter,
+  params$filter
+))
+
+# Triad to use for report. Set with system variable else param defined in yaml
+report_triad <- Sys.getenv("R_REPORT_TRIAD", unset = NA)
+report_triad <- ifelse(!is.na(report_triad), report_triad, params$triad)
+```
+
+```{r summary, message=FALSE, warning=FALSE}
+# Load test set results
+test_res <- read_parquet(here("output", "data", "testdata.parquet")) %>%
+  mutate(
+    town_name = town_convert(meta_town_code),
+    triad = factor(
+      town_get_triad(meta_town_code, name = TRUE),
+      levels = c("North", "City", "South")
+    )
+  )
+
+# Filter to specific triad based on report param
+if (report_filter) {
+test_res <- test_res %>%
+  filter(triad == report_triad)
+}
+
+# Summarize test set results by township
+test_summary <- test_res %>%
+  group_by(town_name) %>%
+  summarize(
+    med_sp = median(meta_sale_price),
+    count = n(),
+    prop = n() / nrow(.),
+    final = ccao_cod(pred / meta_sale_price, suppress = TRUE)$COD,
+    final_prd = ccao_prd(pred, meta_sale_price, suppress = TRUE)$PRD,
+    final_prb = ccao_prb(pred, meta_sale_price, suppress = TRUE)$PRB,
+    final_med_ratio = median(
+      (pred / meta_sale_price)[
+        !assessr::is_outlier(pred / meta_sale_price, method = "quantile")
+      ]
+    )
+  ) %>%
+  mutate(
+    final_cod_met = cod_met(round(final, 2)),
+    final_prd_met = prd_met(round(final_prd, 2)),
+    final_prb_met = prb_met(round(final_prb, 2))
+  ) %>%
+  arrange(final) %>%
+  rename_with(~ gsub("_cod", "", .x), c(ends_with("_cod")))
+
+# Create a container with custom column headers for model summary table
+headers <- htmltools::withTags(table(
+  class = "display", 
+  thead(
+    tr(
+      th(rowspan = 2, "Township"),
+      th(rowspan = 2, "Median Sale Price"),
+      th(rowspan = 2, "Number of Sales"),
+      th(rowspan = 2, "Proportion of Total Sales"),
+      th(colspan = 4, "Final Model Stats")
+    ),
+    tr(
+      th("COD"), th("PRD"), th("PRB"), th("Med. Ratio")
+    )
+  )
+))
+
+# Create an interactive table of the test set results by township
+test_summary %>%
+  datatable(
+    rownames = FALSE,
+    filter = "none",
+    autoHideNavigation = TRUE,
+    selection = "none",
+    container = headers,
+    escape = FALSE,
+    options = list(
+      autoWidth = TRUE,
+      paging = FALSE,
+      searching = FALSE,
+      info = FALSE,
+      columnDefs = list(list(targets = 8:10, visible = FALSE))
+    )
+  ) %>%
+  formatCurrency(2, digits = 0) %>%
+  formatRound(3, digits = 0) %>%
+  formatPercentage(4, digits = 1) %>%
+  formatRound(c(5:10)) %>%
+  formatStyle(
+    c("final", "final_prd", "final_prb"),
+    c("final_cod_met", "final_prd_met", "final_prb_met"),
+    backgroundColor = styleEqual(
+      c(0, 1),
+      c("transparent", "#81ca9c")
+    )
+  )
+```
+
+<br>
+
+## Map of COD by Township
+
+```{r map}
+# Vector of model name order (in the order run in model.R)
+model_order <- c("enet", "xgb", "lgbm", "cat", "stack", "final")
+
+# Generate township-level map of COD
+test_summary %>%
+  left_join(ccao::town_shp, by = c("town_name" = "township_name")) %>%
+  st_set_geometry("geometry") %>%
+ggplot() +
+  geom_sf(aes(fill = final, geometry = geometry)) +
+  scale_fill_distiller(name = "COD", palette = "Spectral") +
+  theme_void() +
+  theme(
+    strip.text = element_text(size = 12, margin = margin(b = 3))
+  )
+```
+
+<br>
+
+## Variables Used in Final Model
+
+```{r vars, eval = FALSE}
+
+# Load the saved model from file so we can use its recipe to extract the 
+# modeling variables
+final_full_fit <- model_load(here("output", "models", "stacked_model.zip"))
+
+# Get the predictors used in the model and rename them to human-readable
+test_vars <- bake(final_full_fit$recipe, test_res, all_predictors()) %>%
+  vars_rename(names_from = "standard", names_to = "pretty") 
+
+# Create a table of var name and attributes
+tibble(
+  "Variable Name" = names(test_vars),
+  "Variable Type" = map_chr(test_vars, class),
+  "Number of Categories" = na_if(map_int(test_vars, ~ length(levels(.x))), 0),
+  "Median Value" = map_dbl(test_vars, ~ ifelse(is.factor(.x), NA, median(.x)))
+) %>%
+  knitr::kable(digits = 3)
+
+```
+
+<br>
+
+## Ratio Distribution by Township by Sale Price Decile
+
+```{r ratio_decile, warning=FALSE, message=FALSE, results='hide'}
+# Split test data into sale price decile, then calculate distribution of 
+# ratios for each decile
+decile_data <- test_res %>%
+  mutate(decile = ntile(meta_sale_price, 10)) %>%
+  group_by(decile) %>%
+  mutate(decile_label = paste(
+    dollar(min(meta_sale_price), 1, scale = 1/1000, suffix = "K"),
+    dollar(max(meta_sale_price), 1, scale = 1/1000, suffix = "K"),
+    sep = " - ")
+  ) %>%
+  ungroup() %>%
+  mutate(
+    decile_label = fct_rev(fct_reorder(factor(decile_label), decile)),
+    ratio = pred / meta_sale_price
+  )
+
+# Function to create decile plot based on a grouping variable
+decile_plot <- function(data, col_var) {
+  
+  data %>%
+    group_by({{col_var}}, decile_label) %>%
+    mutate(count = n()) %>%
+  ggplot() +
+    geom_boxplot(aes(x = ratio), outlier.alpha = 0.05) +
+    geom_text(
+      aes(x = 3, y = 0.25, label = count),
+      size = 3,
+      hjust = 1,
+      check_overlap = TRUE
+    ) +
+    facet_grid(
+      rows = vars(decile_label),
+      cols = vars({{col_var}}),
+      switch = "y"
+    ) +
+    xlim(0, 3) +
+    labs(x = "Sale Ratio", y = "") +
+    theme_minimal() +
+    theme(
+      axis.title.x = element_text(margin = margin(t = 10), size = 10),
+      axis.text.y = element_blank(),
+      panel.grid.major.y = element_blank(),
+      panel.grid.minor.y = element_blank(),
+      strip.text = element_text(size = 12),
+      strip.text.y.left = element_text(angle = 0, hjust = 1),
+      strip.text.x = element_text(margin = margin(b = 10)),
+      panel.grid.minor = element_blank()
+    )
+}
+
+# Split into a separate decile plot for every 4 townships
+chunk <- function(x, n) split(x, sort(rank(x) %% n))
+towns <- sort(unique(decile_data$town_name))
+towns <- chunk(towns, ceiling(length(towns) / 4))
+
+lapply(towns, function(chunk) decile_plot(
+  decile_data %>% filter(town_name %in% chunk),
+  town_name
+))
+
+```
+
+<br>
+
+# Outlier Analysis
+
+---
+
+## Overall Ratio Distribution (Prediction / Sale Price)
+
+```{r outlier_dist, warning=FALSE, message=FALSE}
+# Get the overall distribution for stack model trimmed and untrimmed
+outlier_dist <- test_res %>%
+  group_by(town_name) %>%
+  mutate(
+    outlier = is_outlier(pred / meta_sale_price, method = "quantile"),
+    trimmed = "Trimmed"
+  ) %>%
+  filter(!outlier) %>%
+  bind_rows(test_res %>% mutate(trimmed = "Not Trimmed")) %>%
+  mutate(ratio = pred / meta_sale_price) 
+
+# Find 1st and 99th percentile for trimmed and untrimmed ratios
+quantiles <- outlier_dist %>%
+  group_by(trimmed) %>%
+  summarize(q01 = quantile(ratio, 0.01), q99 = quantile(ratio, 0.99))
+
+# Plot histogram of ratios
+ggplot(outlier_dist) +
+  geom_histogram(aes(x = ratio), binwidth = 0.05) +
+  geom_rect(
+    data = quantiles,
+    aes(xmin = -Inf, xmax = q01, ymin = -Inf, ymax = Inf, fill = trimmed),
+    alpha = 0.3
+  ) +
+  geom_rect(
+    data = quantiles,
+    aes(xmin = q99, xmax = Inf, ymin = -Inf, ymax = Inf, fill = trimmed),
+    alpha = 0.3
+  ) +
+  scale_x_continuous(breaks = breaks_extended(10), limits = c(0, 4)) +
+  guides(fill = FALSE) +
+  labs(
+    x = "Sale Ratio",
+    y = "Number of Properties",
+    caption = "*Colored regions represent < 1st and > 99th percentile"
+  ) +
+  facet_wrap(vars(trimmed), ncol = 1) +
+  theme_minimal() +
+  theme(
+    strip.text = element_text(size = 12),
+    axis.title.x = element_text(margin = margin(t = 6), size = 10),
+    axis.title.y = element_text(margin = margin(r = 10), size = 10),
+    panel.grid.minor = element_blank()
+  ) +
+  theme(
+    strip.text = element_text(size = 12)
+  )
+
+```
+
+<br>
+
+## Spatial Distribution of Outliers
+
+```{r outlier_map, message=FALSE}
+# Create a township level map showing the location of individual outliers from
+# the ratio plot above
+outlier_dist %>%
+  left_join(quantiles, by = "trimmed") %>%
+  filter(ratio < q01 | ratio > q99) %>%
+  mutate(above_1 = ifelse(ratio > 1, "Above 1", "Below 1")) %>%
+  ungroup() %>%
+  filter(!is.na(geo_latitude)) %>% 
+  st_as_sf(coords = c("geo_longitude", "geo_latitude"), crs = 4326) %>%
+ggplot() +
+  geom_sf(data = town_shp %>% filter(township_name %in% test_res$town_name)) +
+  geom_sf(aes(geometry = geometry, color = trimmed, shape = above_1)) +
+  scale_shape_manual(name = "Ratio is:", values = c("Above 1" = 0, "Below 1" = 16)) +
+  facet_wrap(vars(trimmed), nrow = 1) +
+  guides(color = FALSE) +
+  theme_void() +
+  theme(
+    strip.text = element_text(size = 12)
+  )
+
+```
+
+<br>
+
+## Outlier Table
+
+Table shows only observations less than the 0.1 percentile and greater than the 99.9 percentile.
+
+```{r outlier_table}
+# Create a table of outliers from the 0.01 and 99.9 percentiles
+outlier_dist %>%
+  group_by(trimmed) %>%
+  mutate(q01 = quantile(ratio, 0.001), q99 = quantile(ratio, 0.999)) %>%
+  ungroup() %>%
+  filter(ratio < q01 | ratio > q99) %>%
+  mutate(
+    meta_pin = pin_format_pretty(meta_pin),
+    econ_tax_rate = econ_tax_rate / 100,
+    ratio = round(ratio, 2)
+  ) %>%
+  select(
+    Trimmed = trimmed, Township = town_name, PIN = meta_pin, meta_class,
+    `Final Model` = pred, `Sale Price` = meta_sale_price, Ratio = ratio,
+    econ_midincome, meta_nbhd_med, -meta_town_code
+  ) %>%
+  vars_recode(type = "short", as_factor = FALSE) %>%
+  vars_rename(names_from = "standard", names_to = "pretty") %>%
+  datatable(
+    rownames = FALSE,
+    autoHideNavigation = TRUE,
+    selection = "none",
+    options = list(
+      scrollX = TRUE,
+      autoWidth = TRUE,
+      searchHighlight = TRUE,
+      paging = TRUE,
+      columnDefs = list(list(targets = c(2), width = "100px"))
+    )
+  ) %>%
+  formatStyle(
+    "Trimmed",
+    target = "row",
+    backgroundColor = styleEqual(
+      c("Trimmed", "Not Trimmed"),
+      c("#ace2e3", "#f2b1ac")
+    )
+  ) %>%
+  formatCurrency(
+    c("Sale Price", "Final Model", "Median Income",
+      "Neighborhood Median Sale Price"),
+    digits = 0
+  ) 
+```
+
+<br>
+
+## Final Hyperparameters
+
+```{r params}
+# Load model results for each model and append to data frame
+model_results <- tibble()
+
+lgbm_params_path <- here("output", "params", "lgbm_params.rds")
+if (file.exists(lgbm_params_path)) {
+  lgbm_params <- readRDS(lgbm_params_path)
+  lgbm_final_params <- lgbm_params %>%
+    mutate(iterations = max(.iter)) %>%
+    select_best(metric = "rmse") %>%
+    mutate(model = "lgbm")
+
+  model_results <- bind_rows(model_results, lgbm_final_params)
+}
+
+# Custom headers for parameter results table
+param_headers <- htmltools::withTags(table(
+  class = "display", 
+  thead(
+    tr(
+      th(rowspan = 2, "Model"),
+      th(rowspan = 2, "Iters"),
+      th(colspan = 7, "Parameters"),
+    ),
+    tr(
+      th("mtry"), th("trees"), th("min_n"), th("tree_depth"),
+      th("learn_rate"), th("loss_reduction"), th("sample_size")
+    )
+  )
+))
+
+# Table of all final model parameters
+model_results %>%
+  select(-any_of(c(
+    "n", "std_err", ".iter", ".config", ".metric", ".estimator",
+    ".best", ".bound", "rmse", "rsq", "cod", "prd", "prb"
+  ))) %>%
+  relocate(c(model, iterations), .before = NULL) %>%
+  datatable(
+    rownames = FALSE,
+    filter = "none",
+    autoHideNavigation = TRUE,
+    selection = "none",
+    container = param_headers,
+    escape = FALSE,
+    options = list(
+      scrollX = TRUE,
+      # autoWidth = TRUE,
+      paging = FALSE,
+      searching = FALSE,
+      info = FALSE
+    )
+  ) %>%
+  formatRound(c(7:9), digits = 4)
+
+```
+
+<br>
+
+## Hyperparameter Tuning
+
+```{r param_plots, warning=FALSE, message=FALSE}
+if (exists("lgbm_params")) {
+  autoplot(lgbm_params, metric = "rmse", type = "marginals") +
+    geom_smooth(se = F) +
+    labs(title = "LightGBM Tuning Results") +
+    theme_minimal()
+}
+```
