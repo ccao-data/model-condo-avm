@@ -4,6 +4,7 @@
 
 # Load R libraries
 options(tidymodels.dark = TRUE)
+library(lightgbm)
 library(arrow)
 library(assessr)
 library(beepr)
@@ -12,7 +13,6 @@ library(ccao)
 library(dplyr)
 library(glmnet)
 library(here)
-library(lightgbm)
 library(purrr)
 library(sf)
 library(stringr)
