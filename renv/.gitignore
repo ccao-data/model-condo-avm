@@ -1,5 +1,6 @@
-local/
+cellar/
 library/
+local/
 lock/
 python/
 staging/

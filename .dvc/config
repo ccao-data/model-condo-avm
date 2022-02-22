@@ -1,0 +1,6 @@
+[core]
+    analytics = false
+    remote = storage
+    autostage = true
+['remote "storage"']
+    url = s3://ccao-data-dvc-us-east-1/
