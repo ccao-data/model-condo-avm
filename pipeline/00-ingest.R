@@ -53,23 +53,23 @@ AWS_ATHENA_CONN_JDBC <- dbConnect(
 tictoc::tic()
 training_data <- dbGetQuery(
   conn = AWS_ATHENA_CONN_JDBC, glue("
-  SELECT
-      sale.sale_price AS meta_sale_price,
-      sale.sale_date AS meta_sale_date,
-      sale.doc_no AS meta_sale_document_num,
-      res.*
-  FROM model.vw_card_res_input res
-  INNER JOIN default.vw_pin_sale sale
-      ON sale.pin = res.meta_pin
-      AND sale.year = res.meta_year
-  WHERE (res.meta_year 
-      BETWEEN '{params$input$min_sale_year}' 
-      AND '{params$input$max_sale_year}')
-  AND ((sale.sale_price_log10
-      BETWEEN sale.sale_filter_lower_limit
-      AND sale.sale_filter_upper_limit)
-      AND sale.sale_filter_count >= 10)
-  AND NOT is_multisale
+SELECT
+  sale.sale_price AS meta_sale_price,
+  sale.sale_date AS meta_sale_date,
+  sale.doc_no AS meta_sale_document_num,
+  condo.*
+FROM model.vw_pin_condo_input condo
+INNER JOIN default.vw_pin_sale sale
+  ON sale.pin = condo.meta_pin
+  AND sale.year = condo.meta_year
+WHERE (condo.meta_year 
+  BETWEEN '{params$input$min_sale_year}' 
+  AND '{params$input$max_sale_year}')
+AND ((sale.sale_price_log10
+  BETWEEN sale.sale_filter_lower_limit
+  AND sale.sale_filter_upper_limit)
+  AND sale.sale_filter_count >= 10)
+AND NOT is_multisale
   ")
 )
 tictoc::toc()
@@ -80,7 +80,7 @@ tictoc::tic()
 assessment_data <- dbGetQuery(
   conn = AWS_ATHENA_CONN_JDBC, glue("
   SELECT *
-  FROM model.vw_card_res_input
+  FROM model.vw_pin_condo_input
   WHERE meta_year = '{params$assessment$data_year}'
   ")
 )
@@ -89,13 +89,6 @@ tictoc::toc()
 # Pull site-specific (pre-determined) land values and neighborhood-level land
 # rates per sqft, as calculated by Valuations
 tictoc::tic()
-land_site_rate_data <- dbGetQuery(
-  conn = AWS_ATHENA_CONN_JDBC, glue("
-  SELECT *
-  FROM other.land_site_rate
-  WHERE year = '{params$assessment$year}'
-  ")
-)
 
 land_nbhd_rate_data <- dbGetQuery(
   conn = AWS_ATHENA_CONN_JDBC, glue("
@@ -199,83 +192,9 @@ assessment_data_clean <- assessment_data %>%
   write_parquet(paths$input$assessment$local)
 
 
-## 3.3. Complex IDs ------------------------------------------------------------
-
-# Townhomes and rowhomes within the same "complex" or building should
-# ultimately receive the same final assessed value. However, a single row of
-# identical townhomes can have multiple PINs and the CCAO does not maintain a
-# unique complex ID. Further, PINs within a complex often have nearly, but not
-# exactly, identical characteristics.
-
-# To solve this issue and assign each complex an ID, we do some clever "fuzzy"
-# joining and then link each PIN into an undirected graph. See this SO post
-# for more details on the methodology: 
-# https://stackoverflow.com/questions/68353869/create-group-based-on-fuzzy-criteria
-complex_id_temp <- assessment_data_clean %>%
-  filter(meta_class %in% c("210", "295")) %>%
-  
-  # Self-join with attributes that must be exactly matching
-  select(
-    meta_pin, meta_card_num, meta_township_code, meta_class,
-    char_bsmt, char_gar1_size, char_attic_fnsh, char_beds,
-    char_rooms, char_bldg_sf, char_yrblt, loc_x_3435, loc_y_3435 
-  ) %>%
-  full_join(eval(.), by = params$input$complex$match_exact) %>%
-  
-  # Filter with attributes that can be "fuzzy" matched
-  filter(
-    char_rooms.x >= char_rooms.y - params$input$complex$match_fuzzy$rooms,
-    char_rooms.x <= char_rooms.y + params$input$complex$match_fuzzy$rooms,
-    char_bldg_sf.x >= char_bldg_sf.y - params$input$complex$match_fuzzy$bldg_sf,
-    char_bldg_sf.x <= char_bldg_sf.y + params$input$complex$match_fuzzy$bldg_sf,
-    ((char_yrblt.x >= char_yrblt.y - params$input$complex$match_fuzzy$yrblt &
-      char_yrblt.x <= char_yrblt.y + params$input$complex$match_fuzzy$yrblt) |
-      is.na(char_yrblt.x)
-    ),
-    
-    # Units must be within 250 feet of other units
-    ((loc_x_3435.x >= loc_x_3435.y - params$input$complex$match_fuzzy$dist_ft &
-      loc_x_3435.x <= loc_x_3435.y + params$input$complex$match_fuzzy$dist_ft) |
-      is.na(loc_x_3435.x)
-    ),
-    ((loc_y_3435.x >= loc_y_3435.y - params$input$complex$match_fuzzy$dist_ft &
-      loc_y_3435.x <= loc_y_3435.y + params$input$complex$match_fuzzy$dist_ft) |
-      is.na(loc_y_3435.x)
-    )
-  ) %>%
-  
-  # Combine PINs into a graph
-  select(meta_pin.x, meta_pin.y) %>%
-  igraph::graph_from_data_frame(directed = FALSE) %>%
-  igraph::components() %>%
-  igraph::membership() %>%
-  
-  # Convert graph to tibble and clean up
-  utils::stack() %>%
-  as_tibble() %>%
-  mutate(ind = as.character(ind)) %>%
-  rename(meta_pin = ind, meta_complex_id = values)
-
-# Attach original PIN data and fill any missing with a sequential integer
-complex_id_data <- assessment_data_clean %>%
-  filter(meta_class %in% c("210", "295")) %>%
-  distinct(meta_pin, meta_township_code, meta_class) %>%
-  left_join(complex_id_temp, by = "meta_pin") %>%
-  arrange(meta_complex_id) %>%
-  mutate(meta_complex_id = ifelse(
-    !is.na(meta_complex_id),
-    meta_complex_id,
-    lag(meta_complex_id) + 1
-  )) %>%
-  write_parquet(paths$input$complex_id$local)
-
-
 ## 3.4. Land Rates -------------------------------------------------------------
 
 # Write land data directly to file, since it's already mostly clean
-land_site_rate_data %>%
-  select(meta_pin = pin, meta_class = class, land_rate_per_pin, year) %>%
-  write_parquet(paths$input$land_site_rate$local)
 land_nbhd_rate_data %>%
   select(meta_nbhd = town_nbhd, land_rate_per_sqft) %>%
   write_parquet(paths$input$land_nbhd_rate$local)
