@@ -93,7 +93,7 @@ tictoc::tic()
 land_nbhd_rate_data <- dbGetQuery(
   conn = AWS_ATHENA_CONN_JDBC, glue("
   SELECT *
-  FROM other.land_nbhd_rate
+  FROM ccao.land_nbhd_rate
   WHERE year = '{params$assessment$year}'
   ")
 )
