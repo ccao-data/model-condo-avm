@@ -25,7 +25,7 @@ toggle:
   # Should the train stage run full cross-validation? Otherwise, the model
   # will be trained with the default hyperparameters specified below
   cv_enable: true
-  
+
   # Upload all modeling artifacts and results to S3 in the finalize stage. Set
   # to FALSE if you are not a CCAO employee
   upload_to_s3: true
@@ -37,14 +37,14 @@ toggle:
 assessment:
   # Year of assessment. Used to partition results and pull data
   year: "2022"
-  
+
   # The statutorily "sale date" for the purpose of prediction
   date: "2022-01-01"
-  
+
   # Added context for model artifacts stored in s3. Does not change behavior
   triad: "north"
   group: "residential"
-  
+
   # Year from which property characteristics are pulled. Usually lags the
   # assessment year by 1
   data_year: "2021"
@@ -65,7 +65,7 @@ input:
       "char_attic_fnsh",
       "char_beds"
     ]
-    
+
     # Townhomes should match fuzzily on these variables to be in the same
     # complex e.g. a PIN with 2000 and a PIN with 2020 square feet will match
     match_fuzzy:
@@ -83,20 +83,20 @@ cv:
   # Proportion of the training data to use for training vs test i.e. 0.9 means
   # the most recent 10% of sales are used as a test set
   split_prop: 0.9
-  
+
   # Number of folds to use for v-fold CV. Recommend this number be above 6
   num_folds: 10
-  
+
   # Number of initial iterations to create before tuning. Recommend this number
   # be greater than the number of hyperparameters being tuned
   initial_set: 16
-  
+
   # Maximum number of search iterations
   max_iterations: 50
-  
+
   # Max number of search iterations without improvement before stopping search
   no_improve: 12
-  
+
   # Metric used to select the "best" set of parameters from CV iterations. Must
   # be manually included the metric_set() passed to tune_bayes()
   best_metric: "rmse"
@@ -108,14 +108,14 @@ cv:
 # model itself
 model:
   engine: "lightgbm"
-  
+
   # Objective/loss function minimized by LightGBM. See website for possible
   # options: https://lightgbm.readthedocs.io/en/latest/Parameters.html#objective
   objective: "rmse"
   seed: 20220117
   verbose: -1
   predictor:
-  
+
     # Vector of predictors from the training data included in the model. Edit
     # this list to add or remove variables from the model
     all: [
@@ -123,32 +123,14 @@ model:
       "meta_nbhd_code",
       "meta_tieback_proration_rate",
       "char_yrblt",
-      "char_air",
-      "char_apts",
-      "char_attic_fnsh",
-      "char_attic_type",
-      "char_beds",
-      "char_bldg_sf",
-      "char_bsmt",
-      "char_bsmt_fin",
-      "char_ext_wall",
-      "char_fbath",
-      "char_frpl",
-      "char_gar1_area",
-      "char_gar1_att",
-      "char_gar1_cnst",
-      "char_gar1_size",
-      "char_hbath",
       "char_land_sf",
-      "char_heat",
-      "char_ncu",
-      "char_porch",
-      "char_roof_cnst",
-      "char_rooms",
-      "char_tp_dsgn",
-      "char_tp_plan",
-      "char_type_resd",
-      "char_use",
+      "char_building_pins",
+      "char_building_units",
+      "char_building_non_units",
+      "char_tiebldgpct",
+      "char_building_sf",
+      "char_unit_sf",
+      "char_bedrooms",
       "loc_longitude",
       "loc_latitude",
       "loc_cook_municipality_name",
@@ -215,35 +197,14 @@ model:
       "time_sale_during_school_year",
       "time_sale_during_holidays",
       "ind_land_gte_95_percentile",
-      "ind_bldg_gte_95_percentile",
-      "ind_land_bldg_ratio_gte_10",
-      "ind_pin_is_multicard"
     ]
-    
+
     # List of predictors included in predictor.all which are categoricals. It is
     # CRITICAL that any categorical variables are included in this list, else
     # LightGBM will treat them as numeric
     categorical: [
       "meta_township_code",
       "meta_nbhd_code",
-      "char_air",
-      "char_apts",
-      "char_attic_fnsh",
-      "char_attic_type",
-      "char_bsmt",
-      "char_bsmt_fin",
-      "char_ext_wall",
-      "char_gar1_area",
-      "char_gar1_att",
-      "char_gar1_cnst",
-      "char_gar1_size",
-      "char_heat",
-      "char_porch",
-      "char_roof_cnst",
-      "char_tp_dsgn",
-      "char_tp_plan",
-      "char_type_resd",
-      "char_use",
       "loc_cook_municipality_name",
       "loc_school_elementary_district_geoid",
       "loc_school_secondary_district_geoid",
@@ -252,13 +213,12 @@ model:
       "loc_misc_subdivision_id",
       "time_sale_quarter_of_year"
     ]
-    
+
     # List of identifiers for each observation, can be ignored
     id: [
       "meta_year",
       "meta_pin",
       "meta_class",
-      "meta_card_num",
       "meta_sale_document_num"
     ]
 
@@ -267,13 +227,13 @@ model:
     # https://lightgbm.readthedocs.io/en/latest/Parameters.html#num_iterations
     num_iterations: 1000
     learning_rate: 0.1
-    
-    # For CV only, proportion of the training data to hold out for use in 
+
+    # For CV only, proportion of the training data to hold out for use in
     # early stopping + the metric to evaluate. See R docs for details:
     # https://lightgbm.readthedocs.io/en/latest/R/reference/lgb.train.html#arguments
     validation_prop: 0.1
     validation_metric: "rmse"
-    
+
     # Custom parameters added by the CCAO's lightsnip wrapper package. Setting
     # to TRUE will set max_depth = floor(log2(num_leaves)) + add_to_linked_depth
     # This is to prevent tune_bayes from exploring useless parameter space
@@ -297,7 +257,7 @@ model:
       lambda_l2: 9.692511452320764
       max_depth: 12
       max_bin: 255
-    
+
     # Range of possible hyperparameter values for tune_bayes to explore
     range:
       stop_iter: [5, 30]
@@ -320,15 +280,11 @@ model:
 
 # Parameters used in the assess stage to finalize the intial model predictions
 pv:
-  # For multi-card PINs (rare), implement a heuristic that caps the potential
-  # change in value. See assess stage code for details
-  multicard_yoy_cap: 2.0
-  
   # Cap the proportion of the PIN's total value dedicated to land. This is
   # necessary since sometimes the model provides low predictions relative to the
   # land rates created by Valuations
   land_pct_of_total_cap: 0.5
-  
+
   # Rounding settings to apply to initial predictions. Rounding is done to
   # indicate to property owners that model values are estimates, not exact
   round_break: [10000]
@@ -350,7 +306,7 @@ ratio_study:
   far_stage: "board"
   near_year: "2021"
   near_stage: "mailed"
-  
+
   # Quantile breakouts to use in the evaluate stage. For example, 3 will split
   # each geography in evaluate into terciles
   num_quantile: [3, 5, 10]
