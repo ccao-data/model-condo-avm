@@ -1,4 +1,19 @@
-.Rproj.user
+# History files
 .Rhistory
-.RData
-.Ruserdata
+.Rapp.history
+
+# R project files
+.Rproj.user/
+
+# knitr and R markdown default cache directories
+/*_cache/
+/cache/
+
+# Temporary files created by R markdown
+*.utf8.md
+*.knit.md
+
+# Ignore all data files
+*.parquet
+*.rds
+*.zip
