@@ -43,18 +43,6 @@ run_type <- as.character(
 num_threads <- parallel::detectCores(logical = FALSE)
 plan(multisession, workers = num_threads)
 
-# Columns to use for ratio study/prior year comparison
-rsf_column <- get_rs_col_name(
-  params$assessment$data_year,
-  params$ratio_study$far_year,
-  params$ratio_study$far_stage
-)
-rsn_column <- get_rs_col_name(
-  params$assessment$data_year,
-  params$ratio_study$near_year,
-  params$ratio_study$near_stage
-)
-
 # Renaming dictionary for input columns. We want actual value of the column
 # to become geography_id and the NAME of the column to become geography_name
 col_rename_dict <- c(
@@ -82,15 +70,21 @@ col_rename_dict <- c(
 # Load the test results from the end of the train stage. This will be the most
 # recent 10% of sales and already includes predictions. This data will NOT
 # include multicard sales, so the unit of observation is PINs (1 PIN per row)
-test_data <- read_parquet(paths$intermediate$test$local) %>%
-  as_tibble()
+test_data_card <- read_parquet(paths$output$test_card$local)
 
 # Load the assessment results from the previous stage. This will include every
 # residential PIN that needs a value. It WILL include multicard properties
 # aggregated to the PIN-level. Only runs for full runs due to compute cost
 if (run_type == "full") {
-  assessment_data_pin <- read_parquet(paths$intermediate$assessment$local) %>%
-    as_tibble()
+  assessment_data_pin <- read_parquet(paths$output$assessment_pin$local) %>%
+    select(
+      meta_pin, meta_class, meta_triad_code, meta_township_code, meta_nbhd_code,
+      loc_cook_municipality_name, loc_chicago_ward_num, loc_census_puma_geoid,
+      loc_census_tract_geoid, loc_school_elementary_district_geoid,
+      loc_school_secondary_district_geoid, loc_school_unified_district_geoid,
+      char_total_bldg_sf, prior_far_tot, prior_near_tot,
+      pred_pin_final_fmv_round, sale_ratio_study_price
+    )
 }
 
 
@@ -147,7 +141,6 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
 
   # Generate aggregate performance stats by geography
   df_stat <- data %>%
-    mutate(rsf_x10 = .[[rsf_col]] * 10, rsn_x10 = .[[rsn_col]] * 10) %>%
     # Aggregate to get counts by geography without class
     group_by({{ triad }}, {{ geography }}) %>%
     mutate(
@@ -164,8 +157,8 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
       pct_of_total_pin_by_class = num_pin / first(num_pin_no_class),
       pct_of_total_sale_by_class = num_sale / first(num_sale_no_class),
       pct_of_pin_sold = num_sale / num_pin,
-      prior_far_total_av = sum(rsf_x10 / 10, na.rm = TRUE),
-      prior_near_total_av = sum(rsn_x10 / 10, na.rm = TRUE),
+      prior_far_total_av = sum({{ rsf_col }} / 10, na.rm = TRUE),
+      prior_near_total_av = sum({{ rsn_col }} / 10, na.rm = TRUE),
       estimate_total_av = sum({{ estimate }} / 10, na.rm = TRUE),
 
       # Assessment-specific statistics
@@ -184,26 +177,24 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
 
       # Summary stats of prior values and value per sqft. Need to multiply
       # by 10 first since PIN history is in AV, not FMV
-      prior_far_source_col = rsf_col,
-      prior_far_num_missing = sum(is.na(rsf_x10)),
-      across(.fns = sum_fns_list, rsf_x10, .names = "prior_far_fmv_{.fn}"),
+      prior_far_num_missing = sum(is.na({{ rsf_col }})),
+      across(.fns = sum_fns_list, {{ rsf_col }}, .names = "prior_far_fmv_{.fn}"),
       across(
-        .fns = sum_sqft_fns_list, rsf_x10, {{ bldg_sqft }},
+        .fns = sum_sqft_fns_list, {{ rsf_col }}, {{ bldg_sqft }},
         .names = "prior_far_fmv_per_sqft_{.fn}"
       ),
       across(
-        .fns = yoy_fns_list, {{ estimate }}, rsf_x10,
+        .fns = yoy_fns_list, {{ estimate }}, {{ rsf_col }},
         .names = "prior_far_yoy_pct_chg_{.fn}"
       ),
-      prior_near_source_col = rsn_col,
-      prior_near_num_missing = sum(is.na(rsn_x10)),
-      across(.fns = sum_fns_list, rsn_x10, .names = "prior_near_fmv_{.fn}"),
+      prior_near_num_missing = sum(is.na({{ rsn_col }})),
+      across(.fns = sum_fns_list, {{ rsn_col }}, .names = "prior_near_fmv_{.fn}"),
       across(
-        .fns = sum_sqft_fns_list, rsn_x10, {{ bldg_sqft }},
+        .fns = sum_sqft_fns_list, {{ rsn_col }}, {{ bldg_sqft }},
         .names = "prior_near_fmv_per_sqft_{.fn}"
       ),
       across(
-        .fns = yoy_fns_list, {{ estimate }}, rsn_x10,
+        .fns = yoy_fns_list, {{ estimate }}, {{ rsn_col }},
         .names = "prior_near_yoy_pct_chg_{.fn}"
       ),
 
@@ -266,7 +257,6 @@ gen_agg_stats_quantile <- function(data, truth, estimate,
   # Calculate the median ratio by quantile of sale price, plus the upper and
   # lower bounds of each quantile
   df_quantile <- data %>%
-    mutate(rsf_x10 = .[[rsf_col]] * 10, rsn_x10 = .[[rsn_col]] * 10) %>%
     group_by({{ triad }}, {{ geography }}, {{ class }}) %>%
     mutate(quantile = ntile({{ truth }}, n = num_quantile)) %>%
     group_by({{ triad }}, {{ geography }}, {{ class }}, quantile) %>%
@@ -276,11 +266,11 @@ gen_agg_stats_quantile <- function(data, truth, estimate,
       lower_bound = min({{ truth }}, na.rm = TRUE),
       upper_bound = max({{ truth }}, na.rm = TRUE),
       prior_near_yoy_pct_chg_median = median(
-        ({{ estimate }} - rsn_x10) / rsn_x10,
+        ({{ estimate }} - {{ rsn_col }}) / {{ rsn_col }},
         na.rm = TRUE
       ),
       prior_far_yoy_pct_chg_median = median(
-        ({{ estimate }} - rsf_x10) / rsf_x10,
+        ({{ estimate }} - {{ rsf_col }}) / {{ rsf_col }},
         na.rm = TRUE
       ),
       .groups = "drop"
@@ -354,12 +344,12 @@ geographies_list_quantile <- purrr::cross3(
 future_map_dfr(
   geographies_list,
   ~ gen_agg_stats(
-    data = test_data,
+    data = test_data_card,
     truth = meta_sale_price,
     estimate = pred_card_initial_fmv,
     bldg_sqft = char_bldg_sf,
-    rsn_col = rsn_column,
-    rsf_col = rsf_column,
+    rsn_col = prior_near_tot,
+    rsf_col = prior_far_tot,
     triad = meta_triad_code,
     geography = !!.x[[1]],
     class = !!.x[[2]],
@@ -374,11 +364,11 @@ future_map_dfr(
 future_map_dfr(
   geographies_list_quantile,
   ~ gen_agg_stats_quantile(
-    data = test_data,
+    data = test_data_card,
     truth = meta_sale_price,
     estimate = pred_card_initial_fmv,
-    rsn_col = rsn_column,
-    rsf_col = rsf_column,
+    rsn_col = prior_near_tot,
+    rsf_col = prior_far_tot,
     triad = meta_triad_code,
     geography = !!.x[[1]],
     class = !!.x[[2]],
@@ -402,11 +392,11 @@ if (run_type == "full") {
     geographies_list,
     ~ gen_agg_stats(
       data = assessment_data_pin,
-      truth = meta_sale_price,
+      truth = sale_ratio_study_price,
       estimate = pred_pin_final_fmv_round,
-      bldg_sqft = char_bldg_sf,
-      rsn_col = rsn_column,
-      rsf_col = rsf_column,
+      bldg_sqft = char_total_bldg_sf,
+      rsn_col = prior_near_tot,
+      rsf_col = prior_far_tot,
       triad = meta_triad_code,
       geography = !!.x[[1]],
       class = !!.x[[2]],
@@ -422,10 +412,10 @@ if (run_type == "full") {
     geographies_list_quantile,
     ~ gen_agg_stats_quantile(
       data = assessment_data_pin,
-      truth = meta_sale_price,
+      truth = sale_ratio_study_price,
       estimate = pred_pin_final_fmv_round,
-      rsn_col = rsn_column,
-      rsf_col = rsf_column,
+      rsn_col = prior_near_tot,
+      rsf_col = prior_far_tot,
       triad = meta_triad_code,
       geography = !!.x[[1]],
       class = !!.x[[2]],
