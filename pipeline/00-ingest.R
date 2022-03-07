@@ -250,7 +250,6 @@ sales_data <- training_data_clean %>%
   filter(
     meta_sale_date >= as_date(params$assessment$date) -
       months(params$input$time_split * 3),
-    !ind_pin_is_multicard,
     !is.na(loc_longitude)
   ) %>%
   group_by(meta_pin) %>%
