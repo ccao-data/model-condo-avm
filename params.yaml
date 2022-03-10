@@ -12,7 +12,7 @@
 # Note included with each run. Use this to summarize what changed about the run
 # or add context
 run_note: >
-
+  Full CV, 1500 iters and slightly lower learn rate. New rounding splits/amounts
 
 # Determines what stages and outputs are produced. See R/file_dict.csv for
 # details. Note, DVC does not support "conditional" stages, so changing this to
@@ -24,7 +24,7 @@ toggle:
   # Should the train stage run full cross-validation? Otherwise, the model
   # will be trained with the default hyperparameters specified below
   cv_enable: true
-
+  
   # Upload all modeling artifacts and results to S3 in the finalize stage. Set
   # to FALSE if you are not a CCAO employee
   upload_to_s3: true
@@ -36,14 +36,14 @@ toggle:
 assessment:
   # Year of assessment. Used to partition results and pull data
   year: "2022"
-
+  
   # The statutorily "sale date" for the purpose of prediction
   date: "2022-01-01"
-
+  
   # Added context for model artifacts stored in s3. Does not change behavior
   triad: "north"
   group: "residential"
-
+  
   # Year from which property characteristics are pulled. Usually lags the
   # assessment year by 1
   data_year: "2021"
@@ -51,20 +51,20 @@ assessment:
 # Parameters used to define the input/training data
 input:
   # The min and max years of sales to use for the training data sample
-  min_sale_year: "2015"
+  min_sale_year: "2013"
   max_sale_year: "2021"
-
+  
   # Time window (in months) used for rolling origin cross-validation and
   # calculating spatial lags i.e. lags are the average of the nearest K
   # properties for each N month window
   time_split: 9
-
+  
   # Parameters used to construct spatially lagged features
   spatial_lag:
     # Number of nearest neighbors (K) used to calculate spatial lags of both the
     # dependent variable (sale price) and predictors (sqft, year built, etc.)
     k: 20
-
+    
     # Standard features to create lags from + the outcome variable
     predictor: [
       "meta_sale_price",
@@ -90,13 +90,13 @@ cv:
   # Number of initial iterations to create before tuning. Recommend this number
   # be greater than the number of hyperparameters being tuned
   initial_set: 20
-
+  
   # Maximum number of search iterations
-  max_iterations: 60
-
+  max_iterations: 100
+  
   # Max number of search iterations without improvement before stopping search
-  no_improve: 15
-
+  no_improve: 30
+  
   # Metric used to select the "best" set of parameters from CV iterations. Must
   # be manually included the metric_set() passed to tune_bayes()
   best_metric: "rmse"
@@ -108,14 +108,14 @@ cv:
 # model itself
 model:
   engine: "lightgbm"
-
+  
   # Objective/loss function minimized by LightGBM. See website for possible
   # options: https://lightgbm.readthedocs.io/en/latest/Parameters.html#objective
   objective: "rmse"
   seed: 20220117
   verbose: -1
   predictor:
-
+  
     # Vector of predictors from the training data included in the model. Edit
     # this list to add or remove variables from the model
     all: [
@@ -137,6 +137,7 @@ model:
       "loc_env_flood_fema_sfha",
       "loc_env_flood_fs_factor",
       "loc_env_flood_fs_risk_direction",
+      "loc_env_airport_noise_dnl",
       "loc_env_ohare_noise_contour_no_buffer_bool",
       "loc_school_elementary_district_geoid",
       "loc_school_secondary_district_geoid",
@@ -186,7 +187,6 @@ model:
       "acs5_percent_household_total_occupied_w_sel_cond",
       "acs5_percent_mobility_moved_in_county",
       "other_ihs_avg_year_index",
-      "other_tax_bill_amount_total",
       "other_tax_bill_rate",
       "other_school_district_elementary_avg_rating",
       "other_school_district_secondary_avg_rating",
@@ -203,8 +203,7 @@ model:
       "lag_char_building_sf",
       "lag_other_tax_bill_amount_total"
     ]
-
-
+    
     # List of predictors included in predictor.all which are categoricals. It is
     # CRITICAL that any categorical variables are included in this list, else
     # LightGBM will treat them as numeric
@@ -219,7 +218,7 @@ model:
       "loc_misc_subdivision_id",
       "time_sale_quarter_of_year"
     ]
-
+    
     # List of identifiers for each observation, can be ignored
     id: [
       "meta_year",
@@ -231,21 +230,21 @@ model:
   parameter:
     # Total number of iterations. Usually changed in tandem with learning_rate
     # https://lightgbm.readthedocs.io/en/latest/Parameters.html#num_iterations
-    num_iterations: 1000
-    learning_rate: 0.1
-
-    # For CV only, proportion of the training data to hold out for use in
+    num_iterations: 1500
+    learning_rate: 0.075
+    
+    # For CV only, proportion of the training data to hold out for use in 
     # early stopping + the metric to evaluate. See R docs for details:
     # https://lightgbm.readthedocs.io/en/latest/R/reference/lgb.train.html#arguments
     validation_prop: 0.1
     validation_metric: "rmse"
-
+    
     # Custom parameters added by the CCAO's lightsnip wrapper package. Setting
     # to TRUE will set max_depth = floor(log2(num_leaves)) + add_to_linked_depth
     # This is to prevent tune_bayes from exploring useless parameter space
     link_max_depth: true
 
-hyperparameter:
+  hyperparameter:
     # Default set of hyperparameters to use if CV is not enabled. See docs for
     # details: https://lightgbm.readthedocs.io/en/latest/Parameters.html
     default:
@@ -263,7 +262,7 @@ hyperparameter:
       lambda_l2: 0.03
       max_depth: 12
       max_bin: 935
-
+    
     # Range of possible hyperparameter values for tune_bayes to explore
     range:
       stop_iter: [10, 40]
@@ -290,12 +289,12 @@ pv:
   # necessary since sometimes the model provides low predictions relative to the
   # land rates created by Valuations
   land_pct_of_total_cap: 0.5
-
+  
   # Rounding settings to apply to initial predictions. Rounding is done to
   # indicate to property owners that model values are estimates, not exact
-  round_break: [10000]
-  round_to_nearest: [100, 500]
-  round_type: "ceiling"
+  round_break: [1000, 10000, 100000]
+  round_to_nearest: [1, 500, 5000, 10000]
+  round_type: "floor"
 
 
 # Ratio Study ------------------------------------------------------------------
@@ -311,7 +310,7 @@ ratio_study:
   near_year: "2021"
   near_stage: "mailed"
   near_column: "meta_mailed_tot"
-
+  
   # Quantile breakouts to use in the evaluate stage. For example, 3 will split
   # each geography in evaluate into terciles
   num_quantile: [3, 5, 10]

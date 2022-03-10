@@ -137,8 +137,8 @@ lgbm_model <- parsnip::boost_tree(
     # using floor(log2(num_leaves)) + add_to_linked_depth. Useful since
     # otherwise Bayesian opt spends time exploring irrelevant parameter space
     link_max_depth = params$model$parameter$link_max_depth,
-
-
+    
+    
     ### 3.1.2. Tuned Parameters ------------------------------------------------
     
     # These are parameters that are tuned using cross-validation. These are the
