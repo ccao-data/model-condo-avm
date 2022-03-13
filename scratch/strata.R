@@ -27,7 +27,19 @@ paths <- model_file_dict()
 # Load the parameters file containing the run settings
 params <- read_yaml("params.yaml")
 
-# Functions to create and assign strata
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+##### Gather Data #####
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+training_data_clean <- read_parquet(here("input", "training_data.parquet"))
+
+assessment_data_clean <- read_parquet(here("input", "assessment_data.parquet"))
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+##### Functions #####
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Create strata
 val_create_ntiles <- function(x, probs, na.rm = TRUE) { # nolint
   stopifnot(
     is.numeric(x),
@@ -45,6 +57,7 @@ val_create_ntiles <- function(x, probs, na.rm = TRUE) { # nolint
   return(output)
 }
 
+# Assign strata
 val_assign_ntile <- function(x, ntiles) {
   stopifnot(
     is.numeric(x),
@@ -63,9 +76,18 @@ val_assign_ntile <- function(x, ntiles) {
   return(output)
 }
 
-# Load data created in 00-ingest.R
-training_data_clean <- read_parquet(here("input", "training_data.parquet"))
-assessment_data_clean <- read_parquet(here("input", "assessment_data.parquet"))
+# Normalize data so that knn isn't biased by scale of any dimension
+# (i.e. one dimension having a range of 1000 vs another having a range of 100 -
+# this can create issues since knn depends on the distance formula)
+normalize <- function(x) {
+  
+  return((x - min(x, na.rm = T)) / (max(x, na.rm = T) - min(x, na.rm = T)))
+  
+}
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+##### Strata #####
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Condominiums characteristics (such as square footage, number of bedrooms, etc)
 # are not tracked by the CCAO. We need to rely on other information to
@@ -88,7 +110,7 @@ bldg_avg_wo_target <- training_data_clean %>%
   group_by(meta_pin10) %>%
   
   # We also exclude any properties with less than 1 sale in the building
-  filter(n() - 1) > 0, meta_year >= params$input$min_sale_year) %>%
+  filter((n() - 1) > 0, meta_year >= params$input$min_sale_year) %>%
   mutate(
     meta_sale_avg_wo_target = 
       (sum(meta_sale_price) - meta_sale_price) / (n() - 1)
@@ -112,7 +134,7 @@ bldg_strata <- bldg_avg_wo_target %>%
       x = meta_sale_avg_wo_target,
       probs = seq(0.003333, 0.996666, 0.003333)
     )
-  ) 
+  )
 
 # Here we get just the normal building-level average sale price. This will be
 # used when predicting on the assessment data
@@ -121,16 +143,10 @@ bldg_avg_w_target <- training_data_clean %>%
   filter(meta_year >= params$input$min_sale_year) %>%
   summarise(meta_sale_avg_w_target = mean(meta_sale_price, na.rm = TRUE))
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##### Gather Data #####
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 # Create strata of building-level, previous-5-year sale prices. These strata are
 # used as categorical variables in the model
 
-# Attach each strata level then save training_data to file
-# This file is then loaded by the model.R script contained here:
-# https://gitlab.com/ccao-data-science---modeling/models/ccao_condo_avm
+# Attach each strata level
 training_data_clean <- training_data_clean %>%
   left_join(bldg_avg_w_target) %>%
   bind_cols(bldg_strata) %>% 
@@ -150,9 +166,6 @@ training_data_clean <- training_data_clean %>%
     -meta_strata_groups_300
   )
 
-# Save cleaned assmntdata to parquet file
-# This file is then loaded by the valuation.R script contained here:
-# https://gitlab.com/ccao-data-science---modeling/models/ccao_condo_avm
 assessment_data_clean <- assessment_data_clean %>%
   left_join(bldg_avg_w_target) %>%
   bind_cols(bldg_strata) %>% 
@@ -171,3 +184,61 @@ assessment_data_clean <- assessment_data_clean %>%
     -meta_strata_groups_10, 
     -meta_strata_groups_300
   )
+
+# Next we address condo buildings that don't have any recent sales are are thus
+# missing strata. We'll use KNN to assign strata for those buildings based on
+# longitude, latitude, year built, and number of livable building units.
+
+# Create training and test sets (training set will be buildings not missing strata,
+# test set will be those that are).
+strata_normal <- assessment_data_clean %>%
+  
+  # ------- DO WE NEED TO ADD FORWARD FILL BACK TO CONDO INPUT -------
+  filter(
+    if_all(
+      c(loc_longitude, loc_latitude, char_yrblt, char_building_units),
+      ~ !is.na(.)
+    )
+  ) %>%
+  
+  select(
+    meta_pin10, meta_strata_10, meta_strata_300,
+    loc_longitude, loc_latitude,
+    char_yrblt, char_building_units
+    ) %>%
+  distinct() %>%
+  
+  # Apply the normalization function we created earlier across all numeric
+  # dimension of the data
+  mutate(across(where(is.numeric), normalize))
+
+strata_train <- strata_normal %>% filter(!is.na(meta_strata_10))
+strata_test  <- anti_join(strata_normal, strata_train, by = 'meta_pin10')
+
+# Apply knn function from class package
+strata_test$meta_strata_10 <- class::knn(
+  train = strata_train %>% select(-c(meta_pin10, meta_strata_10, meta_strata_300)),
+  test = strata_test %>% select(-c(meta_pin10, meta_strata_10, meta_strata_300)),
+  cl = strata_train %>% pull(meta_strata_10),
+  k = 200
+)
+
+strata_test$meta_strata_300 <- class::knn(
+  train = strata_train %>% select(-c(meta_pin10, meta_strata_10, meta_strata_300)),
+  test = strata_test %>% select(-c(meta_pin10, meta_strata_10, meta_strata_300)),
+  cl = strata_train %>% pull(meta_strata_300),
+  k = 200
+)
+
+# Fill in missing strata in assessment data using KNN generated strata
+assessment_data_clean <- assessment_data_clean %>%
+  left_join(
+    strata_test %>%
+      select(meta_pin10, meta_strata_10, meta_strata_300),
+    by = "meta_pin10"
+    ) %>%
+  mutate(
+    meta_strata_10 = coalesce(meta_strata_10.x, meta_strata_10.y),
+    meta_strata_300 = coalesce(meta_strata_300.x, meta_strata_300.y)
+    ) %>%
+  select(-ends_with(c(".x", ".y")))
