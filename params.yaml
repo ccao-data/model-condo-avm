@@ -76,6 +76,10 @@ input:
       "char_building_sf",
       "other_tax_bill_amount_total"
     ]
+  
+  # Number of nearest neighbors used to calculate strata for condo buildings
+  # without enough sales
+  strata_k: 200
 
 
 # Cross-validation -------------------------------------------------------------
