@@ -350,11 +350,8 @@ land_nbhd_rate_data %>%
   select(meta_nbhd = town_nbhd, land_rate_per_sqft) %>%
   write_parquet(paths$input$land_nbhd_rate$local)
 
-# Reminder to upload to DVC store
-message(
-  "Be sure to add updated input data to DVC and finalized data to git LFS!\n",
-  "See https://dvc.org/doc/start/data-and-model-versioning for more information"
-)
+
+
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 5. Condo Strata --------------------------------------------------------------
@@ -411,7 +408,7 @@ bldg_strata <- bldg_avg_wo_target %>%
 
 # Here we get just the normal building-level average sale price. This will be
 # used when predicting on the assessment data
-bldg_avg_w_target <- training_data_clean %>%
+bldg_avg_w_target <- training_data_lagged %>%
   group_by(meta_pin10) %>%
   filter(meta_year >= params$input$min_sale_year) %>%
   summarise(meta_sale_avg_w_target = mean(meta_sale_price, na.rm = TRUE))
@@ -422,7 +419,7 @@ bldg_avg_w_target <- training_data_clean %>%
 # used as categorical variables in the model
 
 # Attach each strata level
-training_data_clean <- training_data_clean %>%
+training_data_lagged <- training_data_lagged %>%
   left_join(bldg_avg_w_target) %>%
   bind_cols(bldg_strata) %>% 
   mutate(
@@ -443,7 +440,7 @@ training_data_clean <- training_data_clean %>%
   # Write to file
   write_parquet(paths$input$training$local)
 
-assessment_data_clean <- assessment_data_clean %>%
+assessment_data_lagged <- assessment_data_lagged %>%
   left_join(bldg_avg_w_target) %>%
   bind_cols(bldg_strata) %>% 
   mutate(
@@ -470,7 +467,7 @@ assessment_data_clean <- assessment_data_clean %>%
 
 # Create training and test sets (training set will be buildings not missing
 # strata, test set will be those that are).
-strata_normal <- assessment_data_clean %>%
+strata_normal <- assessment_data_lagged %>%
   
   # There is ONE 2021 299 that exists in iasworld.pardat but niether
   # iasworld.oby nor iasworld.comdat. Why? We may never know. We need to make
@@ -513,7 +510,7 @@ strata_test$meta_strata_300 <- class::knn(
 )
 
 # Fill in missing strata in assessment data using KNN generated strata
-assessment_data_clean <- assessment_data_clean %>%
+assessment_data_lagged <- assessment_data_lagged %>%
   left_join(
     strata_test %>%
       select(meta_pin10, meta_strata_10, meta_strata_300),
@@ -526,3 +523,12 @@ assessment_data_clean <- assessment_data_clean %>%
   select(-ends_with(c(".x", ".y"))) %>%
   # Write to file
   write_parquet(paths$input$assessment$local)
+
+
+
+
+# Reminder to upload to DVC store
+message(
+  "Be sure to add updated input data to DVC and finalized data to git LFS!\n",
+  "See https://dvc.org/doc/start/data-and-model-versioning for more information"
+)
