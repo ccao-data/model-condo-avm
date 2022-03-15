@@ -56,9 +56,6 @@ set.seed(params$model$seed)
 # Load the full set of training data, then arrange by sale date in order to
 # facilitate out-of-time sampling/validation
 
-# NOTE: It is critical to trim "multicard" sales when training. Multicard means
-# there is multiple buildings on a PIN. Sales for multicard PINs are
-# often for multiple buildings and will therefore bias the model training
 training_data_full <- read_parquet(paths$input$training$local) %>%
   arrange(meta_sale_date)
 
@@ -321,9 +318,9 @@ lgbm_wflow_final_full_fit <- lgbm_wflow %>%
 # predictions are used to evaluate model performance on the unseen test set.
 # Keep only the variables necessary for evaluation
 test %>%
-  mutate(pred_card_initial_fmv = predict(lgbm_wflow_final_fit, test)$.pred) %>%
+  mutate(pred_pin_initial_fmv = predict(lgbm_wflow_final_fit, test)$.pred) %>%
   select(
-    meta_year, meta_pin, meta_class, meta_card_num,
+    meta_year, meta_pin, meta_class,
     meta_triad_code, meta_township_code, meta_nbhd_code,
     loc_cook_municipality_name, loc_chicago_ward_num, loc_census_puma_geoid,
     loc_census_tract_geoid, loc_school_elementary_district_geoid,
@@ -333,7 +330,7 @@ test %>%
       "prior_far_tot" = params$ratio_study$far_column,
       "prior_near_tot" = params$ratio_study$near_column
     )),
-    pred_card_initial_fmv,
+    pred_pin_initial_fmv,
     meta_sale_price, meta_sale_date, meta_sale_document_num
   ) %>%
   # Prior year values are AV, not FMV. Multiply by 10 to get FMV for residential
@@ -342,7 +339,7 @@ test %>%
     prior_near_tot = prior_near_tot * 10
   ) %>%
   as_tibble() %>%
-  write_parquet(paths$output$test_card$local)
+  write_parquet(paths$output$test_pin$local)
 
 # Save the finalized model object to file so it can be used elsewhere. Note the
 # lgbm_save() function, which uses lgb.save() rather than saveRDS(), since
