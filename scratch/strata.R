@@ -193,7 +193,9 @@ assessment_data_clean <- assessment_data_clean %>%
 # test set will be those that are).
 strata_normal <- assessment_data_clean %>%
   
-  # ------- DO WE NEED TO ADD FORWARD FILL BACK TO CONDO INPUT -------
+  # There is ONE 2021 299 that exists in iasworld.pardat but niether iasworld.oby
+  # nor iasworld.comdat. Why? We may never know. We need to make sure this PIN
+  # with missing characteristics doesn't ruin KNN for the other PINs.
   filter(
     if_all(
       c(loc_longitude, loc_latitude, char_yrblt, char_building_units),
