@@ -126,6 +126,7 @@ model:
       "meta_township_code",
       "meta_nbhd_code",
       "meta_tieback_proration_rate",
+      "meta_strata_10",
       "char_yrblt",
       "char_land_sf",
       "char_building_pins",
