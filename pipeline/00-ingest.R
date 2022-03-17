@@ -232,7 +232,7 @@ training_data_clean <- training_data %>%
     time_sale_day = time_interval %/% days(1),
     
     # Get components of dates for fixed effects to correct seasonality
-    time_sale_quarter_of_year = quarter(meta_sale_date),
+    time_sale_quarter_of_year = paste0("Q", quarter(meta_sale_date)),
     time_sale_day_of_year = day(meta_sale_date),
     
     # Time window to use for cross-validation and calculating spatial lags

@@ -93,13 +93,13 @@ cv:
 
   # Number of initial iterations to create before tuning. Recommend this number
   # be greater than the number of hyperparameters being tuned
-  initial_set: 20
+  initial_set: 2
   
   # Maximum number of search iterations
-  max_iterations: 100
+  max_iterations: 5
   
   # Max number of search iterations without improvement before stopping search
-  no_improve: 30
+  no_improve: 2
   
   # Metric used to select the "best" set of parameters from CV iterations. Must
   # be manually included the metric_set() passed to tune_bayes()
@@ -227,8 +227,8 @@ model:
   parameter:
     # Total number of iterations. Usually changed in tandem with learning_rate
     # https://lightgbm.readthedocs.io/en/latest/Parameters.html#num_iterations
-    num_iterations: 1500
-    learning_rate: 0.075
+    num_iterations: 15
+    learning_rate: 0.1
     
     # For CV only, proportion of the training data to hold out for use in 
     # early stopping + the metric to evaluate. See R docs for details:
