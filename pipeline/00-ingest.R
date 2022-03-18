@@ -22,6 +22,7 @@ library(purrr)
 library(RJDBC)
 library(s2)
 library(sf)
+library(tibble)
 library(tictoc)
 library(tidyr)
 library(yaml)
@@ -567,7 +568,7 @@ for (i in strata_columns) {
 }
 
 # Fill in missing strata in assessment data using KNN generated strata
-assessment_data_lagged <- assessment_data_lagged %>%
+assessment_data_lagged %>%
   left_join(
     strata_test %>%
       select(meta_pin10, contains("strata")),
