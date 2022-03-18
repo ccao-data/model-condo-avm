@@ -574,14 +574,14 @@ assessment_data_lagged <- assessment_data_lagged %>%
     by = "meta_pin10"
   ) %>%
   mutate(
-    "{{strata_columns[1]}}" = coalesce(
-      "{{strata_columns[1]}}.x",
-      "{{strata_columns[1]}}.y"
-      ),
-    "{{strata_columns[2]}}" = coalesce(
-      "{{strata_columns[2]}}.x",
-      "{{strata_columns[2]}}.y"
-      )
+    !!paste0(strata_columns[1]) := coalesce(
+      (!!as.name(paste0(strata_columns[1], ".x"))),
+      (!!as.name(paste0(strata_columns[1], ".y")))
+    ),
+    !!paste0(strata_columns[2]) := coalesce(
+      (!!as.name(paste0(strata_columns[2], ".x"))),
+      (!!as.name(paste0(strata_columns[2], ".y")))
+    )
   ) %>%
   select(-ends_with(c(".x", ".y"))) %>%
   # Write to file
