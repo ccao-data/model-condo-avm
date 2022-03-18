@@ -12,6 +12,8 @@ library(ccao)
 library(DBI)
 library(data.table)
 library(dplyr)
+library(factoextra)
+library(fastDummies)
 library(glue)
 library(here)
 library(igraph)
@@ -180,9 +182,12 @@ val_assign_ntile <- function(x, ntiles) {
 # Normalize data so that knn isn't biased by scale of any dimension
 # (i.e. one dimension having a range of 1000 vs another having a range of 100 -
 # this can create issues since knn depends on the distance formula)
-normalize <- function(x) {
+normalize <- function(x, min = 0, max = 1) {
   
-  return((x - min(x, na.rm = T)) / (max(x, na.rm = T) - min(x, na.rm = T)))
+  return(
+    (x - min(x, na.rm = T)) / (max(x, na.rm = T) - min(x, na.rm = T)) *
+      (max - min) + min
+    )
   
 }
 
@@ -376,42 +381,79 @@ land_nbhd_rate_data %>%
 # building average EXCLUDING the current PIN/sale. This is done to prevent data
 # leakage between the outcome and predictor variables while training
 
-bldg_avg_wo_target <- training_data_clean %>%
-  group_by(meta_pin10) %>%
+# Use either K-Means clustering or traditional mean sale price to construct
+# strata
+if (params$input$strata_kmeans) {
   
-  # We also exclude any properties with less than 1 sale in the building
-  filter((n() - 1) > 0, meta_year >= params$input$min_sale_year) %>%
-  mutate(
-    meta_sale_avg_wo_target = 
-      (sum(meta_sale_price) - meta_sale_price) / (n() - 1)
-  ) %>%
-  ungroup() %>%
-  select(
-    meta_pin, meta_pin10, meta_township_code,
-    meta_sale_date, meta_sale_avg_wo_target
-  )
-
-# Including the leave-one-out mean as a model feature is possible, but it tends
-# to overfit. As such, we need to discretize the average building sale price
-# into bins (called strata internally). 
-bldg_strata <- bldg_avg_wo_target %>%  
-  summarize(
-    meta_strata_groups_10 = val_create_ntiles(
-      x = meta_sale_avg_wo_target,
-      probs = seq(0.1, 0.9, 0.1)
-    ),
-    meta_strata_groups_300 = val_create_ntiles(
-      x = meta_sale_avg_wo_target,
-      probs = seq(0.003333, 0.996666, 0.003333)
+  set.seed(params$input$strata_seed)
+  
+  bldg_strata_w_target <- training_data_lagged %>%
+    select(meta_pin10, meta_sale_price, meta_sale_date, meta_triad_code) %>%
+    mutate(
+      meta_sale_date = normalize(
+        as.numeric(meta_sale_date),
+        params$input$strata_weight_min,
+        params$input$strata_weight_max
+        ),
+      meta_triad_code = as.numeric(meta_triad_code)
+    ) %>%
+    group_by(meta_pin10, meta_triad_code) %>%
+    summarise(
+      mean_sale_price = weighted.mean(meta_sale_price, meta_sale_date, na.rm = TRUE)
+    ) %>%
+    ungroup() %>%
+    column_to_rownames('meta_pin10') %>%
+    scale() %>%
+    data.frame() %>%
+    # Compute k-means with k = 10, 100
+    mutate(
+      meta_strata_10 = as.character(kmeans(., 10, nstart = 50)$cluster),
+      meta_strata_100 = as.character(kmeans(., 100, nstart = 25)$cluster),
+    ) %>%
+    rownames_to_column('meta_pin10') %>%
+    select(-c('meta_triad_code', 'mean_sale_price'))
+  
+} else {
+  
+  bldg_avg_wo_target <- training_data_lagged %>%
+    group_by(meta_pin10) %>%
+    
+    # We also exclude any properties with less than 1 sale in the building
+    filter((n() - 1) > 0, meta_year >= params$input$min_sale_year) %>%
+    mutate(
+      meta_sale_avg_wo_target = 
+        (sum(meta_sale_price) - meta_sale_price) / (n() - 1)
+    ) %>%
+    ungroup() %>%
+    select(
+      meta_pin, meta_pin10, meta_township_code,
+      meta_sale_date, meta_sale_avg_wo_target
     )
-  )
+  
+  # Including the leave-one-out mean as a model feature is possible, but it tends
+  # to overfit. As such, we need to discretize the average building sale price
+  # into bins (called strata internally). 
+  bldg_strata <- bldg_avg_wo_target %>%  
+    summarize(
+      meta_strata_groups_10 = val_create_ntiles(
+        x = meta_sale_avg_wo_target,
+        probs = seq(0.1, 0.9, 0.1)
+      ),
+      meta_strata_groups_300 = val_create_ntiles(
+        x = meta_sale_avg_wo_target,
+        probs = seq(0.003333, 0.996666, 0.003333)
+      )
+    )
+  
+  # Here we get just the normal building-level average sale price. This will be
+  # used when predicting on the assessment data
+  bldg_avg_w_target <- training_data_lagged %>%
+    group_by(meta_pin10) %>%
+    filter(meta_year >= params$input$min_sale_year) %>%
+    summarise(meta_sale_avg_w_target = mean(meta_sale_price, na.rm = TRUE))
+  
+}
 
-# Here we get just the normal building-level average sale price. This will be
-# used when predicting on the assessment data
-bldg_avg_w_target <- training_data_lagged %>%
-  group_by(meta_pin10) %>%
-  filter(meta_year >= params$input$min_sale_year) %>%
-  summarise(meta_sale_avg_w_target = mean(meta_sale_price, na.rm = TRUE))
 
 ## 5.2. Bind Strata ------------------------------------------------------------
 
@@ -419,45 +461,61 @@ bldg_avg_w_target <- training_data_lagged %>%
 # used as categorical variables in the model
 
 # Attach each strata level
-training_data_lagged <- training_data_lagged %>%
-  left_join(bldg_avg_w_target) %>%
-  bind_cols(bldg_strata) %>% 
-  mutate(
-    meta_strata_10 = val_assign_ntile(
-      meta_sale_avg_w_target,
-      meta_strata_groups_10
-    ),
-    meta_strata_300 = val_assign_ntile(
-      meta_sale_avg_w_target,
-      meta_strata_groups_300
-    )
-  ) %>%
-  select(
-    -meta_sale_avg_w_target,
-    -meta_strata_groups_10, 
-    -meta_strata_groups_300
-  ) %>%
-  # Write to file
-  write_parquet(paths$input$training$local)
 
-assessment_data_lagged <- assessment_data_lagged %>%
-  left_join(bldg_avg_w_target) %>%
-  bind_cols(bldg_strata) %>% 
-  mutate(
-    meta_strata_10 = val_assign_ntile(
-      meta_sale_avg_w_target,
-      meta_strata_groups_10
-    ),
-    meta_strata_300 = val_assign_ntile(
-      meta_sale_avg_w_target,
-      meta_strata_groups_300
+if (params$input$strata_kmeans) {
+  
+  training_data_lagged <- training_data_lagged %>%
+    left_join(bldg_strata_w_target) %>%
+    # Write to file
+    write_parquet(paths$input$training$local)
+  
+  assessment_data_lagged <- assessment_data_lagged %>%
+    left_join(bldg_strata_w_target)
+  
+} else {
+  
+  training_data_lagged <- training_data_lagged %>%
+    left_join(bldg_avg_w_target) %>%
+    bind_cols(bldg_strata) %>% 
+    mutate(
+      meta_strata_10 = val_assign_ntile(
+        meta_sale_avg_w_target,
+        meta_strata_groups_10
+      ),
+      meta_strata_300 = val_assign_ntile(
+        meta_sale_avg_w_target,
+        meta_strata_groups_300
+      )
+    ) %>%
+    select(
+      -meta_sale_avg_w_target,
+      -meta_strata_groups_10, 
+      -meta_strata_groups_300
+    ) %>%
+    # Write to file
+    write_parquet(paths$input$training$local)
+  
+  assessment_data_lagged <- assessment_data_lagged %>%
+    left_join(bldg_avg_w_target) %>%
+    bind_cols(bldg_strata) %>% 
+    mutate(
+      meta_strata_10 = val_assign_ntile(
+        meta_sale_avg_w_target,
+        meta_strata_groups_10
+      ),
+      meta_strata_300 = val_assign_ntile(
+        meta_sale_avg_w_target,
+        meta_strata_groups_300
+      )
+    ) %>%
+    select(
+      -meta_sale_avg_w_target,
+      -meta_strata_groups_10, 
+      -meta_strata_groups_300
     )
-  ) %>%
-  select(
-    -meta_sale_avg_w_target,
-    -meta_strata_groups_10, 
-    -meta_strata_groups_300
-  )
+  
+}
+
 
 ## 5.3. Missing Strata ---------------------------------------------------------
 
@@ -467,6 +525,8 @@ assessment_data_lagged <- assessment_data_lagged %>%
 
 # Create training and test sets (training set will be buildings not missing
 # strata, test set will be those that are).
+strata_columns <- grep("strata", names(training_data_lagged), value = TRUE)
+
 strata_normal <- assessment_data_lagged %>%
   
   # There is ONE 2021 299 that exists in iasworld.pardat but niether
@@ -481,7 +541,7 @@ strata_normal <- assessment_data_lagged %>%
   ) %>%
   
   select(
-    meta_pin10, meta_strata_10, meta_strata_300,
+    meta_pin10, contains("strata"),
     loc_longitude, loc_latitude,
     char_yrblt, char_building_units
   ) %>%
@@ -495,36 +555,37 @@ strata_train <- strata_normal %>% filter(!is.na(meta_strata_10))
 strata_test  <- anti_join(strata_normal, strata_train, by = 'meta_pin10')
 
 # Apply knn function from class package
-strata_test$meta_strata_10 <- class::knn(
-  train = strata_train %>% select(-c(meta_pin10, meta_strata_10, meta_strata_300)),
-  test = strata_test %>% select(-c(meta_pin10, meta_strata_10, meta_strata_300)),
-  cl = strata_train %>% pull(meta_strata_10),
-  k = params$input$strata_k
-)
-
-strata_test$meta_strata_300 <- class::knn(
-  train = strata_train %>% select(-c(meta_pin10, meta_strata_10, meta_strata_300)),
-  test = strata_test %>% select(-c(meta_pin10, meta_strata_10, meta_strata_300)),
-  cl = strata_train %>% pull(meta_strata_300),
-  k = params$input$strata_k
-)
+for (i in strata_columns) {
+  
+  strata_test[, i] <- class::knn(
+    train = strata_train %>% select(-c(meta_pin10, contains("strata"))),
+    test = strata_test %>% select(-c(meta_pin10, contains("strata"))),
+    cl = strata_train %>% pull(i),
+    k = params$input$strata_k
+  )
+  
+}
 
 # Fill in missing strata in assessment data using KNN generated strata
 assessment_data_lagged <- assessment_data_lagged %>%
   left_join(
     strata_test %>%
-      select(meta_pin10, meta_strata_10, meta_strata_300),
+      select(meta_pin10, contains("strata")),
     by = "meta_pin10"
   ) %>%
   mutate(
-    meta_strata_10 = coalesce(meta_strata_10.x, meta_strata_10.y),
-    meta_strata_300 = coalesce(meta_strata_300.x, meta_strata_300.y)
+    "{{strata_columns[1]}}" = coalesce(
+      "{{strata_columns[1]}}.x",
+      "{{strata_columns[1]}}.y"
+      ),
+    "{{strata_columns[2]}}" = coalesce(
+      "{{strata_columns[2]}}.x",
+      "{{strata_columns[2]}}.y"
+      )
   ) %>%
   select(-ends_with(c(".x", ".y"))) %>%
   # Write to file
   write_parquet(paths$input$assessment$local)
-
-
 
 
 # Reminder to upload to DVC store
