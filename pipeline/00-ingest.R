@@ -4,7 +4,6 @@
 
 # Pre-allocate memory for java JDBC driver
 options(java.parameters = "-Xmx10g")
-Sys.setenv(R_INSTALL_STAGED = FALSE)
 
 # Load R libraries
 library(arrow)
@@ -46,7 +45,8 @@ AWS_ATHENA_CONN_JDBC <- dbConnect(
   aws_athena_jdbc_driver,
   url = Sys.getenv("AWS_ATHENA_JDBC_URL"),
   aws_credentials_provider_class = Sys.getenv("AWS_CREDENTIALS_PROVIDER_CLASS"),
-  Schema = "Default"
+  Schema = "Default",
+  WorkGroup = "read-only-with-scan-limit"
 )
 
 
@@ -57,32 +57,31 @@ AWS_ATHENA_CONN_JDBC <- dbConnect(
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Pull the training data, which contains actual sales + attached characteristics
-# from the residential input view
+# from the condominium input view
 tictoc::tic()
 training_data <- dbGetQuery(
   conn = AWS_ATHENA_CONN_JDBC, glue("
-SELECT
-  sale.sale_price AS meta_sale_price,
-  sale.sale_date AS meta_sale_date,
-  sale.doc_no AS meta_sale_document_num,
-  condo.*
-FROM model.vw_pin_condo_input condo
-INNER JOIN default.vw_pin_sale sale
-  ON sale.pin = condo.meta_pin
-  AND sale.year = condo.meta_year
-WHERE (condo.meta_year 
-  BETWEEN '{params$input$min_sale_year}' 
-  AND '{params$input$max_sale_year}')
-AND ((sale.sale_price_log10
-  BETWEEN sale.sale_filter_lower_limit
-  AND sale.sale_filter_upper_limit)
-  AND sale.sale_filter_count >= 10)
-AND NOT is_multisale
+  SELECT
+      sale.sale_price AS meta_sale_price,
+      sale.sale_date AS meta_sale_date,
+      sale.doc_no AS meta_sale_document_num,
+      condo.*
+  FROM model.vw_pin_condo_input condo
+  INNER JOIN default.vw_pin_sale sale
+      ON sale.pin = condo.meta_pin
+      AND sale.year = condo.meta_year
+  WHERE (condo.meta_year 
+      BETWEEN '{params$input$min_sale_year}' 
+      AND '{params$input$max_sale_year}')
+  AND ((sale.sale_price_log10
+      BETWEEN sale.sale_filter_lower_limit
+      AND sale.sale_filter_upper_limit)
+      AND sale.sale_filter_count >= 10)
   ")
 )
 tictoc::toc()
 
-# Pull all residential PIN input data for the assessment year. This will be the
+# Pull all condo input data for the assessment year. This will be the
 # data we actually run the model on
 tictoc::tic()
 assessment_data <- dbGetQuery(
@@ -94,10 +93,8 @@ assessment_data <- dbGetQuery(
 )
 tictoc::toc()
 
-# Pull site-specific (pre-determined) land values and neighborhood-level land
-# rates per sqft, as calculated by Valuations
+# Pull  neighborhood-level land rates per sqft, as calculated by Valuations
 tictoc::tic()
-
 land_nbhd_rate_data <- dbGetQuery(
   conn = AWS_ATHENA_CONN_JDBC, glue("
   SELECT *
@@ -141,8 +138,9 @@ recode_column_type <- function(col, col_name, dict = col_type_dict) {
 }
 
 
-# Create strata
-val_create_ntiles <- function(x, probs, na.rm = TRUE) { # nolint
+# Create quantiles with unbounded top and bottom bins. Used to bin
+# condo building sales prices into strata
+val_create_ntiles <- function(x, probs, na.rm = TRUE) {
   stopifnot(
     is.numeric(x),
     is.numeric(probs),
@@ -160,7 +158,7 @@ val_create_ntiles <- function(x, probs, na.rm = TRUE) { # nolint
 }
 
 
-# Assign strata
+# Given a sale price x, assign the sale price to a pre-made strata bin
 val_assign_ntile <- function(x, ntiles) {
   stopifnot(
     is.numeric(x),
@@ -180,16 +178,15 @@ val_assign_ntile <- function(x, ntiles) {
 }
 
 
-# Normalize data so that knn isn't biased by scale of any dimension
-# (i.e. one dimension having a range of 1000 vs another having a range of 100 -
-# this can create issues since knn depends on the distance formula)
+# Normalize data so that knn isn't biased by scale of any dimension (i.e. one
+# dimension having a range of 1000 vs another having a range of 100). This can
+# create issues since knn depends on the distance formula
 normalize <- function(x, min = 0, max = 1) {
+  output <- (x - min(x, na.rm = T)) /
+    (max(x, na.rm = T) - min(x, na.rm = T)) *
+    (max - min) + min
   
-  return(
-    (x - min(x, na.rm = T)) / (max(x, na.rm = T) - min(x, na.rm = T)) *
-      (max - min) + min
-    )
-  
+  return(output)
 }
 
 
@@ -210,6 +207,7 @@ st_knn <- function(x, y = NULL, k = 1) {
 
 
 
+
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 4. Add Features and Clean ----------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -219,28 +217,23 @@ st_knn <- function(x, y = NULL, k = 1) {
 # Clean up the training data. Goal is to get it into a publishable format.
 # Final featurization, filling, etc. is handled via Tidymodels recipes
 training_data_clean <- training_data %>%
-  
   # Recode factor variables using the definitions stored in ccao::vars_dict
   # This will remove any categories not stored in the dictionary and convert
   # them to NA (useful since there are a lot of misrecorded variables)
   ccao::vars_recode(cols = starts_with("char_"), type = "code") %>%
-  
   # Coerce columns to the data types recorded in the dictionary. Necessary
   # because the SQL drivers will often coerce types on pull (boolean becomes
   # character)
   mutate(across(everything(), ~ recode_column_type(.x, cur_column()))) %>%
-  
   # Create sale date features using lubridate
   dplyr::mutate(
     # Calculate interval periods and times since Jan 01, 1997
     time_interval = interval(ymd("1997-01-01"), ymd(.data$meta_sale_date)),
     time_sale_year = year(meta_sale_date),
     time_sale_day = time_interval %/% days(1),
-    
     # Get components of dates for fixed effects to correct seasonality
     time_sale_quarter_of_year = paste0("Q", quarter(meta_sale_date)),
-    time_sale_day_of_year = day(meta_sale_date),
-    
+    time_sale_day_of_year = yday(meta_sale_date),
     # Time window to use for cross-validation and calculating spatial lags
     time_split = time_interval %/% months(params$input$time_split)
   )
@@ -294,7 +287,7 @@ assessment_data_clean <- assessment_data %>%
     time_sale_year = year(meta_sale_date),
     time_sale_day = time_interval %/% days(1),
     time_sale_quarter_of_year = paste0("Q", quarter(meta_sale_date)),
-    time_sale_day_of_year = day(meta_sale_date),
+    time_sale_day_of_year = yday(meta_sale_date),
     time_split = time_interval %/% months(params$input$time_split)
   )
 
@@ -349,6 +342,7 @@ assessment_data_lagged <- assessment_data_clean %>%
   ) %>%
   select(-c(nb, meta_sale_price, time_interval))
 
+
 ## 4.3. Land Rates -------------------------------------------------------------
 
 # Write land data directly to file, since it's already mostly clean
@@ -365,8 +359,8 @@ land_nbhd_rate_data %>%
 
 ## 5.1. Calculate Strata -------------------------------------------------------
 
-# Condominiums characteristics (such as square footage, number of bedrooms, etc)
-# are not tracked by the CCAO. We need to rely on other information to
+# Condominiums unit characteristics (such as square footage, number of bedrooms,
+# etc.) are not tracked by the CCAO. We need to rely on other information to
 # determine the value of unsold condos. Fortunately, condos are more homogenous
 # than single-family homes and are pre-grouped into like units (buildings).
 
@@ -384,17 +378,17 @@ land_nbhd_rate_data %>%
 
 # Use either K-Means clustering or traditional mean sale price to construct
 # strata
-if (params$input$strata_kmeans) {
+if (params$input$strata$kmeans) {
   
-  set.seed(params$input$strata_seed)
+  set.seed(params$input$strata$seed)
   
   bldg_strata_w_target <- training_data_lagged %>%
     select(meta_pin10, meta_sale_price, meta_sale_date, meta_triad_code) %>%
     mutate(
       meta_sale_date = normalize(
         as.numeric(meta_sale_date),
-        params$input$strata_weight_min,
-        params$input$strata_weight_max
+        params$input$strata$weight_min,
+        params$input$strata$weight_max
         ),
       meta_triad_code = as.numeric(meta_triad_code)
     ) %>%
@@ -463,7 +457,7 @@ if (params$input$strata_kmeans) {
 
 # Attach each strata level
 
-if (params$input$strata_kmeans) {
+if (params$input$strata$kmeans) {
   
   training_data_lagged <- training_data_lagged %>%
     left_join(bldg_strata_w_target) %>%
