@@ -236,6 +236,7 @@ if (cv_enable) {
   # Save tuning results to file. This is a data frame where each row is one
   # CV iteration
   lgbm_search %>%
+    select(-.notes) %>%
     lightsnip::axe_tune_data() %>%
     arrow::write_parquet(paths$output$parameter_raw$local)
   
@@ -325,7 +326,6 @@ test %>%
     loc_cook_municipality_name, loc_chicago_ward_num, loc_census_puma_geoid,
     loc_census_tract_geoid, loc_school_elementary_district_geoid,
     loc_school_secondary_district_geoid, loc_school_unified_district_geoid,
-    char_bldg_sf,
     all_of(c(
       "prior_far_tot" = params$ratio_study$far_column,
       "prior_near_tot" = params$ratio_study$near_column

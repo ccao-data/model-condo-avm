@@ -136,7 +136,8 @@ model:
       "meta_township_code",
       "meta_nbhd_code",
       "meta_tieback_proration_rate",
-      "meta_strata_10",
+      "meta_pin10",
+      "lag_meta_sale_price",
       "char_yrblt",
       "char_land_sf",
       "char_building_pins",
@@ -217,6 +218,7 @@ model:
     categorical: [
       "meta_township_code",
       "meta_nbhd_code",
+      "meta_pin10",
       "loc_cook_municipality_name",
       "loc_school_elementary_district_geoid",
       "loc_school_secondary_district_geoid",
