@@ -81,10 +81,19 @@ input:
   strata:
     # Seed for k-means
     seed: 123
+    
+    # Grouping variables used in the construction of condo strata. Each group
+    # will have its own independent strata of size K 1 and K 2 (see below)
+    group_var: [
+      "meta_triad_code"
+    ]
   
-    # We can use either mean building sale price or k-means clustering to build
-    # condo strata
-    kmeans: true
+    # We can use either quantiles or k-means clustering to build condo strata
+    type: "kmeans"
+    
+    # Number of quantiles of centers to use when constructing strata
+    k_1: 10
+    k_2: 100
     
     # Max and min weights for mean sale price weighted by sale date
     weight_min: 0.5
@@ -92,7 +101,7 @@ input:
   
     # Number of nearest neighbors (units) used to calculate strata for condo
     # buildings without enough sales
-    k: 200
+    knn_missing: 200
 
 
 # Cross-validation -------------------------------------------------------------
