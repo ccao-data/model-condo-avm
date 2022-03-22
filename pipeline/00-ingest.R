@@ -4,7 +4,6 @@
 
 # Pre-allocate memory for java JDBC driver
 options(java.parameters = "-Xmx10g")
-Sys.setenv(R_INSTALL_STAGED = FALSE)
 
 # Load R libraries
 library(arrow)
@@ -12,8 +11,6 @@ library(ccao)
 library(DBI)
 library(data.table)
 library(dplyr)
-library(factoextra)
-library(fastDummies)
 library(glue)
 library(here)
 library(igraph)
@@ -22,13 +19,12 @@ library(purrr)
 library(RJDBC)
 library(s2)
 library(sf)
-library(tibble)
 library(tictoc)
 library(tidyr)
 library(yaml)
 source(here("R", "helpers.R"))
 
-# Initialize a dictionary of file paths. See R/file_dict.csv for details
+# Initialize a dictionary of file paths. See misc/file_dict.csv for details
 paths <- model_file_dict()
 
 # Load the parameters file containing the run settings
@@ -46,7 +42,8 @@ AWS_ATHENA_CONN_JDBC <- dbConnect(
   aws_athena_jdbc_driver,
   url = Sys.getenv("AWS_ATHENA_JDBC_URL"),
   aws_credentials_provider_class = Sys.getenv("AWS_CREDENTIALS_PROVIDER_CLASS"),
-  Schema = "Default"
+  Schema = "Default",
+  WorkGroup = "read-only-with-scan-limit"
 )
 
 
@@ -57,32 +54,31 @@ AWS_ATHENA_CONN_JDBC <- dbConnect(
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Pull the training data, which contains actual sales + attached characteristics
-# from the residential input view
+# from the condominium input view
 tictoc::tic()
 training_data <- dbGetQuery(
   conn = AWS_ATHENA_CONN_JDBC, glue("
-SELECT
-  sale.sale_price AS meta_sale_price,
-  sale.sale_date AS meta_sale_date,
-  sale.doc_no AS meta_sale_document_num,
-  condo.*
-FROM model.vw_pin_condo_input condo
-INNER JOIN default.vw_pin_sale sale
-  ON sale.pin = condo.meta_pin
-  AND sale.year = condo.meta_year
-WHERE (condo.meta_year 
-  BETWEEN '{params$input$min_sale_year}' 
-  AND '{params$input$max_sale_year}')
-AND ((sale.sale_price_log10
-  BETWEEN sale.sale_filter_lower_limit
-  AND sale.sale_filter_upper_limit)
-  AND sale.sale_filter_count >= 10)
-AND NOT is_multisale
+  SELECT
+      sale.sale_price AS meta_sale_price,
+      sale.sale_date AS meta_sale_date,
+      sale.doc_no AS meta_sale_document_num,
+      condo.*
+  FROM model.vw_pin_condo_input condo
+  INNER JOIN default.vw_pin_sale sale
+      ON sale.pin = condo.meta_pin
+      AND sale.year = condo.meta_year
+  WHERE (condo.meta_year 
+      BETWEEN '{params$input$min_sale_year}' 
+      AND '{params$input$max_sale_year}')
+  AND ((sale.sale_price_log10
+      BETWEEN sale.sale_filter_lower_limit
+      AND sale.sale_filter_upper_limit)
+      AND sale.sale_filter_count >= 10)
   ")
 )
 tictoc::toc()
 
-# Pull all residential PIN input data for the assessment year. This will be the
+# Pull all condo input data for the assessment year. This will be the
 # data we actually run the model on
 tictoc::tic()
 assessment_data <- dbGetQuery(
@@ -94,10 +90,8 @@ assessment_data <- dbGetQuery(
 )
 tictoc::toc()
 
-# Pull site-specific (pre-determined) land values and neighborhood-level land
-# rates per sqft, as calculated by Valuations
+# Pull  neighborhood-level land rates per sqft, as calculated by Valuations
 tictoc::tic()
-
 land_nbhd_rate_data <- dbGetQuery(
   conn = AWS_ATHENA_CONN_JDBC, glue("
   SELECT *
@@ -141,8 +135,9 @@ recode_column_type <- function(col, col_name, dict = col_type_dict) {
 }
 
 
-# Create strata
-val_create_ntiles <- function(x, probs, na.rm = TRUE) { # nolint
+# Create quantiles with unbounded top and bottom bins. Used to bin
+# condo building sales prices into strata
+val_create_ntiles <- function(x, probs, na.rm = TRUE) {
   stopifnot(
     is.numeric(x),
     is.numeric(probs),
@@ -160,36 +155,47 @@ val_create_ntiles <- function(x, probs, na.rm = TRUE) { # nolint
 }
 
 
-# Assign strata
+# Given a sale price x, assign the sale price to a pre-made strata bin
 val_assign_ntile <- function(x, ntiles) {
-  stopifnot(
-    is.numeric(x),
-    is.list(ntiles)
-  )
-  
-  output <- ifelse(
+
+  output <- as.character(ifelse(
     !is.na(x),
-    purrr::pmap_chr(
-      list(num = x, cuts = ntiles),
-      function(num, cuts) as.character(cut(num, breaks = cuts, dig.lab = 10))
+    purrr::pmap(
+      list(x, ntiles),
+      ~ cut(.x, breaks = .y, labels = FALSE)
     ),
     NA_character_
-  )
+  ))
   
   return(output)
 }
 
 
-# Normalize data so that knn isn't biased by scale of any dimension
-# (i.e. one dimension having a range of 1000 vs another having a range of 100 -
-# this can create issues since knn depends on the distance formula)
+# Given a set of k-means centers and a sale price, find the nearest center
+val_assign_center <- function(x, centers) {
+
+  output <- as.character(ifelse(
+    !is.na(x) & !is.na(centers),
+    purrr::pmap(
+      list(x, centers), 
+      ~ which.min(mapply(function(z, y) sum(z - y) ^ 2, .x, .y))
+    ),
+    NA_character_
+  ))
+  
+  return(output)
+}
+
+
+# Normalize data so that knn isn't biased by scale of any dimension (i.e. one
+# dimension having a range of 1000 vs another having a range of 100). This can
+# create issues since knn depends on the distance formula
 normalize <- function(x, min = 0, max = 1) {
+  output <- (x - min(x, na.rm = T)) /
+    (max(x, na.rm = T) - min(x, na.rm = T)) *
+    (max - min) + min
   
-  return(
-    (x - min(x, na.rm = T)) / (max(x, na.rm = T) - min(x, na.rm = T)) *
-      (max - min) + min
-    )
-  
+  return(output)
 }
 
 
@@ -210,6 +216,7 @@ st_knn <- function(x, y = NULL, k = 1) {
 
 
 
+
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 4. Add Features and Clean ----------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -219,28 +226,23 @@ st_knn <- function(x, y = NULL, k = 1) {
 # Clean up the training data. Goal is to get it into a publishable format.
 # Final featurization, filling, etc. is handled via Tidymodels recipes
 training_data_clean <- training_data %>%
-  
   # Recode factor variables using the definitions stored in ccao::vars_dict
   # This will remove any categories not stored in the dictionary and convert
   # them to NA (useful since there are a lot of misrecorded variables)
   ccao::vars_recode(cols = starts_with("char_"), type = "code") %>%
-  
   # Coerce columns to the data types recorded in the dictionary. Necessary
   # because the SQL drivers will often coerce types on pull (boolean becomes
   # character)
   mutate(across(everything(), ~ recode_column_type(.x, cur_column()))) %>%
-  
   # Create sale date features using lubridate
   dplyr::mutate(
     # Calculate interval periods and times since Jan 01, 1997
     time_interval = interval(ymd("1997-01-01"), ymd(.data$meta_sale_date)),
     time_sale_year = year(meta_sale_date),
     time_sale_day = time_interval %/% days(1),
-    
     # Get components of dates for fixed effects to correct seasonality
     time_sale_quarter_of_year = paste0("Q", quarter(meta_sale_date)),
-    time_sale_day_of_year = day(meta_sale_date),
-    
+    time_sale_day_of_year = yday(meta_sale_date),
     # Time window to use for cross-validation and calculating spatial lags
     time_split = time_interval %/% months(params$input$time_split)
   )
@@ -294,7 +296,7 @@ assessment_data_clean <- assessment_data %>%
     time_sale_year = year(meta_sale_date),
     time_sale_day = time_interval %/% days(1),
     time_sale_quarter_of_year = paste0("Q", quarter(meta_sale_date)),
-    time_sale_day_of_year = day(meta_sale_date),
+    time_sale_day_of_year = yday(meta_sale_date),
     time_split = time_interval %/% months(params$input$time_split)
   )
 
@@ -349,6 +351,7 @@ assessment_data_lagged <- assessment_data_clean %>%
   ) %>%
   select(-c(nb, meta_sale_price, time_interval))
 
+
 ## 4.3. Land Rates -------------------------------------------------------------
 
 # Write land data directly to file, since it's already mostly clean
@@ -365,229 +368,169 @@ land_nbhd_rate_data %>%
 
 ## 5.1. Calculate Strata -------------------------------------------------------
 
-# Condominiums characteristics (such as square footage, number of bedrooms, etc)
-# are not tracked by the CCAO. We need to rely on other information to
-# determine the value of unsold condos. Fortunately, condos are more homogenous
-# than single-family homes and are pre-grouped into like units (buildings).
+# Condominiums' unit characteristics (such as square footage, # of bedrooms,
+# etc.) are not tracked by the CCAO. As such, e need to rely on other
+# information to determine the value of unsold condos. Fortunately, condos are
+# more homogeneous than single-family homes and are pre-grouped into like units
+# (buildings)
 
 # As such, we can use the historic sale price of other sold units in the same
-# building to determine an unsold condo's value. The goal of this script is to
-# construct building-level summary stats (averages), as well as strata which can
-# be applied to unsold buildings
+# building to determine an unsold condo's value. To do so, we construct condo
+# "strata", which are bins of the 5-year average sale price of the building.
+# Units and buildings in the same strata should ultimately have very similar
+# assessed values
 
 # The first step here is to get the average sale price of condos in each
 # building. The first 10 digits of a given PIN are the building (the last 4 are
-# the unit). Here, we get the leave-one-out building average sale price for the
-# 5 years prior to the assessment year. The leave-one-out average is the
-# building average EXCLUDING the current PIN/sale. This is done to prevent data
-# leakage between the outcome and predictor variables while training
+# the unit)
 
-# Use either K-Means clustering or traditional mean sale price to construct
-# strata
-if (params$input$strata_kmeans) {
-  
-  set.seed(params$input$strata_seed)
-  
-  bldg_strata_w_target <- training_data_lagged %>%
-    select(meta_pin10, meta_sale_price, meta_sale_date, meta_triad_code) %>%
-    mutate(
-      meta_sale_date = normalize(
-        as.numeric(meta_sale_date),
-        params$input$strata_weight_min,
-        params$input$strata_weight_max
-        ),
-      meta_triad_code = as.numeric(meta_triad_code)
-    ) %>%
-    group_by(meta_pin10, meta_triad_code) %>%
-    summarise(
-      mean_sale_price = weighted.mean(meta_sale_price, meta_sale_date, na.rm = TRUE)
-    ) %>%
-    ungroup() %>%
-    column_to_rownames('meta_pin10') %>%
-    scale() %>%
-    data.frame() %>%
-    # Compute k-means with k = 10, 100
-    mutate(
-      meta_strata_10 = as.character(kmeans(., 10, nstart = 50)$cluster),
-      meta_strata_100 = as.character(kmeans(., 100, nstart = 25)$cluster),
-    ) %>%
-    rownames_to_column('meta_pin10') %>%
-    select(-c('meta_triad_code', 'mean_sale_price'))
-  
-} else {
-  
-  bldg_avg_wo_target <- training_data_lagged %>%
-    group_by(meta_pin10) %>%
-    
-    # We also exclude any properties with less than 1 sale in the building
-    filter((n() - 1) > 0, meta_year >= params$input$min_sale_year) %>%
-    mutate(
-      meta_sale_avg_wo_target = 
-        (sum(meta_sale_price) - meta_sale_price) / (n() - 1)
-    ) %>%
-    ungroup() %>%
-    select(
-      meta_pin, meta_pin10, meta_township_code,
-      meta_sale_date, meta_sale_avg_wo_target
+# Get the the recency-weighted mean log10 sale price of each building
+bldg_5yr_sales_avg <- training_data_lagged %>%
+  filter(
+    meta_sale_date > make_date(as.numeric(params$input$max_sale_year) - 4)
+  ) %>%
+  select(
+    meta_pin10, meta_sale_price, meta_sale_date,
+    all_of(params$input$strata$group_var)
+  ) %>%
+  mutate(
+    meta_sale_date_norm = normalize(
+      as.numeric(meta_sale_date),
+      params$input$strata$weight_min,
+      params$input$strata$weight_max
     )
+  ) %>%
+  group_by(meta_pin10, across(any_of(params$input$strata$group_var))) %>%
+  summarise(
+    mean_log10_sale_price = weighted.mean(
+      log10(meta_sale_price),
+      meta_sale_date_norm,
+      na.rm = TRUE
+    )
+  ) %>%
+  ungroup()
+
+# Use either k-means clustering or simple quantiles to construct a condominium
+# building strata model. This model can be used to assign strata to buildings
+if (params$input$strata$type == "kmeans") {
   
-  # Including the leave-one-out mean as a model feature is possible, but it tends
-  # to overfit. As such, we need to discretize the average building sale price
-  # into bins (called strata internally). 
-  bldg_strata <- bldg_avg_wo_target %>%  
+  # Set seed for k-means reproducibility
+  set.seed(params$input$strata$seed)
+
+  # For k-means, construct strata as a 1-dimensional cluster of the average
+  # sale price of the building
+  bldg_strata <- bldg_5yr_sales_avg %>%
+    group_by(across(all_of(params$input$strata$group_var))) %>%
     summarize(
-      meta_strata_groups_10 = val_create_ntiles(
-        x = meta_sale_avg_wo_target,
-        probs = seq(0.1, 0.9, 0.1)
-      ),
-      meta_strata_groups_300 = val_create_ntiles(
-        x = meta_sale_avg_wo_target,
-        probs = seq(0.003333, 0.996666, 0.003333)
-      )
-    )
-  
-  # Here we get just the normal building-level average sale price. This will be
-  # used when predicting on the assessment data
-  bldg_avg_w_target <- training_data_lagged %>%
-    group_by(meta_pin10) %>%
-    filter(meta_year >= params$input$min_sale_year) %>%
-    summarise(meta_sale_avg_w_target = mean(meta_sale_price, na.rm = TRUE))
-  
-}
-
-
-## 5.2. Bind Strata ------------------------------------------------------------
-
-# Create strata of building-level, previous-5-year sale prices. These strata are
-# used as categorical variables in the model
-
-# Attach each strata level
-
-if (params$input$strata_kmeans) {
-  
-  training_data_lagged <- training_data_lagged %>%
-    left_join(bldg_strata_w_target) %>%
-    # Write to file
-    write_parquet(paths$input$training$local)
-  
-  assessment_data_lagged <- assessment_data_lagged %>%
-    left_join(bldg_strata_w_target)
+      meta_strata_model_1 = list(kmeans(
+        mean_log10_sale_price,
+        centers = params$input$strata$k_1,
+        iter.max = 200,
+        nstart = 50,
+        algorithm = "MacQueen"
+      )$centers),
+      meta_strata_model_2 = list(kmeans(
+        mean_log10_sale_price,
+        centers = params$input$strata$k_2,
+        iter.max = 200,
+        nstart = 25,
+        algorithm = "MacQueen"
+      )$centers)
+    ) %>%
+    ungroup()
   
 } else {
   
-  training_data_lagged <- training_data_lagged %>%
-    left_join(bldg_avg_w_target) %>%
-    bind_cols(bldg_strata) %>% 
-    mutate(
-      meta_strata_10 = val_assign_ntile(
-        meta_sale_avg_w_target,
-        meta_strata_groups_10
+  # Construct strata as quantile bins of the average sale price of the building
+  bldg_strata <- bldg_5yr_sales_avg %>%
+    group_by(across(all_of(params$input$strata$group_var))) %>%
+    summarize(
+      meta_strata_model_1 = val_create_ntiles(
+        x = mean_log10_sale_price,
+        probs = seq(0, 1, 1 / params$input$strata$k_1)[
+          c(-1, -(params$input$strata$k_1 + 1))
+        ]
       ),
-      meta_strata_300 = val_assign_ntile(
-        meta_sale_avg_w_target,
-        meta_strata_groups_300
+      meta_strata_model_2 = val_create_ntiles(
+        x = mean_log10_sale_price,
+        probs = seq(0, 1, 1 / params$input$strata$k_2)[
+          c(-1, -(params$input$strata$k_2 + 1))
+        ]
       )
     ) %>%
-    select(
-      -meta_sale_avg_w_target,
-      -meta_strata_groups_10, 
-      -meta_strata_groups_300
-    ) %>%
-    # Write to file
-    write_parquet(paths$input$training$local)
-  
-  assessment_data_lagged <- assessment_data_lagged %>%
-    left_join(bldg_avg_w_target) %>%
-    bind_cols(bldg_strata) %>% 
-    mutate(
-      meta_strata_10 = val_assign_ntile(
-        meta_sale_avg_w_target,
-        meta_strata_groups_10
-      ),
-      meta_strata_300 = val_assign_ntile(
-        meta_sale_avg_w_target,
-        meta_strata_groups_300
-      )
-    ) %>%
-    select(
-      -meta_sale_avg_w_target,
-      -meta_strata_groups_10, 
-      -meta_strata_groups_300
-    )
-  
+    ungroup()
 }
+
+# Save strata model to file in case we need to use it later
+bldg_strata %>%
+  write_parquet(paths$input$condo_strata$local)
+
+
+## 5.2. Assign Strata ----------------------------------------------------------
+
+# Use strata models to create strata of building-level, previous-5-year sale
+# prices. These strata are used as categorical variables in the model
+
+# First, attach the 5-year weighted average sale price for each building to the
+# training and assessment data, then attach the strata models themselves,
+# finally use the assignment functions to assign each property. For k-means,
+# assign to the nearest center, for quantiles, assign within bucket
+training_data_w_strata <- training_data_lagged %>%
+  left_join(
+    bldg_5yr_sales_avg %>% select(-all_of(params$input$strata$group_var)),
+    by = "meta_pin10"
+  ) %>%
+  left_join(bldg_strata, by = params$input$strata$group_var) %>%
+  mutate(
+    meta_strata_1 = switch(
+      params$input$strata$type,
+      kmeans = val_assign_center(mean_log10_sale_price, meta_strata_model_1),
+      ntile = val_assign_ntile(mean_log10_sale_price, meta_strata_model_1)
+    ),
+    meta_strata_2 = switch(
+      params$input$strata$type,
+      kmeans = val_assign_center(mean_log10_sale_price, meta_strata_model_2),
+      ntile = val_assign_ntile(mean_log10_sale_price, meta_strata_model_2)
+    )
+  ) %>%
+  select(
+    -c(mean_log10_sale_price, meta_strata_model_1, meta_strata_model_2)
+  ) %>%
+  write_parquet(paths$input$training$local)
+
+# Do the same for the assessment data. There will be some data leakage here, but
+# it's nearly unavoidable (see README for details)
+assessment_data_w_strata <- assessment_data_lagged %>%
+  left_join(
+    bldg_5yr_sales_avg %>% select(-all_of(params$input$strata$group_var)),
+    by = "meta_pin10"
+  ) %>%
+  left_join(bldg_strata, by = params$input$strata$group_var) %>%
+  mutate(
+    meta_strata_1 = switch(
+      params$input$strata$type,
+      kmeans = val_assign_center(mean_log10_sale_price, meta_strata_model_1),
+      ntile = val_assign_ntile(mean_log10_sale_price, meta_strata_model_1)
+    ),
+    meta_strata_2 = switch(
+      params$input$strata$type,
+      kmeans = val_assign_center(mean_log10_sale_price, meta_strata_model_2),
+      ntile = val_assign_ntile(mean_log10_sale_price, meta_strata_model_2)
+    )
+  ) %>%
+  select(
+    -c(mean_log10_sale_price, meta_strata_model_1, meta_strata_model_2)
+  ) %>%
+  write_parquet(paths$input$assessment$local)
 
 
 ## 5.3. Missing Strata ---------------------------------------------------------
 
-# Next we address condo buildings that don't have any recent sales are are thus
-# missing strata. We'll use KNN to assign strata for those buildings based on
-# longitude, latitude, year built, and number of livable building units.
+# Condo buildings that don't have any recent sales will be missing strata.
+# We use KNN to assign strata for those buildings based on longitude, latitude,
+# year built, and number of livable building units.
 
-# Create training and test sets (training set will be buildings not missing
-# strata, test set will be those that are).
-strata_columns <- grep("strata", names(training_data_lagged), value = TRUE)
-
-strata_normal <- assessment_data_lagged %>%
-  
-  # There is ONE 2021 299 that exists in iasworld.pardat but niether
-  # iasworld.oby nor iasworld.comdat. Why? We may never know. We need to make
-  # sure this PIN with missing characteristics doesn't ruin KNN for the other
-  # PINs.
-  filter(
-    if_all(
-      c(loc_longitude, loc_latitude, char_yrblt, char_building_units),
-      ~ !is.na(.)
-    )
-  ) %>%
-  
-  select(
-    meta_pin10, contains("strata"),
-    loc_longitude, loc_latitude,
-    char_yrblt, char_building_units
-  ) %>%
-  distinct() %>%
-  
-  # Apply the normalization function we created earlier across all numeric
-  # dimension of the data
-  mutate(across(where(is.numeric), normalize))
-
-strata_train <- strata_normal %>% filter(!is.na(meta_strata_10))
-strata_test  <- anti_join(strata_normal, strata_train, by = 'meta_pin10')
-
-# Apply knn function from class package
-for (i in strata_columns) {
-  
-  strata_test[, i] <- class::knn(
-    train = strata_train %>% select(-c(meta_pin10, contains("strata"))),
-    test = strata_test %>% select(-c(meta_pin10, contains("strata"))),
-    cl = strata_train %>% pull(i),
-    k = params$input$strata_k
-  )
-  
-}
-
-# Fill in missing strata in assessment data using KNN generated strata
-assessment_data_lagged %>%
-  left_join(
-    strata_test %>%
-      select(meta_pin10, contains("strata")),
-    by = "meta_pin10"
-  ) %>%
-  mutate(
-    !!paste0(strata_columns[1]) := coalesce(
-      (!!as.name(paste0(strata_columns[1], ".x"))),
-      (!!as.name(paste0(strata_columns[1], ".y")))
-    ),
-    !!paste0(strata_columns[2]) := coalesce(
-      (!!as.name(paste0(strata_columns[2], ".x"))),
-      (!!as.name(paste0(strata_columns[2], ".y")))
-    )
-  ) %>%
-  select(-ends_with(c(".x", ".y"))) %>%
-  # Write to file
-  write_parquet(paths$input$assessment$local)
-
+# This step is now performed via the Tidymodels recipes package. See R/recipes.R
 
 # Reminder to upload to DVC store
 message(

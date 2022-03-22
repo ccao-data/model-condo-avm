@@ -8,10 +8,9 @@ stages:
     - input
     outs:
     - input/assessment_data.parquet
-    - input/complex_id_data.parquet
     - input/land_nbhd_rate_data.parquet
-    - input/land_site_rate_data.parquet
     - input/training_data.parquet
+    - input/condo_strata_data.parquet
 
   train:
     cmd: Rscript pipeline/01-train.R
@@ -57,8 +56,6 @@ stages:
     deps:
     - input/training_data.parquet
     - input/assessment_data.parquet
-    - input/complex_id_data.parquet
-    - input/land_site_rate_data.parquet
     - input/land_nbhd_rate_data.parquet
     - output/workflow/fit/model_workflow_fit.zip
     - output/workflow/recipe/model_workflow_recipe.rds
@@ -155,15 +152,3 @@ stages:
         cache: false
     - output/metadata/model_metadata.parquet:
         cache: false
-
-  export:
-    cmd: Rscript pipeline/06-export.R
-    desc: >
-      Generate Desk Review spreadsheets and iasWorld upload CSVs from a finished
-      run. NOT automatically run since it is typically only run once. Manually
-      run once a model is selected
-    params:
-    - assessment.year
-    - ratio_study
-    - export
-    frozen: true
