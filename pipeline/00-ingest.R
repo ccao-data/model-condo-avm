@@ -11,8 +11,6 @@ library(ccao)
 library(DBI)
 library(data.table)
 library(dplyr)
-library(factoextra)
-library(fastDummies)
 library(glue)
 library(here)
 library(igraph)
@@ -21,13 +19,12 @@ library(purrr)
 library(RJDBC)
 library(s2)
 library(sf)
-library(tibble)
 library(tictoc)
 library(tidyr)
 library(yaml)
 source(here("R", "helpers.R"))
 
-# Initialize a dictionary of file paths. See R/file_dict.csv for details
+# Initialize a dictionary of file paths. See misc/file_dict.csv for details
 paths <- model_file_dict()
 
 # Load the parameters file containing the run settings
@@ -464,6 +461,10 @@ if (params$input$strata$type == "kmeans") {
     ungroup()
 }
 
+# Save strata model to file in case we need to use it later
+bldg_strata %>%
+  write_parquet(paths$input$condo_strata$local)
+
 
 ## 5.2. Assign Strata ----------------------------------------------------------
 
@@ -491,7 +492,11 @@ training_data_w_strata <- training_data_lagged %>%
       kmeans = val_assign_center(mean_log10_sale_price, meta_strata_model_2),
       ntile = val_assign_ntile(mean_log10_sale_price, meta_strata_model_2)
     )
-  )
+  ) %>%
+  select(
+    -c(mean_log10_sale_price, meta_strata_model_1, meta_strata_model_2)
+  ) %>%
+  write_parquet(paths$input$training$local)
 
 # Do the same for the assessment data. There will be some data leakage here, but
 # it's nearly unavoidable (see README for details)
@@ -512,79 +517,20 @@ assessment_data_w_strata <- assessment_data_lagged %>%
       kmeans = val_assign_center(mean_log10_sale_price, meta_strata_model_2),
       ntile = val_assign_ntile(mean_log10_sale_price, meta_strata_model_2)
     )
-  )
-      
+  ) %>%
+  select(
+    -c(mean_log10_sale_price, meta_strata_model_1, meta_strata_model_2)
+  ) %>%
+  write_parquet(paths$input$assessment$local)
+
 
 ## 5.3. Missing Strata ---------------------------------------------------------
 
-# Next we address condo buildings that don't have any recent sales are are thus
-# missing strata. We'll use KNN to assign strata for those buildings based on
-# longitude, latitude, year built, and number of livable building units.
+# Condo buildings that don't have any recent sales will be missing strata.
+# We use KNN to assign strata for those buildings based on longitude, latitude,
+# year built, and number of livable building units.
 
-# Create training and test sets (training set will be buildings not missing
-# strata, test set will be those that are).
-strata_columns <- grep("strata", names(training_data_lagged), value = TRUE)
-
-strata_normal <- assessment_data_lagged %>%
-  
-  # There is ONE 2021 299 that exists in iasworld.pardat but niether
-  # iasworld.oby nor iasworld.comdat. Why? We may never know. We need to make
-  # sure this PIN with missing characteristics doesn't ruin KNN for the other
-  # PINs.
-  filter(
-    if_all(
-      c(loc_longitude, loc_latitude, char_yrblt, char_building_units),
-      ~ !is.na(.)
-    )
-  ) %>%
-  
-  select(
-    meta_pin10, contains("strata"),
-    loc_longitude, loc_latitude,
-    char_yrblt, char_building_units
-  ) %>%
-  distinct() %>%
-  
-  # Apply the normalization function we created earlier across all numeric
-  # dimension of the data
-  mutate(across(where(is.numeric), normalize))
-
-strata_train <- strata_normal %>% filter(!is.na(meta_strata_10))
-strata_test  <- anti_join(strata_normal, strata_train, by = 'meta_pin10')
-
-# Apply knn function from class package
-for (i in strata_columns) {
-  
-  strata_test[, i] <- class::knn(
-    train = strata_train %>% select(-c(meta_pin10, contains("strata"))),
-    test = strata_test %>% select(-c(meta_pin10, contains("strata"))),
-    cl = strata_train %>% pull(i),
-    k = params$input$strata_k
-  )
-  
-}
-
-# Fill in missing strata in assessment data using KNN generated strata
-assessment_data_lagged %>%
-  left_join(
-    strata_test %>%
-      select(meta_pin10, contains("strata")),
-    by = "meta_pin10"
-  ) %>%
-  mutate(
-    !!paste0(strata_columns[1]) := coalesce(
-      (!!as.name(paste0(strata_columns[1], ".x"))),
-      (!!as.name(paste0(strata_columns[1], ".y")))
-    ),
-    !!paste0(strata_columns[2]) := coalesce(
-      (!!as.name(paste0(strata_columns[2], ".x"))),
-      (!!as.name(paste0(strata_columns[2], ".y")))
-    )
-  ) %>%
-  select(-ends_with(c(".x", ".y"))) %>%
-  # Write to file
-  write_parquet(paths$input$assessment$local)
-
+# This step is now performed via the Tidymodels recipes package. See R/recipes.R
 
 # Reminder to upload to DVC store
 message(

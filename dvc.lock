@@ -8,45 +8,43 @@ stages:
           year: '2022'
           date: '2022-01-01'
           triad: north
-          group: residential
+          group: condo
           data_year: '2021'
         input:
-          min_sale_year: '2015'
+          min_sale_year: '2013'
           max_sale_year: '2021'
-          complex:
-            match_exact:
-            - meta_township_code
-            - meta_class
-            - char_bsmt
-            - char_gar1_size
-            - char_attic_fnsh
-            - char_beds
-            match_fuzzy:
-              rooms: 1
-              bldg_sf: 25
-              yrblt: 4
-              dist_ft: 250
+          time_split: 9
+          spatial_lag:
+            k: 20
+            predictor:
+            - meta_sale_price
+            - char_yrblt
+            - char_land_sf
+            - char_building_pins
+            - char_building_units
+            - char_building_non_units
+            - char_building_sf
+            - other_tax_bill_amount_total
+          strata:
+            seed: 123
+            group_var:
+            - meta_triad_code
+            type: kmeans
+            k_1: 10
+            k_2: 100
+            weight_min: 0.5
+            weight_max: 1.0
+            knn_missing: 200
     outs:
     - path: input/assessment_data.parquet
-      md5: 5ccfb2bb069c63b329df3d979e55678e
-      size: 283557153
-      isexec: true
-    - path: input/complex_id_data.parquet
-      md5: 716a49453bcbbb66c39d162f751bc6d4
-      size: 719229
-      isexec: true
+      md5: 6bb523b2ada015011d975a66bcd729d5
+      size: 62102570
     - path: input/land_nbhd_rate_data.parquet
-      md5: d4d45190b5b8b1491717429da75dc904
-      size: 3612
-      isexec: true
-    - path: input/land_site_rate_data.parquet
-      md5: e7b3de0ce18a01834c51089072159379
-      size: 197036
-      isexec: true
+      md5: 6a6859e05af8727296c223a6d2bd7c5a
+      size: 3610
     - path: input/training_data.parquet
-      md5: 1aa59a250063ab447ed9e4c166445364
-      size: 100463102
-      isexec: true
+      md5: 3bd44da8598ad8f83ff8759b06d124f1
+      size: 45013591
   train:
     cmd: Rscript pipeline/01-train.R
     deps:
