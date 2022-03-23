@@ -416,7 +416,8 @@ bldg_5yr_sales_avg <- training_data_lagged %>%
       log10(meta_sale_price),
       meta_sale_date_norm,
       na.rm = TRUE
-    )
+    ),
+    meta_pin10_5yr_num_sale = n()
   ) %>%
   ungroup()
 
@@ -429,7 +430,7 @@ if (params$input$strata$type == "kmeans") {
 
   # For k-means, construct strata as a 1-dimensional cluster of the average
   # sale price of the building
-  bldg_strata <- bldg_5yr_sales_avg %>%
+  bldg_strata_model <- bldg_5yr_sales_avg %>%
     group_by(across(all_of(params$input$strata$group_var))) %>%
     summarize(
       meta_strata_model_1 = list(kmeans(
@@ -452,7 +453,7 @@ if (params$input$strata$type == "kmeans") {
 } else {
   
   # Construct strata as quantile bins of the average sale price of the building
-  bldg_strata <- bldg_5yr_sales_avg %>%
+  bldg_strata_model <- bldg_5yr_sales_avg %>%
     group_by(across(all_of(params$input$strata$group_var))) %>%
     summarize(
       meta_strata_model_1 = val_create_ntiles(
@@ -472,7 +473,7 @@ if (params$input$strata$type == "kmeans") {
 }
 
 # Save strata model to file in case we need to use it later
-bldg_strata %>%
+bldg_strata_model %>%
   write_parquet(paths$input$condo_strata$local)
 
 
@@ -480,17 +481,8 @@ bldg_strata %>%
 
 # Use strata models to create strata of building-level, previous-5-year sale
 # prices. These strata are used as categorical variables in the model
-
-# First, attach the 5-year weighted average sale price for each building to the
-# training and assessment data, then attach the strata models themselves,
-# finally use the assignment functions to assign each property. For k-means,
-# assign to the nearest center, for quantiles, assign within bucket
-training_data_w_strata <- training_data_lagged %>%
-  left_join(
-    bldg_5yr_sales_avg %>% select(-all_of(params$input$strata$group_var)),
-    by = "meta_pin10"
-  ) %>%
-  left_join(bldg_strata, by = params$input$strata$group_var) %>%
+bldg_strata <- bldg_5yr_sales_avg %>%
+  left_join(bldg_strata_model, by = params$input$strata$group_var) %>%
   mutate(
     meta_strata_1 = switch(
       params$input$strata$type,
@@ -503,34 +495,25 @@ training_data_w_strata <- training_data_lagged %>%
       ntile = val_assign_ntile(mean_log10_sale_price, meta_strata_model_2)
     )
   ) %>%
+  group_by(across(params$input$strata$group_var), meta_strata_1) %>%
+  mutate(meta_strata_1_5yr_num_sale = sum(meta_pin10_5yr_num_sale)) %>%
+  group_by(across(params$input$strata$group_var), meta_strata_2) %>%
+  mutate(meta_strata_2_5yr_num_sale = sum(meta_pin10_5yr_num_sale)) %>%
+  ungroup() %>%
   select(
-    -c(mean_log10_sale_price, meta_strata_model_1, meta_strata_model_2)
-  ) %>%
+    -c(mean_log10_sale_price, meta_strata_model_1, meta_strata_model_2),
+    -all_of(params$input$strata$group_var)
+  )
+
+# Attach the strata and sale counts for both assessment and training data
+training_data_w_strata <- training_data_lagged %>%
+  left_join(bldg_strata, by = "meta_pin10") %>%
+  mutate(meta_pin10_5yr_num_sale = replace_na(meta_pin10_5yr_num_sale, 0)) %>%
   write_parquet(paths$input$training$local)
 
-# Do the same for the assessment data. There will be some data leakage here, but
-# it's nearly unavoidable (see README for details)
 assessment_data_w_strata <- assessment_data_lagged %>%
-  left_join(
-    bldg_5yr_sales_avg %>% select(-all_of(params$input$strata$group_var)),
-    by = "meta_pin10"
-  ) %>%
-  left_join(bldg_strata, by = params$input$strata$group_var) %>%
-  mutate(
-    meta_strata_1 = switch(
-      params$input$strata$type,
-      kmeans = val_assign_center(mean_log10_sale_price, meta_strata_model_1),
-      ntile = val_assign_ntile(mean_log10_sale_price, meta_strata_model_1)
-    ),
-    meta_strata_2 = switch(
-      params$input$strata$type,
-      kmeans = val_assign_center(mean_log10_sale_price, meta_strata_model_2),
-      ntile = val_assign_ntile(mean_log10_sale_price, meta_strata_model_2)
-    )
-  ) %>%
-  select(
-    -c(mean_log10_sale_price, meta_strata_model_1, meta_strata_model_2)
-  ) %>%
+  left_join(bldg_strata, by = "meta_pin10") %>%
+  mutate(meta_pin10_5yr_num_sale = replace_na(meta_pin10_5yr_num_sale, 0)) %>%
   write_parquet(paths$input$assessment$local)
 
 
