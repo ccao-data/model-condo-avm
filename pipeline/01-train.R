@@ -211,7 +211,7 @@ if (cv_enable) {
   # Parameter boundaries are taken from the lightgbm docs and hand-tuned
   # See: https://lightgbm.readthedocs.io/en/latest/Parameters-Tuning.html
   lgbm_range <- params$model$hyperparameter$range
-  lgbm_params <- lgbm_model %>%
+  lgbm_params <- lgbm_wflow %>%
     hardhat::extract_parameter_set_dials() %>%
     update(
       num_leaves          = lightsnip::num_leaves(lgbm_range$num_leaves),
@@ -333,7 +333,7 @@ lgbm_wflow_final_full_fit <- lgbm_wflow %>%
 test %>%
   mutate(pred_card_initial_fmv = predict(lgbm_wflow_final_fit, test)$.pred) %>%
   select(
-    meta_year, meta_pin, meta_class,
+    meta_year, meta_pin, meta_pin10, meta_class,
     meta_triad_code, meta_township_code, meta_nbhd_code,
     loc_cook_municipality_name, loc_chicago_ward_num, loc_census_puma_geoid,
     loc_census_tract_geoid, loc_school_elementary_district_geoid,
