@@ -148,7 +148,6 @@ model:
       "meta_township_code",
       "meta_nbhd_code",
       "meta_tieback_proration_rate",
-      "meta_strata_10",
       "char_yrblt",
       "char_land_sf",
       "char_building_pins",
@@ -220,7 +219,13 @@ model:
       "time_sale_year",
       "time_sale_day",
       "time_sale_quarter_of_year",
-      "time_sale_day_of_year"
+      "time_sale_month_of_year",
+      "time_sale_day_of_year",
+      "time_sale_day_of_month",
+      "time_sale_day_of_week",
+      "time_sale_post_covid",
+      "meta_strata_1",
+      "meta_strata_2"
     ]
     
     # List of predictors included in predictor.all which are categoricals. It is
@@ -235,7 +240,23 @@ model:
       "loc_school_unified_district_geoid",
       "loc_tax_special_service_area_num",
       "loc_misc_subdivision_id",
-      "time_sale_quarter_of_year"
+      "time_sale_quarter_of_year",
+      "meta_strata_1",
+      "meta_strata_2"
+    ]
+    
+    # List of variables used with the recipe step step_impute_knn(). The knn
+    # variables will have missing values imputed, while the knn_imp variables
+    # are used to do the imputing
+    knn: [
+      "meta_strata_1",
+      "meta_strata_2"
+    ]
+    knn_imp: [
+      "loc_latitude",
+      "loc_longitude",
+      "char_building_units",
+      "char_yrblt"
     ]
     
     # List of identifiers for each observation, can be ignored
