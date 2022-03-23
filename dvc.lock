@@ -37,17 +37,17 @@ stages:
             knn_missing: 200
     outs:
     - path: input/assessment_data.parquet
-      md5: b49a0b76960daae3a89061de5c0dab2b
-      size: 61744426
+      md5: d99f3b19045a2b42de40d469e3c119c0
+      size: 63570112
     - path: input/condo_strata_data.parquet
-      md5: 4739073354168cd732db8027a1d42f79
+      md5: 56e74ffddbf93a1e47d8e1c8aaff34a9
       size: 4620
     - path: input/land_nbhd_rate_data.parquet
       md5: 6a6859e05af8727296c223a6d2bd7c5a
       size: 3610
     - path: input/training_data.parquet
-      md5: f0e9180bc6332b3164f0b1b08a8bded0
-      size: 45426406
+      md5: 97bd03aaae5e0e2b1624ca72cea22154
+      size: 46082549
   train:
     cmd: Rscript pipeline/01-train.R
     deps:
