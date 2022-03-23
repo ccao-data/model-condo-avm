@@ -46,7 +46,7 @@ stages:
         cache: false
     - output/intermediate/timing/model_timing_train.parquet:
         cache: false
-        
+
   assess:
     cmd: Rscript pipeline/02-assess.R
     desc: >
@@ -57,6 +57,7 @@ stages:
     - input/training_data.parquet
     - input/assessment_data.parquet
     - input/land_nbhd_rate_data.parquet
+    - input/condo_strata_data.parquet
     - output/workflow/fit/model_workflow_fit.zip
     - output/workflow/recipe/model_workflow_recipe.rds
     params:

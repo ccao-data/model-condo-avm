@@ -11,12 +11,17 @@
 #'   will be the right-hand side of the regression AKA predictors.
 #' @param cat_vars Character vector of categorical column names. These will be
 #'   integer-encoded (base 0).
+#' @param knn_vars Character vector of column names. These columns will have
+#'   missing values imputed via KNN.
+#' @param knn_imp_vars Character vector of column names. These columns will be
+#'   used to impute the columns in knn_vars.
 #' @param id_vars Character vector of ID variables. These can be kept in "baked"
 #'   data without being treated as predictors.
 #'
 #' @return A recipe object that can be used to clean model input data.
 #'
-model_main_recipe <- function(data, pred_vars, cat_vars, id_vars) {
+model_main_recipe <- function(data, pred_vars, cat_vars,
+                              knn_vars, knn_imp_vars, id_vars) {
   recipe(data) %>%
     
     # Set the role of each variable in the input data
@@ -29,6 +34,18 @@ model_main_recipe <- function(data, pred_vars, cat_vars, id_vars) {
     
     # Replace novel levels with "new"
     step_novel(all_of(cat_vars), -has_role("ID")) %>%
+    
+    # Impute missing values using KNN. Specific to condo model, usually used to
+    # impute missing condo building strata
+    step_impute_knn(
+      all_of(knn_vars),
+      neighbors = 20,
+      impute_with = imp_vars(all_of(knn_imp_vars)),
+      options = list(
+        nthread = parallel::detectCores(logical = FALSE),
+        eps = 1e-08
+      )
+    ) %>%
     
     # Replace NA in factors with "unknown" 
     step_unknown(all_of(cat_vars), -has_role("ID")) %>%

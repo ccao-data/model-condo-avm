@@ -26,7 +26,7 @@ library(yaml)
 # Load helpers and recipes from files
 walk(list.files("R/", "\\.R$", full.names = TRUE), source)
 
-# Initialize a dictionary of file paths. See R/file_dict.csv for details
+# Initialize a dictionary of file paths. See misc/file_dict.csv for details
 paths <- model_file_dict()
 
 # Load the parameters file containing the run settings
@@ -55,7 +55,6 @@ set.seed(params$model$seed)
 
 # Load the full set of training data, then arrange by sale date in order to
 # facilitate out-of-time sampling/validation
-
 training_data_full <- read_parquet(paths$input$training$local) %>%
   arrange(meta_sale_date)
 
@@ -75,6 +74,8 @@ train_recipe <- model_main_recipe(
   data = training_data_full %>% select(-time_split),
   pred_vars = params$model$predictor$all,
   cat_vars = params$model$predictor$categorical,
+  knn_vars = params$model$predictor$knn,
+  knn_imp_vars = params$model$predictor$knn_imp,
   id_vars = params$model$predictor$id
 )
 
@@ -85,7 +86,7 @@ train_recipe <- model_main_recipe(
 # 3. LightGBM Model ------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# This is the main model used to value 200-class residential property. It uses
+# This is the main model used to value residential condominiums. It uses
 # lightgbm as a backend, which is a boosted tree model similar to xgboost or
 # catboost, but with better performance and faster training time in our use case
 # See https://lightgbm.readthedocs.io/ for more information
@@ -98,7 +99,7 @@ train_recipe <- model_main_recipe(
 # model arguments, which are provided by parsnip's boost_tree()
 lgbm_model <- parsnip::boost_tree(
   trees = params$model$parameter$num_iterations,
-  stop_iter = tune()
+  stop_iter = params$model$parameter$stop_iter
 ) %>%
   set_mode("regression") %>%
   set_engine(
@@ -135,6 +136,9 @@ lgbm_model <- parsnip::boost_tree(
     # otherwise Bayesian opt spends time exploring irrelevant parameter space
     link_max_depth = params$model$parameter$link_max_depth,
     
+    # Max number of bins that feature values will be bucketed in
+    max_bin = params$model$parameter$max_bin,
+    
     
     ### 3.1.2. Tuned Parameters ------------------------------------------------
     
@@ -154,10 +158,7 @@ lgbm_model <- parsnip::boost_tree(
     
     # Regularization parameters
     lambda_l1 = tune(),
-    lambda_l2 = tune(),
-    
-    # Max number of bins that feature values will be bucketed in
-    max_bin = tune()
+    lambda_l2 = tune()
   )
 
 # Initialize lightgbm workflow, which contains both the model spec AND the
@@ -176,6 +177,18 @@ lgbm_wflow <- workflow() %>%
 # of hyperparameters, grid search or random search take a very long time to
 # produce similarly accurate results
 if (cv_enable) {
+  
+  # Collapse the first and last CV window into there respective neighbors. This
+  # is done because the first and last period tend to be very small (and
+  # therefore potentially unrepresentative of the larger data set)
+  train <- train %>%
+    mutate(
+      time_split = case_when(
+        time_split == max(time_split) ~ max(time_split) - 1,
+        time_split == min(time_split) ~ min(time_split) + 1,
+        TRUE ~ time_split
+      )
+    )
   
   # Using rolling forecast origin resampling to create a cumulative, sliding
   # window-based training set, where the validation set is always just after the
@@ -199,9 +212,8 @@ if (cv_enable) {
   # See: https://lightgbm.readthedocs.io/en/latest/Parameters-Tuning.html
   lgbm_range <- params$model$hyperparameter$range
   lgbm_params <- lgbm_model %>%
-    parameters() %>%
+    hardhat::extract_parameter_set_dials() %>%
     update(
-      stop_iter           = dials::stop_iter(lgbm_range$stop_iter),
       num_leaves          = lightsnip::num_leaves(lgbm_range$num_leaves),
       add_to_linked_depth = lightsnip::add_to_linked_depth(lgbm_range$add_to_linked_depth),
       feature_fraction    = lightsnip::feature_fraction(lgbm_range$feature_fraction),
@@ -212,8 +224,7 @@ if (cv_enable) {
       cat_smooth          = lightsnip::cat_smooth(lgbm_range$cat_smooth),
       cat_l2              = lightsnip::cat_l2(lgbm_range$cat_l2),
       lambda_l1           = lightsnip::lambda_l1(lgbm_range$lambda_l1),
-      lambda_l2           = lightsnip::lambda_l2(lgbm_range$lambda_l2),
-      max_bin             = lightsnip::max_bin(lgbm_range$max_bin)
+      lambda_l2           = lightsnip::lambda_l2(lgbm_range$lambda_l2)
     )
   
   # Use Bayesian tuning to find best performing hyperparameters. This part takes
@@ -267,7 +278,7 @@ if (cv_enable) {
   # params.yaml, keeping only the ones used in the model specification
   lgbm_missing_params <- names(params$model$hyperparameter$default)
   lgbm_missing_params <- lgbm_missing_params[
-    !lgbm_missing_params %in% parameters(lgbm_wflow)$name
+    !lgbm_missing_params %in% hardhat::extract_parameter_set_dials(lgbm_wflow)$name
   ]
   lgbm_final_params <- tibble(
     configuration = "Default",
@@ -291,8 +302,8 @@ if (cv_enable) {
 
 # NOTE: The model specifications here use early stopping by measuring the change
 # in the objective function on the TRAINING set (rather than the 10% sample
-# validation set used during CV). This is so we can use the full data for
-# training but still benefit from early stopping
+# validation set used during CV). In practice, this means early stopping is
+# disabled, since you can almost always improve on the training set
 
 # Fit the final model using the training data and our final hyperparameters
 # This model is used to measure performance on the test set
@@ -319,7 +330,7 @@ lgbm_wflow_final_full_fit <- lgbm_wflow %>%
 # predictions are used to evaluate model performance on the unseen test set.
 # Keep only the variables necessary for evaluation
 test %>%
-  mutate(pred_pin_initial_fmv = predict(lgbm_wflow_final_fit, test)$.pred) %>%
+  mutate(pred_card_initial_fmv = predict(lgbm_wflow_final_fit, test)$.pred) %>%
   select(
     meta_year, meta_pin, meta_class,
     meta_triad_code, meta_township_code, meta_nbhd_code,
@@ -330,7 +341,7 @@ test %>%
       "prior_far_tot" = params$ratio_study$far_column,
       "prior_near_tot" = params$ratio_study$near_column
     )),
-    pred_pin_initial_fmv,
+    pred_card_initial_fmv,
     meta_sale_price, meta_sale_date, meta_sale_document_num
   ) %>%
   # Prior year values are AV, not FMV. Multiply by 10 to get FMV for residential
@@ -339,7 +350,7 @@ test %>%
     prior_near_tot = prior_near_tot * 10
   ) %>%
   as_tibble() %>%
-  write_parquet(paths$output$test_pin$local)
+  write_parquet(paths$output$test_card$local)
 
 # Save the finalized model object to file so it can be used elsewhere. Note the
 # lgbm_save() function, which uses lgb.save() rather than saveRDS(), since
