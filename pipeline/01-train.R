@@ -224,7 +224,8 @@ if (cv_enable) {
       cat_smooth          = lightsnip::cat_smooth(lgbm_range$cat_smooth),
       cat_l2              = lightsnip::cat_l2(lgbm_range$cat_l2),
       lambda_l1           = lightsnip::lambda_l1(lgbm_range$lambda_l1),
-      lambda_l2           = lightsnip::lambda_l2(lgbm_range$lambda_l2)
+      lambda_l2           = lightsnip::lambda_l2(lgbm_range$lambda_l2),
+      neighbors           = dials::neighbors(lgbm_range$neighbors)
     )
   
   # Use Bayesian tuning to find best performing hyperparameters. This part takes
@@ -336,7 +337,6 @@ test %>%
     loc_cook_municipality_name, loc_chicago_ward_num, loc_census_puma_geoid,
     loc_census_tract_geoid, loc_school_elementary_district_geoid,
     loc_school_secondary_district_geoid, loc_school_unified_district_geoid,
-    char_bldg_sf,
     all_of(c(
       "prior_far_tot" = params$ratio_study$far_column,
       "prior_near_tot" = params$ratio_study$near_column

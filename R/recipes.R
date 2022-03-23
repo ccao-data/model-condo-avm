@@ -39,7 +39,7 @@ model_main_recipe <- function(data, pred_vars, cat_vars,
     # impute missing condo building strata
     step_impute_knn(
       all_of(knn_vars),
-      neighbors = 20,
+      neighbors = tune(),
       impute_with = imp_vars(all_of(knn_imp_vars)),
       options = list(
         nthread = parallel::detectCores(logical = FALSE),
