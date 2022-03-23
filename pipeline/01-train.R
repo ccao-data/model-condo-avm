@@ -224,7 +224,8 @@ if (cv_enable) {
       cat_smooth          = lightsnip::cat_smooth(lgbm_range$cat_smooth),
       cat_l2              = lightsnip::cat_l2(lgbm_range$cat_l2),
       lambda_l1           = lightsnip::lambda_l1(lgbm_range$lambda_l1),
-      lambda_l2           = lightsnip::lambda_l2(lgbm_range$lambda_l2)
+      lambda_l2           = lightsnip::lambda_l2(lgbm_range$lambda_l2),
+      neighbors           = dials::neighbors(lgbm_range$neighbors)
     )
   
   # Use Bayesian tuning to find best performing hyperparameters. This part takes
