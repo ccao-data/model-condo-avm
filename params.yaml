@@ -153,7 +153,6 @@ model:
       "char_building_pins",
       "char_building_units",
       "char_building_non_units",
-      "char_tiebldgpct",
       "char_bldg_is_mixed_use",
       "char_building_sf",
       "char_unit_sf",
