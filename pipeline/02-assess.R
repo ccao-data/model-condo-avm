@@ -114,7 +114,7 @@ assessment_data_merged <- assessment_data_pred %>%
         meta_pin, meta_card_num, 
         pred_pin_final_fmv, pred_pin_final_fmv_round
       ),
-    by = c("meta_pin")
+    by = c("meta_pin", "meta_card_num")
   ) %>%
   mutate(
     township_code = meta_township_code,
@@ -232,7 +232,7 @@ assessment_data_pin <- assessment_data_merged %>%
     
     # Keep overall building square footage
     char_total_bldg_sf = char_building_sf,
-    char_land_sf,
+    char_unit_sf, char_land_sf,
 
     # Keep locations, prior year values, and indicators
     loc_longitude, loc_latitude,
@@ -344,7 +344,7 @@ temp <- assessment_data_pin_final %>%
   # Reorder columns into groups by prefix
   select(
     starts_with(c("meta_", "loc_")),
-    char_yrblt, char_total_bldg_sf, char_land_sf, 
+    char_yrblt, char_total_bldg_sf, char_unit_sf, char_land_sf, 
     starts_with(c("land", "prior_far_", "prior_near_")),
     pred_pin_final_fmv, pred_pin_final_fmv_bldg,
     pred_pin_final_fmv_land, pred_pin_final_fmv_round,

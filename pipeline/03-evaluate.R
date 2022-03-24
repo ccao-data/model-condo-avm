@@ -80,7 +80,7 @@ if (run_type == "full") {
       loc_cook_municipality_name, loc_chicago_ward_num, loc_census_puma_geoid,
       loc_census_tract_geoid, loc_school_elementary_district_geoid,
       loc_school_secondary_district_geoid, loc_school_unified_district_geoid,
-      char_total_bldg_sf, prior_far_tot, prior_near_tot,
+      char_total_bldg_sf, char_unit_sf, prior_far_tot, prior_near_tot,
       pred_pin_final_fmv_round, sale_ratio_study_price
     )
 }
@@ -345,7 +345,7 @@ future_map_dfr(
     data = test_data_card,
     truth = meta_sale_price,
     estimate = pred_card_initial_fmv,
-    bldg_sqft = char_bldg_sf,
+    bldg_sqft = char_unit_sf,
     rsn_col = prior_near_tot,
     rsf_col = prior_far_tot,
     triad = meta_triad_code,
@@ -392,7 +392,7 @@ if (run_type == "full") {
       data = assessment_data_pin,
       truth = sale_ratio_study_price,
       estimate = pred_pin_final_fmv_round,
-      bldg_sqft = char_total_bldg_sf,
+      bldg_sqft = char_unit_sf,
       rsn_col = prior_near_tot,
       rsf_col = prior_far_tot,
       triad = meta_triad_code,

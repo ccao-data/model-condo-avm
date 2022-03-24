@@ -52,8 +52,8 @@ stages:
     cmd: Rscript pipeline/01-train.R
     deps:
     - path: input/training_data.parquet
-      md5: 97bd03aaae5e0e2b1624ca72cea22154
-      size: 46082549
+      md5: 0ad7b8fd956b5dc70cf73dcacba8eaab
+      size: 45429785
     params:
       params.yaml:
         cv:
@@ -134,7 +134,7 @@ stages:
           - char_building_pins
           - char_building_units
           - char_building_non_units
-          - char_tiebldgpct
+          - char_bldg_is_mixed_use
           - char_building_sf
           - char_unit_sf
           - char_bedrooms
@@ -248,7 +248,7 @@ stages:
         toggle.cv_enable: false
     outs:
     - path: output/intermediate/timing/model_timing_train.parquet
-      md5: 1fe10df70ed575cc020bf5e8d5d6d12f
+      md5: d68b7e621d74875cdddb48ea5b75ccb1
       size: 2331
     - path: output/parameter_final/model_parameter_final.parquet
       md5: 0cde933ec9033d39c256b44d91d6d852
@@ -260,35 +260,35 @@ stages:
       md5: 1f71c12f05375bf2674e696d3e70eb23
       size: 695
     - path: output/test_card/model_test_card.parquet
-      md5: 9cb159eb335581d8b6be726611c9daea
-      size: 1012160
+      md5: b66794dca7ceed71d13a2d087f1ad127
+      size: 1024204
     - path: output/workflow/fit/model_workflow_fit.zip
-      md5: abef3c3230dc6349a15c080c173d6069
-      size: 2890811
+      md5: 92adc300a05972d38d950a97254708a9
+      size: 2830935
     - path: output/workflow/recipe/model_workflow_recipe.rds
-      md5: a7f83c832a4838c4ff5b2762b47ba4c3
-      size: 3751617
+      md5: 99f91b9800a56dcca76ed6da2fab3d20
+      size: 3747158
   assess:
     cmd: Rscript pipeline/02-assess.R
     deps:
     - path: input/assessment_data.parquet
-      md5: d99f3b19045a2b42de40d469e3c119c0
-      size: 63570112
+      md5: caebf17e22d8b8bbb7901e27d1819bb8
+      size: 62101717
     - path: input/condo_strata_data.parquet
-      md5: 56e74ffddbf93a1e47d8e1c8aaff34a9
+      md5: a47296338c7acc4a0bee3fb2b506d837
       size: 4620
     - path: input/land_nbhd_rate_data.parquet
       md5: 6a6859e05af8727296c223a6d2bd7c5a
       size: 3610
     - path: input/training_data.parquet
-      md5: 97bd03aaae5e0e2b1624ca72cea22154
-      size: 46082549
+      md5: 0ad7b8fd956b5dc70cf73dcacba8eaab
+      size: 45429785
     - path: output/workflow/fit/model_workflow_fit.zip
-      md5: abef3c3230dc6349a15c080c173d6069
-      size: 2890811
+      md5: 92adc300a05972d38d950a97254708a9
+      size: 2830935
     - path: output/workflow/recipe/model_workflow_recipe.rds
-      md5: a7f83c832a4838c4ff5b2762b47ba4c3
-      size: 3751617
+      md5: 99f91b9800a56dcca76ed6da2fab3d20
+      size: 3747158
     params:
       params.yaml:
         assessment:
@@ -306,7 +306,7 @@ stages:
         - char_building_pins
         - char_building_units
         - char_building_non_units
-        - char_tiebldgpct
+        - char_bldg_is_mixed_use
         - char_building_sf
         - char_unit_sf
         - char_bedrooms
@@ -404,13 +404,13 @@ stages:
           - 10
     outs:
     - path: output/assessment_card/model_assessment_card.parquet
-      md5: 645d682d236b1a5c589e5cc4d4ac9c46
-      size: 36733306
+      md5: 845f2d5eef3d79524c261cf19f264c81
+      size: 35181639
     - path: output/assessment_pin/model_assessment_pin.parquet
-      md5: 2615902a6216224ccc09761f349a2235
-      size: 37568721
+      md5: 15a28edcd93b405bb76e5cd5af69dc78
+      size: 37489007
     - path: output/intermediate/timing/model_timing_assess.parquet
-      md5: bfdaa2c9486d09b493eca4c22920acff
+      md5: 8621a347eb508e27611fdfb60ebcacf1
       size: 2338
   evaluate:
     cmd: Rscript pipeline/03-evaluate.R
