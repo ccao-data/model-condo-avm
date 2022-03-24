@@ -20,7 +20,7 @@ library(tune)
 library(yaml)
 source(here("R", "helpers.R"))
 
-# Initialize a dictionary of file paths. See R/file_dict.csv for details
+# Initialize a dictionary of file paths. See misc/file_dict.csv for details
 paths <- model_file_dict()
 
 # Load the parameters file containing the run settings
@@ -93,13 +93,13 @@ metadata <- tibble::tibble(
   assessment_data_year = params$assessment$data_year,
   input_min_sale_year = params$input$min_sale_year,
   input_max_sale_year = params$input$max_sale_year,
-  input_complex_match_exact = list(params$input$complex$match_exact),
-  input_complex_match_fuzzy_name = list(
-    names(params$input$complex$match_fuzzy)
-  ),
-  input_complex_match_fuzzy_value = list(
-    as.numeric(params$input$complex$match_fuzzy)
-  ),
+  input_strata_seed = params$input$strata$seed,
+  input_strata_group_var = list(params$input$strata$group_var),
+  input_strata_type = params$input$strata$type,
+  input_strata_k_1 = params$input$strata$k_1,
+  input_strata_k_2 = params$input$strata$k_2,
+  input_strata_weight_min = params$input$strata$weight_min,
+  input_strata_weight_max = params$input$strata$weight_max,
   ratio_study_far_year = params$ratio_study$far_year,
   ratio_study_far_stage = params$ratio_study$far_stage,
   ratio_study_far_column = params$ratio_study$far_column,
@@ -114,7 +114,8 @@ metadata <- tibble::tibble(
   cv_no_improve = params$cv$no_improve,
   cv_split_prop = params$cv$split_prop,
   cv_best_metric = params$cv$best_metric,
-  pv_multicard_yoy_cap = params$pv$multicard_yoy_cap,
+  pv_nonlivable_threshold = params$pv$nonlivable_threshold,
+  pv_nonlivable_fixed_fmv = params$pv$nonlivable_fixed_fmv,
   pv_land_pct_of_total_cap = params$pv$land_pct_of_total_cap,
   pv_round_break = list(params$pv$round_break),
   pv_round_to_nearest = list(params$pv$round_to_nearest),
@@ -124,7 +125,11 @@ metadata <- tibble::tibble(
   model_predictor_all_count = length(params$model$predictor$all),
   model_predictor_all_name = list(params$model$predictor$all),
   model_predictor_categorical_count = length(params$model$predictor$categorical),
-  model_predictor_categorical_name = list(params$model$predictor$categorical)
+  model_predictor_categorical_name = list(params$model$predictor$categorical),
+  model_predictor_knn_count = length(params$model$predictor$knn),
+  model_predictor_knn_name = list(params$model$predictor$knn),
+  model_predictor_knn_imp_count = length(params$model$predictor$knn_imp),
+  model_predictor_knn_imp_name = list(params$model$predictor$knn_imp)
 ) %>%
   bind_cols(dvc_md5_df) %>%
   relocate(starts_with("dvc_id_"), .after = "input_complex_match_fuzzy_value") %>%
@@ -255,7 +260,7 @@ if (params$toggle$upload_to_s3) {
       left_join(
         rename(., notes = .notes) %>%
           tidyr::unnest(cols = notes) %>%
-          rename(notes = .notes)
+          rename(notes = note)
       ) %>%
       select(-.notes) %>%
       rename_with(~ gsub("^\\.", "", .x)) %>%

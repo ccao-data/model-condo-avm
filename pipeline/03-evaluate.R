@@ -27,7 +27,7 @@ library(yardstick)
 # Load helpers and recipes from files
 walk(list.files("R/", "\\.R$", full.names = TRUE), source)
 
-# Initialize a dictionary of file paths. See R/file_dict.csv for details
+# Initialize a dictionary of file paths. See misc/file_dict.csv for details
 paths <- model_file_dict()
 
 # Load the parameters file containing the run settings
@@ -68,13 +68,11 @@ col_rename_dict <- c(
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Load the test results from the end of the train stage. This will be the most
-# recent 10% of sales and already includes predictions. This data will NOT
-# include multicard sales, so the unit of observation is PINs (1 PIN per row)
+# recent 10% of sales and already includes predictions
 test_data_card <- read_parquet(paths$output$test_card$local)
 
 # Load the assessment results from the previous stage. This will include every
-# residential PIN that needs a value. It WILL include multicard properties
-# aggregated to the PIN-level. Only runs for full runs due to compute cost
+# residential PIN that needs a value. Only runs for full runs due to compute cost
 if (run_type == "full") {
   assessment_data_pin <- read_parquet(paths$output$assessment_pin$local) %>%
     select(

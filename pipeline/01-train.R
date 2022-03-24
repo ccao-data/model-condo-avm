@@ -333,7 +333,7 @@ lgbm_wflow_final_full_fit <- lgbm_wflow %>%
 test %>%
   mutate(pred_card_initial_fmv = predict(lgbm_wflow_final_fit, test)$.pred) %>%
   select(
-    meta_year, meta_pin, meta_pin10, meta_class,
+    meta_year, meta_pin, meta_pin10, meta_class, meta_card_num,
     meta_triad_code, meta_township_code, meta_nbhd_code,
     loc_cook_municipality_name, loc_chicago_ward_num, loc_census_puma_geoid,
     loc_census_tract_geoid, loc_school_elementary_district_geoid,

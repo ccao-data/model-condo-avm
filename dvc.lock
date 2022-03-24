@@ -272,69 +272,51 @@ stages:
     cmd: Rscript pipeline/02-assess.R
     deps:
     - path: input/assessment_data.parquet
-      md5: 5ccfb2bb069c63b329df3d979e55678e
-      size: 283557153
-    - path: input/complex_id_data.parquet
-      md5: 716a49453bcbbb66c39d162f751bc6d4
-      size: 719229
+      md5: d99f3b19045a2b42de40d469e3c119c0
+      size: 63570112
+    - path: input/condo_strata_data.parquet
+      md5: 56e74ffddbf93a1e47d8e1c8aaff34a9
+      size: 4620
     - path: input/land_nbhd_rate_data.parquet
-      md5: d4d45190b5b8b1491717429da75dc904
-      size: 3612
-    - path: input/land_site_rate_data.parquet
-      md5: e7b3de0ce18a01834c51089072159379
-      size: 197036
+      md5: 6a6859e05af8727296c223a6d2bd7c5a
+      size: 3610
     - path: input/training_data.parquet
-      md5: 1aa59a250063ab447ed9e4c166445364
-      size: 100463102
+      md5: 97bd03aaae5e0e2b1624ca72cea22154
+      size: 46082549
     - path: output/workflow/fit/model_workflow_fit.zip
-      md5: ee42024f3b5f65acc7a00ad4d7fab979
-      size: 3073238
+      md5: abef3c3230dc6349a15c080c173d6069
+      size: 2890811
     - path: output/workflow/recipe/model_workflow_recipe.rds
-      md5: 0aa52b7eef79c787c1b3cccf4b6c5a5f
-      size: 1929011
+      md5: a7f83c832a4838c4ff5b2762b47ba4c3
+      size: 3751617
     params:
       params.yaml:
         assessment:
           year: '2022'
           date: '2022-01-01'
           triad: north
-          group: residential
+          group: condo
           data_year: '2021'
         model.predictor.all:
         - meta_township_code
         - meta_nbhd_code
         - meta_tieback_proration_rate
         - char_yrblt
-        - char_air
-        - char_apts
-        - char_attic_fnsh
-        - char_attic_type
-        - char_beds
-        - char_bldg_sf
-        - char_bsmt
-        - char_bsmt_fin
-        - char_ext_wall
-        - char_fbath
-        - char_frpl
-        - char_gar1_area
-        - char_gar1_att
-        - char_gar1_cnst
-        - char_gar1_size
-        - char_hbath
         - char_land_sf
-        - char_heat
-        - char_ncu
-        - char_porch
-        - char_roof_cnst
-        - char_rooms
-        - char_tp_dsgn
-        - char_tp_plan
-        - char_type_resd
-        - char_use
+        - char_building_pins
+        - char_building_units
+        - char_building_non_units
+        - char_tiebldgpct
+        - char_building_sf
+        - char_unit_sf
+        - char_bedrooms
+        - loc_longitude
+        - loc_latitude
         - loc_cook_municipality_name
         - loc_env_flood_fema_sfha
         - loc_env_flood_fs_factor
         - loc_env_flood_fs_risk_direction
+        - loc_env_airport_noise_dnl
         - loc_env_ohare_noise_contour_no_buffer_bool
         - loc_school_elementary_district_geoid
         - loc_school_secondary_district_geoid
@@ -384,50 +366,51 @@ stages:
         - acs5_percent_household_total_occupied_w_sel_cond
         - acs5_percent_mobility_moved_in_county
         - other_ihs_avg_year_index
-        - other_tax_bill_amount_total
         - other_tax_bill_rate
         - other_school_district_elementary_avg_rating
         - other_school_district_secondary_avg_rating
         - time_sale_year
-        - time_sale_week
+        - time_sale_day
         - time_sale_quarter_of_year
-        - time_sale_week_of_year
-        - time_sale_during_school_year
-        - time_sale_during_holidays
-        - ind_land_gte_95_percentile
-        - ind_bldg_gte_95_percentile
-        - ind_land_bldg_ratio_gte_10
-        - ind_pin_is_multicard
+        - time_sale_month_of_year
+        - time_sale_day_of_year
+        - time_sale_day_of_month
+        - time_sale_day_of_week
+        - time_sale_post_covid
+        - meta_strata_1
+        - meta_strata_2
         pv:
-          multicard_yoy_cap: 2.0
+          nonlivable_threshold: 5000
+          nonlivable_fixed_fmv: 20000
           land_pct_of_total_cap: 0.5
           round_break:
+          - 1000
           - 10000
           round_to_nearest:
-          - 100
+          - 1
           - 500
-          round_type: ceiling
+          - 1000
+          round_type: floor
         ratio_study:
           far_year: '2019'
           far_stage: board
+          far_column: meta_2yr_pri_board_tot
           near_year: '2021'
           near_stage: mailed
+          near_column: meta_mailed_tot
           num_quantile:
           - 3
           - 5
           - 10
     outs:
     - path: output/assessment_card/model_assessment_card.parquet
-      md5: 7f7259eb1f19c196d9d7c46cec2c1c58
-      size: 199830574
+      md5: 645d682d236b1a5c589e5cc4d4ac9c46
+      size: 36733306
     - path: output/assessment_pin/model_assessment_pin.parquet
-      md5: 98806b0c31b3fb7acadb270e5015a05e
-      size: 102120759
-    - path: output/intermediate/model_assessment.parquet
-      md5: d3a1b95976aad9920ed4a0132b559968
-      size: 24234125
+      md5: 2615902a6216224ccc09761f349a2235
+      size: 37568721
     - path: output/intermediate/timing/model_timing_assess.parquet
-      md5: b31b5c26bb22c8b5ec1b05e56b623904
+      md5: bfdaa2c9486d09b493eca4c22920acff
       size: 2338
   evaluate:
     cmd: Rscript pipeline/03-evaluate.R

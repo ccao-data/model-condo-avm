@@ -111,7 +111,8 @@ assessment_data_merged <- assessment_data_pred %>%
   left_join(
     assessment_data_final %>%
       select(
-        meta_pin, pred_pin_final_fmv, pred_pin_final_fmv_round
+        meta_pin, meta_card_num, 
+        pred_pin_final_fmv, pred_pin_final_fmv_round
       ),
     by = c("meta_pin")
   ) %>%
@@ -132,8 +133,8 @@ assessment_data_merged <- assessment_data_pred %>%
 # same
 assessment_data_merged %>%
   select(
-    meta_year, meta_pin, meta_class, meta_modeling_group,
-    pred_card_initial_fmv, ends_with("_num_sale"),
+    meta_year, meta_pin, meta_class, meta_card_num, meta_modeling_group,
+    ends_with("_num_sale"), pred_card_initial_fmv,
     all_of(params$model$predictor$all), township_code
   ) %>%
   ccao::vars_recode(

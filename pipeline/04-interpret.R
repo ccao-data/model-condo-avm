@@ -18,7 +18,7 @@ library(tictoc)
 library(yaml)
 source(here("R", "helpers.R"))
 
-# Initialize a dictionary of file paths. See R/file_dict.csv for details
+# Initialize a dictionary of file paths. See misc/file_dict.csv for details
 paths <- model_file_dict()
 
 # Load the parameters file containing the run settings
@@ -35,8 +35,8 @@ params <- read_yaml("params.yaml")
 lgbm_final_full_fit <- lightsnip::lgbm_load(paths$output$workflow_fit$local)
 lgbm_final_full_recipe <- readRDS(paths$output$workflow_recipe$local)
 
-# Load the input data used for assessment. This is the universe of CARDs (not
-# PINs) that need values. Will use the the trained model to retrieve SHAP values
+# Load the input data used for assessment. This is the universe of condo units
+# that need values. Will use the the trained model to retrieve SHAP values
 assessment_data <- as_tibble(read_parquet(paths$input$assessment$local))
 
 # Run the saved recipe on the assessment data to format it for prediction
