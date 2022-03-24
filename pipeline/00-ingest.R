@@ -246,7 +246,7 @@ training_data_clean <- training_data %>%
     time_sale_month_of_year = as.integer(month(meta_sale_date)),
     time_sale_day_of_year = as.integer(yday(meta_sale_date)),
     time_sale_day_of_month = as.integer(day(meta_sale_date)),
-    time_sale_day_of_week = as.interger(wday(meta_sale_date)),
+    time_sale_day_of_week = as.integer(wday(meta_sale_date)),
     time_sale_post_covid = meta_sale_date >= make_date(2020, 3, 15),
     
     # Time window to use for cross-validation and calculating spatial lags
@@ -305,7 +305,7 @@ assessment_data_clean <- assessment_data %>%
     time_sale_month_of_year = as.integer(month(meta_sale_date)),
     time_sale_day_of_year = as.integer(yday(meta_sale_date)),
     time_sale_day_of_month = as.integer(day(meta_sale_date)),
-    time_sale_day_of_week = as.interger(wday(meta_sale_date)),
+    time_sale_day_of_week = as.integer(wday(meta_sale_date)),
     time_sale_post_covid = meta_sale_date >= make_date(2020, 3, 15),
     time_split = time_interval %/% months(params$input$time_split)
   )
