@@ -23,7 +23,7 @@ run_type: "full"
 toggle:
   # Should the train stage run full cross-validation? Otherwise, the model
   # will be trained with the default hyperparameters specified below
-  cv_enable: true
+  cv_enable: false
   
   # Upload all modeling artifacts and results to S3 in the finalize stage. Set
   # to FALSE if you are not a CCAO employee
@@ -154,6 +154,7 @@ model:
       "char_building_units",
       "char_building_non_units",
       "char_tiebldgpct",
+      "char_is_mixed_use",
       "char_building_sf",
       "char_unit_sf",
       "char_bedrooms",
@@ -234,7 +235,6 @@ model:
     categorical: [
       "meta_township_code",
       "meta_nbhd_code",
-      "meta_pin10",
       "loc_cook_municipality_name",
       "loc_school_elementary_district_geoid",
       "loc_school_secondary_district_geoid",
@@ -330,6 +330,15 @@ model:
 
 # Parameters used in the assess stage to finalize the intial model predictions
 pv:
+  # For nonlivable units, anything below this value gets the same value as the
+  # prior year
+  nonlivable_threshold: 5000
+
+  # The fixed fair market value of non-livable PINs such as parking spaces,
+  # common areas, and storage. These PINs are nearly impossible to value with
+  # modeling since they don't really have sales
+  nonlivable_fixed_fmv: 20000
+
   # Cap the proportion of the PIN's total value dedicated to land. This is
   # necessary since sometimes the model provides low predictions relative to the
   # land rates created by Valuations
@@ -337,8 +346,8 @@ pv:
   
   # Rounding settings to apply to initial predictions. Rounding is done to
   # indicate to property owners that model values are estimates, not exact
-  round_break: [1000, 10000, 100000]
-  round_to_nearest: [1, 500, 5000, 10000]
+  round_break: [1000, 10000]
+  round_to_nearest: [1, 500, 1000]
   round_type: "floor"
 
 
