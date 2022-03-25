@@ -132,7 +132,7 @@ metadata <- tibble::tibble(
   model_predictor_knn_imp_name = list(params$model$predictor$knn_imp)
 ) %>%
   bind_cols(dvc_md5_df) %>%
-  relocate(starts_with("dvc_id_"), .after = "input_complex_match_fuzzy_value") %>%
+  relocate(starts_with("dvc_id_"), .after = "input_strata_weight_max") %>%
   arrow::write_parquet(paths$output$metadata$local)
 
 
