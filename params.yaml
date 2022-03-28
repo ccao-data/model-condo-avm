@@ -12,7 +12,7 @@
 # Note included with each run. Use this to summarize what changed about the run
 # or add context
 run_note: >
-  Full CV, 1500 iters and slightly lower learn rate. New rounding splits/amounts
+  No strata, no spatial lag, pin10 as categorical
 
 # Determines what stages and outputs are produced. See misc/file_dict.csv for
 # details. Note, DVC does not support "conditional" stages, so changing this to
@@ -89,7 +89,7 @@ input:
     ]
   
     # We can use either quantiles or k-means clustering to build condo strata
-    type: "kmeans"
+    type: "ntile"
     
     # Number of quantiles of centers to use when constructing strata
     k_1: 10
@@ -224,8 +224,7 @@ model:
       "time_sale_day_of_month",
       "time_sale_day_of_week",
       "time_sale_post_covid",
-      "meta_strata_1",
-      "meta_strata_2"
+      "meta_pin10"
     ]
     
     # List of predictors included in predictor.all which are categoricals. It is
@@ -241,8 +240,7 @@ model:
       "loc_tax_special_service_area_num",
       "loc_misc_subdivision_id",
       "time_sale_quarter_of_year",
-      "meta_strata_1",
-      "meta_strata_2"
+      "meta_pin10"
     ]
     
     # List of variables used with the recipe step step_impute_knn(). The knn
