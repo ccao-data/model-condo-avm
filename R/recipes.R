@@ -35,17 +35,17 @@ model_main_recipe <- function(data, pred_vars, cat_vars,
     # Replace novel levels with "new"
     step_novel(all_of(cat_vars), -has_role("ID")) %>%
     
-    # Impute missing values using KNN. Specific to condo model, usually used to
-    # impute missing condo building strata
-    step_impute_knn(
-      all_of(knn_vars),
-      neighbors = tune(),
-      impute_with = imp_vars(all_of(knn_imp_vars)),
-      options = list(
-        nthread = parallel::detectCores(logical = FALSE),
-        eps = 1e-08
-      )
-    ) %>%
+    # # Impute missing values using KNN. Specific to condo model, usually used to
+    # # impute missing condo building strata
+    # step_impute_knn(
+    #   all_of(knn_vars),
+    #   neighbors = tune(),
+    #   impute_with = imp_vars(all_of(knn_imp_vars)),
+    #   options = list(
+    #     nthread = parallel::detectCores(logical = FALSE),
+    #     eps = 1e-08
+    #   )
+    # ) %>%
     
     # Replace NA in factors with "unknown" 
     step_unknown(all_of(cat_vars), -has_role("ID")) %>%

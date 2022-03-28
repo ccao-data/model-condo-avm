@@ -205,8 +205,7 @@ stages:
           - time_sale_day_of_month
           - time_sale_day_of_week
           - time_sale_post_covid
-          - meta_strata_1
-          - meta_strata_2
+          - meta_pin10
           categorical:
           - meta_township_code
           - meta_nbhd_code
@@ -217,8 +216,7 @@ stages:
           - loc_tax_special_service_area_num
           - loc_misc_subdivision_id
           - time_sale_quarter_of_year
-          - meta_strata_1
-          - meta_strata_2
+          - meta_pin10
           knn:
           - meta_strata_1
           - meta_strata_2
@@ -248,11 +246,11 @@ stages:
         toggle.cv_enable: false
     outs:
     - path: output/intermediate/timing/model_timing_train.parquet
-      md5: e5f85b71f4b4417b513a234ab32a8890
+      md5: 0f19587dbbb693df5553b37ec7bf4cba
       size: 2331
     - path: output/parameter_final/model_parameter_final.parquet
-      md5: 0cde933ec9033d39c256b44d91d6d852
-      size: 8509
+      md5: acf088658567b5fd90354f182c97747a
+      size: 8172
     - path: output/parameter_range/model_parameter_range.parquet
       md5: 1f71c12f05375bf2674e696d3e70eb23
       size: 695
@@ -260,14 +258,14 @@ stages:
       md5: 1f71c12f05375bf2674e696d3e70eb23
       size: 695
     - path: output/test_card/model_test_card.parquet
-      md5: aac54c1e4dc4b4dd49c3a483c117ea2d
-      size: 1025959
+      md5: 9acd0992f860420c8f8259dd34586656
+      size: 1020055
     - path: output/workflow/fit/model_workflow_fit.zip
-      md5: 3d910bde5fe3257aada40a3ef04e4078
-      size: 2749766
+      md5: 310232ac54bf25104cacb8d5ae191f20
+      size: 2830575
     - path: output/workflow/recipe/model_workflow_recipe.rds
-      md5: 821486575ebbf376a607cb01b26d4b50
-      size: 3757610
+      md5: 553e1786e7bd67e80014f12cc035e3bb
+      size: 1219443
   assess:
     cmd: Rscript pipeline/02-assess.R
     deps:
@@ -284,11 +282,11 @@ stages:
       md5: 51148bf027263bf76a8e14bb9ee65d8d
       size: 45473494
     - path: output/workflow/fit/model_workflow_fit.zip
-      md5: 3d910bde5fe3257aada40a3ef04e4078
-      size: 2749766
+      md5: 310232ac54bf25104cacb8d5ae191f20
+      size: 2830575
     - path: output/workflow/recipe/model_workflow_recipe.rds
-      md5: 821486575ebbf376a607cb01b26d4b50
-      size: 3757610
+      md5: 553e1786e7bd67e80014f12cc035e3bb
+      size: 1219443
     params:
       params.yaml:
         assessment:
@@ -377,8 +375,7 @@ stages:
         - time_sale_day_of_month
         - time_sale_day_of_week
         - time_sale_post_covid
-        - meta_strata_1
-        - meta_strata_2
+        - meta_pin10
         pv:
           nonlivable_threshold: 5000
           nonlivable_fixed_fmv: 20000
@@ -404,23 +401,23 @@ stages:
           - 10
     outs:
     - path: output/assessment_card/model_assessment_card.parquet
-      md5: 631f2848cf79b025a80faff901d9e268
-      size: 34938748
+      md5: ef1ed3b7dbeb8dca65f87c420acaac5f
+      size: 35260797
     - path: output/assessment_pin/model_assessment_pin.parquet
-      md5: 6aeca7ff140dab911aca9d9b2d7f3da5
-      size: 37440521
+      md5: 86517871ce84e2429d13003290744731
+      size: 37376659
     - path: output/intermediate/timing/model_timing_assess.parquet
-      md5: d664e47667633728bdc2dc18a922c5f5
+      md5: 9176895ba921346ef04cf08458436bcd
       size: 2338
   evaluate:
     cmd: Rscript pipeline/03-evaluate.R
     deps:
     - path: output/assessment_pin/model_assessment_pin.parquet
-      md5: 6aeca7ff140dab911aca9d9b2d7f3da5
-      size: 37440521
+      md5: 86517871ce84e2429d13003290744731
+      size: 37376659
     - path: output/test_card/model_test_card.parquet
-      md5: aac54c1e4dc4b4dd49c3a483c117ea2d
-      size: 1025959
+      md5: 9acd0992f860420c8f8259dd34586656
+      size: 1020055
     params:
       params.yaml:
         assessment.data_year: '2021'
@@ -438,20 +435,20 @@ stages:
         run_type: full
     outs:
     - path: output/intermediate/timing/model_timing_evaluate.parquet
-      md5: 7dd9cd5b4c6acaa6034b4a8e64b7d45d
+      md5: 89e15a849e601ef9f2079d8b3fa0f28f
       size: 2352
     - path: output/performance/model_performance_assessment.parquet
-      md5: 5ade7d5d11cb7b7e23addbeb116ee46b
-      size: 999675
+      md5: 99732c61271ab417c12feb0404acdb23
+      size: 998973
     - path: output/performance/model_performance_test.parquet
-      md5: 613112dc16a03bdaa33c3f380b7ef1df
-      size: 877615
+      md5: e49374743901684e982809d6680ca136
+      size: 876565
     - path: output/performance_quantile/model_performance_quantile_assessment.parquet
-      md5: 509f1046b209531859d6f7fbc0c77c2a
-      size: 947194
+      md5: c8ba577ce023d900fb214444d998a69a
+      size: 950615
     - path: output/performance_quantile/model_performance_quantile_test.parquet
-      md5: 96fa703c5132c611511f381a2b494fda
-      size: 990135
+      md5: b6609119b80576c7d30f58cc44eb344b
+      size: 971781
   interpret:
     cmd: Rscript pipeline/04-interpret.R
     deps:
@@ -459,11 +456,11 @@ stages:
       md5: 1fa99990dd8ff806ee64e11463fb29a6
       size: 62287709
     - path: output/workflow/fit/model_workflow_fit.zip
-      md5: 3d910bde5fe3257aada40a3ef04e4078
-      size: 2749766
+      md5: 310232ac54bf25104cacb8d5ae191f20
+      size: 2830575
     - path: output/workflow/recipe/model_workflow_recipe.rds
-      md5: 821486575ebbf376a607cb01b26d4b50
-      size: 3757610
+      md5: 553e1786e7bd67e80014f12cc035e3bb
+      size: 1219443
     params:
       params.yaml:
         model.predictor.all:
@@ -546,39 +543,38 @@ stages:
         - time_sale_day_of_month
         - time_sale_day_of_week
         - time_sale_post_covid
-        - meta_strata_1
-        - meta_strata_2
+        - meta_pin10
     outs:
     - path: output/intermediate/timing/model_timing_interpret.parquet
-      md5: 17e91c8d960c2fadd81ba2544dd6affd
+      md5: 61f882c4f0dcdcfd3151bd5bc7f3a11c
       size: 2359
     - path: output/shap/model_shap.parquet
-      md5: f6a474a26c94a93e0388e84f7f05385e
-      size: 142447259
+      md5: 2bd4e6f57365be181fee3a6cc3aaf8a2
+      size: 146273506
   finalize:
     cmd: Rscript pipeline/05-finalize.R
     deps:
     - path: output/assessment_card/model_assessment_card.parquet
-      md5: 631f2848cf79b025a80faff901d9e268
-      size: 34938748
+      md5: ef1ed3b7dbeb8dca65f87c420acaac5f
+      size: 35260797
     - path: output/assessment_pin/model_assessment_pin.parquet
-      md5: 6aeca7ff140dab911aca9d9b2d7f3da5
-      size: 37440521
+      md5: 86517871ce84e2429d13003290744731
+      size: 37376659
     - path: output/intermediate/timing/model_timing_assess.parquet
-      md5: d664e47667633728bdc2dc18a922c5f5
+      md5: 9176895ba921346ef04cf08458436bcd
       size: 2338
     - path: output/intermediate/timing/model_timing_evaluate.parquet
-      md5: 7dd9cd5b4c6acaa6034b4a8e64b7d45d
+      md5: 89e15a849e601ef9f2079d8b3fa0f28f
       size: 2352
     - path: output/intermediate/timing/model_timing_interpret.parquet
-      md5: 17e91c8d960c2fadd81ba2544dd6affd
+      md5: 61f882c4f0dcdcfd3151bd5bc7f3a11c
       size: 2359
     - path: output/intermediate/timing/model_timing_train.parquet
-      md5: e5f85b71f4b4417b513a234ab32a8890
+      md5: 0f19587dbbb693df5553b37ec7bf4cba
       size: 2331
     - path: output/parameter_final/model_parameter_final.parquet
-      md5: 0cde933ec9033d39c256b44d91d6d852
-      size: 8509
+      md5: acf088658567b5fd90354f182c97747a
+      size: 8172
     - path: output/parameter_range/model_parameter_range.parquet
       md5: 1f71c12f05375bf2674e696d3e70eb23
       size: 695
@@ -586,29 +582,29 @@ stages:
       md5: 1f71c12f05375bf2674e696d3e70eb23
       size: 695
     - path: output/performance/model_performance_assessment.parquet
-      md5: 5ade7d5d11cb7b7e23addbeb116ee46b
-      size: 999675
+      md5: 99732c61271ab417c12feb0404acdb23
+      size: 998973
     - path: output/performance/model_performance_test.parquet
-      md5: 613112dc16a03bdaa33c3f380b7ef1df
-      size: 877615
+      md5: e49374743901684e982809d6680ca136
+      size: 876565
     - path: output/performance_quantile/model_performance_quantile_assessment.parquet
-      md5: 509f1046b209531859d6f7fbc0c77c2a
-      size: 947194
+      md5: c8ba577ce023d900fb214444d998a69a
+      size: 950615
     - path: output/performance_quantile/model_performance_quantile_test.parquet
-      md5: 96fa703c5132c611511f381a2b494fda
-      size: 990135
+      md5: b6609119b80576c7d30f58cc44eb344b
+      size: 971781
     - path: output/shap/model_shap.parquet
-      md5: f6a474a26c94a93e0388e84f7f05385e
-      size: 142447259
+      md5: 2bd4e6f57365be181fee3a6cc3aaf8a2
+      size: 146273506
     - path: output/test_card/model_test_card.parquet
-      md5: aac54c1e4dc4b4dd49c3a483c117ea2d
-      size: 1025959
+      md5: 9acd0992f860420c8f8259dd34586656
+      size: 1020055
     - path: output/workflow/fit/model_workflow_fit.zip
-      md5: 3d910bde5fe3257aada40a3ef04e4078
-      size: 2749766
+      md5: 310232ac54bf25104cacb8d5ae191f20
+      size: 2830575
     - path: output/workflow/recipe/model_workflow_recipe.rds
-      md5: 821486575ebbf376a607cb01b26d4b50
-      size: 3757610
+      md5: 553e1786e7bd67e80014f12cc035e3bb
+      size: 1219443
     params:
       params.yaml:
         cv:
@@ -728,8 +724,7 @@ stages:
             - time_sale_day_of_month
             - time_sale_day_of_week
             - time_sale_post_covid
-            - meta_strata_1
-            - meta_strata_2
+            - meta_pin10
             categorical:
             - meta_township_code
             - meta_nbhd_code
@@ -740,8 +735,7 @@ stages:
             - loc_tax_special_service_area_num
             - loc_misc_subdivision_id
             - time_sale_quarter_of_year
-            - meta_strata_1
-            - meta_strata_2
+            - meta_pin10
             knn:
             - meta_strata_1
             - meta_strata_2
@@ -837,15 +831,15 @@ stages:
           - 3
           - 5
           - 10
-        run_note: "Strata 1 & 2 (ntiles), no spatial sale price lag, no pin10\n"
+        run_note: "No strata, no spatial lag, pin10 as categorical\n"
         run_type: full
         toggle:
           cv_enable: false
           upload_to_s3: true
     outs:
     - path: output/metadata/model_metadata.parquet
-      md5: f909024d8a6330075fc62d1dfe693224
-      size: 26141
+      md5: f7421e522fd5b465a2c5f2bc68319988
+      size: 26293
     - path: output/timing/model_timing.parquet
-      md5: 9a48fa61924bcc5220dd7c9b9746af90
-      size: 5242
+      md5: 0afe9e8e024ba03ae42692d00d8a1560
+      size: 5263

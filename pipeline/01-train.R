@@ -74,8 +74,8 @@ train_recipe <- model_main_recipe(
   data = training_data_full %>% select(-time_split),
   pred_vars = params$model$predictor$all,
   cat_vars = params$model$predictor$categorical,
-  knn_vars = params$model$predictor$knn,
-  knn_imp_vars = params$model$predictor$knn_imp,
+  # knn_vars = params$model$predictor$knn,
+  # knn_imp_vars = params$model$predictor$knn_imp,
   id_vars = params$model$predictor$id
 )
 
