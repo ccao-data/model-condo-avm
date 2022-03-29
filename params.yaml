@@ -12,7 +12,8 @@
 # Note included with each run. Use this to summarize what changed about the run
 # or add context
 run_note: >
-  No strata, no spatial lag, pin10 as categorical
+  Strata 1 & 2, kmeans, township grouping var (rather than triad),
+  no spatial lag, no pin10
 
 # Determines what stages and outputs are produced. See misc/file_dict.csv for
 # details. Note, DVC does not support "conditional" stages, so changing this to
@@ -85,15 +86,15 @@ input:
     # Grouping variables used in the construction of condo strata. Each group
     # will have its own independent strata of size K 1 and K 2 (see below)
     group_var: [
-      "meta_triad_code"
+      "meta_township_code"
     ]
   
     # We can use either quantiles or k-means clustering to build condo strata
-    type: "ntile"
+    type: "kmeans"
     
     # Number of quantiles of centers to use when constructing strata
-    k_1: 10
-    k_2: 100
+    k_1: 3
+    k_2: 5
     
     # Max and min weights for mean sale price weighted by sale date
     weight_min: 0.5
@@ -224,7 +225,8 @@ model:
       "time_sale_day_of_month",
       "time_sale_day_of_week",
       "time_sale_post_covid",
-      "meta_pin10"
+      "meta_strata_1",
+      "meta_strata_2"
     ]
     
     # List of predictors included in predictor.all which are categoricals. It is
@@ -240,7 +242,8 @@ model:
       "loc_tax_special_service_area_num",
       "loc_misc_subdivision_id",
       "time_sale_quarter_of_year",
-      "meta_pin10"
+      "meta_strata_1",
+      "meta_strata_2"
     ]
     
     # List of variables used with the recipe step step_impute_knn(). The knn
