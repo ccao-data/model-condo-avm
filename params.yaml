@@ -12,8 +12,8 @@
 # Note included with each run. Use this to summarize what changed about the run
 # or add context
 run_note: >
-  Strata 1 & 2, kmeans, township grouping var (rather than triad),
-  no spatial lag, no pin10
+  re-running 'tender-tayun-2022-03-29' 
+  with full CV, 1500 iterations, and a learn rate of 0.075
 
 # Determines what stages and outputs are produced. See misc/file_dict.csv for
 # details. Note, DVC does not support "conditional" stages, so changing this to
@@ -93,8 +93,8 @@ input:
     type: "kmeans"
     
     # Number of quantiles of centers to use when constructing strata
-    k_1: 3
-    k_2: 5
+    k_1: 10
+    k_2: 300
     
     # Max and min weights for mean sale price weighted by sale date
     weight_min: 0.5
@@ -271,8 +271,8 @@ model:
   parameter:
     # Total number of iterations. Usually changed in tandem with learning_rate
     # https://lightgbm.readthedocs.io/en/latest/Parameters.html#num_iterations
-    num_iterations: 100
-    learning_rate: 0.1
+    num_iterations: 1500
+    learning_rate: 0.075
     
     # For CV only, proportion of the training data to hold out for use in 
     # early stopping + the metric to evaluate. See R docs for details:
