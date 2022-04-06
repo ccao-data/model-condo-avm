@@ -1,6 +1,7 @@
 Table of Contents
 ================
 
+-   [Prior Models](#prior-models)
 -   [Model Overview](#model-overview)
     -   [Differences Compared to the Residential
         Model](#differences-compared-to-the-residential-model)
@@ -9,6 +10,7 @@ Table of Contents
     -   [Condo Strata](#condo-strata)
 -   [Ongoing Issues](#ongoing-issues)
     -   [Unit Heterogeneity](#unit-heterogeneity)
+    -   [Buildings With Few Sales](#buildings-with-few-sales)
     -   [Buildings Without Sales](#buildings-without-sales)
 -   [FAQs](#faqs)
 -   [Usage](#usage)
@@ -16,8 +18,6 @@ Table of Contents
 -   [Contributing](#contributing)
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
-
-# Model Overview
 
 > :warning: **NOTE** :warning:
 >
@@ -32,33 +32,49 @@ Table of Contents
 > model](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm)
 > first.
 
+# Prior Models
+
+This repository contains code, data, and documentation for the Cook
+County Assessor’s 2022 condominium reassessment model. Information about
+prior year models can be found at the following links:
+
+-   [2021 City of Chicago
+    Assessment](https://gitlab.com/ccao-data-science---modeling/models/ccao_condo_avm/-/tree/2021-assessment-year)
+-   [2020 South Triad
+    Assessment](https://gitlab.com/ccao-data-science---modeling/ccao_sf_cama_dev)
+-   [2019 North Triad
+    Assessment](https://gitlab.com/ccao-data-science---modeling/ccao_sf_cama_dev)
+-   Models from before 2019 are not currently available. They are
+    primarily custom SPSS code that is difficult to run outside of the
+    CCAO environment
+
+# Model Overview
+
 The duty of the Cook County Assessor’s Office is to value property in a
 fair, accurate, and transparent way. The Assessor is committed to
-transparency throughout the assessment process. As such, this repository
+transparency throughout the assessment process. As such, this document
 contains:
 
--   [Nearly all code used to determine Cook County condominium property
-    values](./model.R).
 -   [A description of the differences between the residential model and
     this (condominium)
-    model](#differences-compared-to-the-residential-model).
+    model](#differences-compared-to-the-residential-model)
 -   [An outline of ongoing issues specific to condominium
-    assessments](#ongoing-issues).
+    assessments](#ongoing-issues)
 
-The repository itself contains code for the Computer Assisted Mass
-Appraisal (CAMA) system used to generate initial assessed values for all
-condominium properties in Cook County. This system is effectively an
-advanced statistical/machine learning model (hereafter referred to as
-“the condo model”) which uses previous sales to generate estimated fair
-market values (assessments) for unsold properties.
+The repository itself contains the [code](./pipeline) and
+[data](./input) for the Automated Valuation Model (AVM) used to generate
+initial assessed values for all condominium properties in Cook County.
+This system is effectively an advanced machine learning model (hereafter
+referred to as “the model”). It uses previous sales to generate
+estimated sale values (assessments) for all properties.
 
 ## Differences Compared to the Residential Model
 
 The Cook County Assessor’s Office ***does not track characteristic data
-for condominiums***. Like most assessors nationwide, our office cannot
-enter buildings to observe property characteristics. For condos, this
-means we cannot observe unit square footage, amenities, quality, or any
-other interior characteristics.
+for condominiums***. Like most assessors nationwide, our office staff
+cannot enter buildings to observe property characteristics. For condos,
+this means we cannot observe amenities, quality, or any other interior
+characteristics.
 
 The only information our office has about individual condominium units
 is their age, location, sale date/price, and percentage of ownership.
@@ -75,40 +91,106 @@ We leverage these qualities to produce what we call ***strata***, a
 feature unique to the condo model. See [Condo Strata](#condo-strata) for
 more information about how strata is used and calculated.
 
+> :warning: **NOTE** :warning:
+>
+> This year, the CCAO has started to manually collect high-level
+> condominium data, including total building square footage and
+> estimated unit square footage/number of bedrooms. This data is sourced
+> from listings and a number of additional third-party sources and is
+> available for the North triad only.
+
 ### Features Used
 
-Because our office cannot observe individual condo unit characteristics,
-we must rely on aggregate geospatial features, economic features,
-[strata](#condo-strata), and time of sale to determine condo assessed
-values. The features in the table below are the ones used in the model
-as of 2021-04-07.
+Because our office (mostly) cannot observe individual condo unit
+characteristics, we must rely on aggregate geospatial features, economic
+features, [strata](#condo-strata), and time of sale to determine condo
+assessed values. The features in the table below are the ones used in
+the 2022 assessment model.
 
-| Feature Name                      | Category       | Type      | Unique to Condo Model |
-|:----------------------------------|:---------------|:----------|:----------------------|
-| Age                               | Characteristic | numeric   |                       |
-| Tract Median Income               | Economic       | numeric   |                       |
-| Tax Rate                          | Economic       | numeric   |                       |
-| FEMA Floodplain                   | Geospatial     | logical   |                       |
-| O’Hare Noise Indicator            | Geospatial     | logical   |                       |
-| Road Proximity &lt; 100 Feet      | Geospatial     | logical   |                       |
-| Road Proximity 101 - 300 Feet     | Geospatial     | logical   |                       |
-| Flood Risk Direction              | Geospatial     | numeric   |                       |
-| Flood Risk Factor                 | Geospatial     | numeric   |                       |
-| Elementary/Middle School District | Geospatial     | character |                       |
-| High School District              | Geospatial     | character |                       |
-| Neighborhood Code                 | Meta           | character |                       |
-| Township Code                     | Meta           | character |                       |
-| Building Strata (10)              | Meta           | character | X                     |
-| Building Strata (300)             | Meta           | character | X                     |
-| Sale Year                         | Time           | numeric   |                       |
-| Sale Quarter                      | Time           | numeric   |                       |
-| Sale Week                         | Time           | numeric   |                       |
-| Sale Quarter of Year              | Time           | character |                       |
-| Sale Month of Year                | Time           | character |                       |
-| Sale Week of Year                 | Time           | numeric   |                       |
-| Sale Day of Year                  | Time           | numeric   |                       |
-| Sale During School Year           | Time           | logical   |                       |
-| Sale During Holidays              | Time           | logical   |                       |
+| Feature Name                                                            | Category       | Type      | Unique to Condo Model |
+|:------------------------------------------------------------------------|:---------------|:----------|:----------------------|
+| Condominium Building Year Built                                         | Characteristic | numeric   | X                     |
+| Condominium % Ownership                                                 | Characteristic | numeric   | X                     |
+| Total Condominium Building Parcels                                      | Characteristic | numeric   | X                     |
+| Total Condominium Building Non-Livable Parcels                          | Characteristic | numeric   | X                     |
+| Total Condominium Building Livable Parcels                              | Characteristic | numeric   | X                     |
+| Total Condominium Building Square Footage                               | Characteristic | numeric   | X                     |
+| Condominium Unit Bedrooms                                               | Characteristic | numeric   | X                     |
+| Condominium Unit Square Footage                                         | Characteristic | numeric   | X                     |
+| Condominium Building Is Mixed Use                                       | Characteristic | logical   | X                     |
+| Condominium Building Strata 1                                           | Meta           | character | X                     |
+| Condominium Building Strata 2                                           | Meta           | character | X                     |
+| Percent Population Age, Under 19 Years Old                              | acs5           | numeric   |                       |
+| Percent Population Age, Over 65 Years Old                               | acs5           | numeric   |                       |
+| Median Population Age                                                   | acs5           | numeric   |                       |
+| Percent Population Mobility, In Same House 1 Year Ago                   | acs5           | numeric   |                       |
+| Percent Population Mobility, Moved From Other State in Past Year        | acs5           | numeric   |                       |
+| Percent Households Family, Married                                      | acs5           | numeric   |                       |
+| Percent Households Nonfamily, Living Alone                              | acs5           | numeric   |                       |
+| Percent Population Education, High School Degree                        | acs5           | numeric   |                       |
+| Percent Population Education, Bachelor Degree                           | acs5           | numeric   |                       |
+| Percent Population Education, Graduate Degree                           | acs5           | numeric   |                       |
+| Percent Population Income, Below Poverty Level                          | acs5           | numeric   |                       |
+| Median Income, Household in Past Year                                   | acs5           | numeric   |                       |
+| Median Income, Per Capita in Past Year                                  | acs5           | numeric   |                       |
+| Percent Population Income, Received SNAP in Past Year                   | acs5           | numeric   |                       |
+| Percent Population Employment, Unemployed                               | acs5           | numeric   |                       |
+| Median Occupied Household, Total, Year Built                            | acs5           | numeric   |                       |
+| Median Occupied Household, Renter, Gross Rent                           | acs5           | numeric   |                       |
+| Median Occupied Household, Owner, Market Value                          | acs5           | numeric   |                       |
+| Percent Occupied Households, Owner                                      | acs5           | numeric   |                       |
+| Percent Occupied Households, Total, One or More Selected Conditions     | acs5           | numeric   |                       |
+| Percent Population Mobility, Moved From Within Same County in Past Year | acs5           | numeric   |                       |
+| Longitude                                                               | loc            | numeric   |                       |
+| Latitude                                                                | loc            | numeric   |                       |
+| Municipality Name                                                       | loc            | character |                       |
+| FEMA Special Flood Hazard Area                                          | loc            | logical   |                       |
+| First Street Factor                                                     | loc            | numeric   |                       |
+| First Street Risk Direction                                             | loc            | numeric   |                       |
+| O’Hare Noise Contour No Buffer Boolean                                  | loc            | logical   |                       |
+| School Elementary District GEOID                                        | loc            | character |                       |
+| School Secondary District GEOID                                         | loc            | character |                       |
+| School Unified District GEOID                                           | loc            | character |                       |
+| Special Service Area Number                                             | loc            | character |                       |
+| CMAP Walkability Score (No Transit)                                     | loc            | numeric   |                       |
+| CMAP Walkability Total Score                                            | loc            | numeric   |                       |
+| Subdivision ID                                                          | loc            | character |                       |
+| Unincorporated Area Boolean                                             | loc            | logical   |                       |
+| Airport Noise DNL                                                       | loc            | numeric   |                       |
+| Township Code                                                           | Meta           | character |                       |
+| Neighborhood Code                                                       | Meta           | character |                       |
+| 2 Years Prior BoR Assessed Value (Total)                                | Meta           | numeric   |                       |
+| Mailed Assessed Value (Total)                                           | Meta           | numeric   |                       |
+| DePaul IHS Average Year Index                                           | other          | numeric   |                       |
+| Property Tax Bill Aggregate Rate                                        | other          | numeric   |                       |
+| School District (Elementary) GreatSchools Rating                        | other          | numeric   |                       |
+| School District (Secondary) GreatSchools Rating                         | other          | numeric   |                       |
+| Number of PINs in Half Mile                                             | prox           | numeric   |                       |
+| Number of Bus Stops in Half Mile                                        | prox           | numeric   |                       |
+| Number of Foreclosures Per 1000 PINs (Past 5 Years)                     | prox           | numeric   |                       |
+| Number of Schools in Half Mile                                          | prox           | numeric   |                       |
+| Number of Schools with Rating in Half Mile                              | prox           | numeric   |                       |
+| Average School Rating in Half Mile                                      | prox           | numeric   |                       |
+| Nearest Bike Trail Distance (Feet)                                      | prox           | numeric   |                       |
+| Nearest Cemetery Distance (Feet)                                        | prox           | numeric   |                       |
+| Nearest CTA Route Distance (Feet)                                       | prox           | numeric   |                       |
+| Nearest CTA Stop Distance (Feet)                                        | prox           | numeric   |                       |
+| Nearest Hospital Distance (Feet)                                        | prox           | numeric   |                       |
+| Lake Michigan Distance (Feet)                                           | prox           | numeric   |                       |
+| Nearest Major Road Distance (Feet)                                      | prox           | numeric   |                       |
+| Nearest Metra Route Distance (Feet)                                     | prox           | numeric   |                       |
+| Nearest Metra Stop Distance (Feet)                                      | prox           | numeric   |                       |
+| Nearest Park Distance (Feet)                                            | prox           | numeric   |                       |
+| Nearest Railroad Distance (Feet)                                        | prox           | numeric   |                       |
+| Nearest Water Distance (Feet)                                           | prox           | numeric   |                       |
+| Sale Year                                                               | Time           | numeric   |                       |
+| Sale Day                                                                | Time           | numeric   |                       |
+| Sale Quarter of Year                                                    | Time           | character |                       |
+| Sale Month of Year                                                      | Time           | character |                       |
+| Sale Day of Year                                                        | Time           | numeric   |                       |
+| Sale Day of Month                                                       | Time           | numeric   |                       |
+| Sale Day of Week                                                        | Time           | numeric   |                       |
+| Sale After COVID-19                                                     | Time           | logical   |                       |
 
 ### Valuation
 
@@ -116,69 +198,54 @@ For the most part, condos are valued the same way as single- and
 multi-family residential property: we [train a
 model](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm#how-it-works)
 using individual condo unit sales, predict the value of unsold units,
-and then apply a [post-modeling
+and then apply any [post-modeling
 adjustment](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm#post-modeling).
 
-However, condos also have an additional valuation step which
-redistributes assessed values within the same building. Each condominium
-unit in a building has a ***percentage of ownership***. This percentage
-is typically declared by the the building’s developers when the building
-is created. Typically, but not always, more valuable units (penthouses,
-units with nice views, etc.) will have a higher percentage of ownership.
+However, because the CCAO has so [little information about individual
+units](#differences-compared-to-the-residential-model), we must rely on
+the [condominium percentage of ownership](#features-used) to
+differentiate between units in a building. This feature is effectively a
+percentage of the building’s overall value. It is created when a
+condominium declaration is filed with the County (usually by the
+developer of the building).
 
-To finalize condo unit values, we sum all of the initial values
-predicted by the model to the building level, then multiply this
-aggregate value by the percentage of ownership of each unit. Visually,
-this looks like:
-
-![](docs/figures/valuation-perc-owner.png)
-
-Thus, in-building variation in condominium assessed value is almost
-always due to variation in percentage of ownership, *not* due to the
-model. The model - by definition, since we [cannot observe differences
-between units](#differences-compared-to-the-residential-model) - will
-produce the same initial predicted value for every unit in the same
-building.
+Percentage of ownership is the single most important feature in the
+condo model. It determines almost all intra-building differences in unit
+values.
 
 ## Condo Strata
 
 The condo model uses an engineered feature called *strata* to deliver
-most of its predictive power. Strata is the binned 5-year average sale
-price of the building. There are two strata features used in the model,
-one with 10 bins and one with 300 bins. Buildings are binned across the
-entire county (not at the township or neighborhood level). A visual
-representation of strata binning looks like:
+much of its predictive power. Strata is the binned, time-weighted,
+5-year average sale price of the building. There are two strata features
+used in the model, one with 10 bins and one with 300 bins. Buildings are
+binned across each triad using either quantiles or 1-dimensional
+k-means. A visual representation of quantile-based strata binning looks
+like:
 
 ![](docs/figures/strata.png)
 
-To put the strata in more concrete terms, the table below shows
-(roughly) the 10-level strata used for the 2021 reassessment. Each
-condominium unit will be assigned a strata from this table (Strata 1,
-Strata 2, etc.) based on the 5-year average sale price of its building.
-All units in a building will have the same strata.
+To put strata in more concrete terms, the table below shows a sample
+5-level strata. Each condominium unit would be assigned a strata from
+this table (Strata 1, Strata 2, etc.) based on the 5-year weighted
+average sale price of its building. All units in a building will have
+the same strata.
 
-| Strata    | Range of 5-year Average Sale Price |
-|:----------|:-----------------------------------|
-| Strata 1  | $0 - $94K                          |
-| Strata 2  | $94K - $121K                       |
-| Strata 3  | $121K - $146K                      |
-| Strata 4  | $146K - $172K                      |
-| Strata 5  | $172K - $203K                      |
-| Strata 6  | $203K - $242K                      |
-| Strata 7  | $242K - $288K                      |
-| Strata 8  | $288K - $358K                      |
-| Strata 9  | $358K - $473K                      |
-| Strata 10 | $473K+                             |
+| Strata   | Range of 5-year Average Sale Price |
+|:---------|:-----------------------------------|
+| Strata 1 | $0 - $121K                         |
+| Strata 2 | $121K - $149K                      |
+| Strata 3 | $149K - $199K                      |
+| Strata 4 | $199K - $276K                      |
+| Strata 5 | $276K+                             |
 
 Some additional notes on strata:
 
--   Strata is calculated in the
-    [etl\_condo\_data](https://gitlab.com/ccao-data-science---modeling/processes/etl_condo_data)
-    repo, not in this repository.
+-   Strata is calculated in the [ingest stage](./pipeline/00-ingest.R)
+    of this repository.
 -   Calculating the 5-year average sale price of a building requires at
-    least 2 sales. Buildings with less than 2 sales in the past 5 years
-    are assigned an “Unknown” strata. See [Buildings Without
-    Sales](#buildings-without-sales).
+    least 1 sale. Buildings with no sales have their strata imputed via
+    KNN (using year built, number of units, and location as features).
 -   Number of bins (10 and 300) was chosen based on model performance.
     These numbers yielded the lowest root mean-squared error (RMSE).
 
@@ -191,8 +258,7 @@ of the challenges we face.
 
 ### Unit Heterogeneity
 
-The current [valuation](#valuation) methodology for condominiums makes
-two assumptions:
+The current modeling methodology for condominiums makes two assumptions:
 
 1.  Condos units within the same building are similar and will sell for
     similar amounts.
@@ -200,41 +266,49 @@ two assumptions:
     accurately reflect and be proportional to any difference in value
     between units.
 
-The model/valuation process works even in heterogeneous buildings as
-long as assumption 2 is met. For example, imagine a building with 8
-identical units and 1 penthouse unit. This building violates assumption
-1 because the penthouse unit is likely larger and worth more than the
-other 10. However, if the percentage of ownership of each unit is
-roughly proportional to its value, then each unit will still receive a
-fair assessment.
+The model process works even in heterogeneous buildings as long as
+assumption 2 is met. For example, imagine a building with 8 identical
+units and 1 penthouse unit. This building violates assumption 1 because
+the penthouse unit is likely larger and worth more than the other 10.
+However, if the percentage of ownership of each unit is roughly
+proportional to its value, then each unit will still receive a fair
+assessment.
 
-However, the valuation process can produce poor results when both of
-these assumptions are violated. For example, if a building has an
-extreme mix of different units, each with the same percentage of
-ownership, then smaller, less expensive units will be overvalued and
-larger, more expensive units will be undervalued.
+However, the model can produce poor results when both of these
+assumptions are violated. For example, if a building has an extreme mix
+of different units, each with the same percentage of ownership, then
+smaller, less expensive units will be overvalued and larger, more
+expensive units will be undervalued.
 
 This problem is rare, but does occur in certain buildings with many
 heterogeneous units. Such buildings typically go through a process of
 secondary review to ensure the accuracy of the individual unit values.
 
-### Buildings Without Sales
+### Buildings With Few Sales
 
 The condo model relies on sales within the same building to calculate
-[strata](#condo-strata). When no sales have occurred in a building in
-the 5 years prior to assessment, the building is assigned an “Unknown”
-strata. This placeholder will effectively take the average of all
-buildings without an assigned strata.
+[strata](#condo-strata). This method works well for large buildings with
+many sales, but can break down when there are only 1 or 2 sales in a
+building. The primary danger here is *unrepresentative* sales,
+i.e. sales that deviate significantly from the real average value of a
+building’s units. When this happens, buildings can have their average
+unit sale value pegged too high or low.
 
-Buildings without any recent sales are relatively rare, as condos have a
-higher turnover rate than single and multi-family property. Smaller
-buildings with low turnover are the most likely to not have recent sales
-or be assigned a strata.
+Fortunately, buildings without any recent sales are relatively rare, as
+condos have a higher turnover rate than single and multi-family
+property. Smaller buildings with low turnover are the most likely to not
+have recent sales.
 
-Most of the time, the model still produces reasonable results for such
-buildings. However, buildings without sales still go through an
-additional round of review to ensure the accuracy of individual unit
-values.
+### Buildings Without Sales
+
+When no sales have occurred in a building in the 5 years prior to
+assessment, the building’s strata features are imputed. The model will
+look at nearby buildings that have similar unit counts/age and then try
+to assign an appropriate strata to the target building.
+
+Most of the time, this technique produces reasonable results. However,
+buildings without sales still go through an additional round of review
+to ensure the accuracy of individual unit values.
 
 # FAQs
 
@@ -247,22 +321,24 @@ FAQs](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm#faqs).
 As with the [residential
 model](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm),
 the importance of individual features varies by location and time.
-However, generally speaking, the two most important features are:
+However, generally speaking, the most important features are:
 
 -   Location, location, location. Location is the largest driver of
     county-wide variation in condo value. We account for location using
     [geospatial features like
     neighborhood](https://gitlab.com/ccao-data-science---modeling/models/ccao_condo_avm#features-used).
+-   Condo percentage of ownership, which determines the intra-building
+    variation in unit price.
 -   [Condo building strata](#condo-strata). Strata provides us with a
-    good estimate of how much units in each building are worth.
+    good estimate of the average sale price of a building’s units.
 
 **Q: How do I see my condo building’s strata?**
 
 Individual building [strata](#condo-strata) are not included with
 assessment notices or shown on the CCAO’s website. However, strata *are*
 stored in the sample data included in this repository. You can load the
-data (`input/assmntdata.parquet`) using R and the `read_parquet()`
-function from the `arrow` library.
+data (`input/condo_strata_data.parquet`) using R and the
+`read_parquet()` function from the `arrow` library.
 
 **Q: How do I see the assessed value of other units in my building?**
 
