@@ -248,7 +248,6 @@ if (cv_enable) {
   # Save tuning results to file. This is a data frame where each row is one
   # CV iteration
   lgbm_search %>%
-    select(-.notes) %>%
     lightsnip::axe_tune_data() %>%
     arrow::write_parquet(paths$output$parameter_raw$local)
   
