@@ -211,7 +211,7 @@ sales_data_bldg_change_pct <- sales_data %>%
 land_nbhd_rate <- read_parquet(paths$input$land_nbhd_rate$local)
 
 
-## 5.2. Keep PIN Level --------------------------------------------------
+## 5.2. Keep PIN-Level Data ----------------------------------------------------
 
 # Clean PIN level data, keeping only columns in common with the SF/MF model
 assessment_data_pin <- assessment_data_merged %>%
