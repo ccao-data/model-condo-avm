@@ -90,7 +90,7 @@ input:
     ]
   
     # We can use either quantiles or k-means clustering to build condo strata
-    type: "kmeans"
+    type: "ntile"
     
     # Number of quantiles of centers to use when constructing strata
     k_1: 10
