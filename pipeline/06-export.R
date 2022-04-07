@@ -66,9 +66,10 @@ assessment_pin <- dbGetQuery(
 # order for DR sheets
 assessment_pin_prepped <- assessment_pin %>%
   mutate(
-    prior_near_land_rate = round(prior_near_land / char_land_sf, 2),
-    prior_near_bldg_rate = round(prior_near_bldg / char_total_bldg_sf, 2),
-    prior_near_land_pct_total = round(prior_near_land / prior_near_tot, 2),
+    prior_near_land_rate = round(prior_near_land / (char_land_sf * meta_tieback_proration_rate), 2),
+    prior_near_bldg_rate = round(prior_near_bldg / char_unit_sf, 2),
+    pred_pin_bldg_rate_effective = round(pred_pin_final_fmv_round / char_unit_sf, 2),
+    prior_near_land_pct_total = round(prior_near_land / prior_near_tot, 4),
     property_full_address = paste0(
       loc_property_address, 
       ", ", loc_property_city, " ", loc_property_state, 
@@ -86,10 +87,10 @@ assessment_pin_prepped <- assessment_pin %>%
     property_full_address, loc_cook_municipality_name, meta_pin10,
     meta_tieback_key_pin, meta_tieback_proration_rate,
     prior_near_land, prior_near_bldg, prior_near_tot,
-    prior_near_land_rate, prior_near_land_pct_total,
+    prior_near_land_rate, prior_near_bldg_rate, prior_near_land_pct_total,
     pred_pin_final_fmv, pred_pin_final_fmv_land, pred_pin_final_fmv_bldg,
-    pred_pin_final_fmv_round, land_rate_per_sqft,
-    pred_pin_land_rate_effective, pred_pin_land_pct_total,
+    pred_pin_final_fmv_round, land_rate_per_sqft, pred_pin_land_rate_effective,
+    pred_pin_bldg_rate_effective, pred_pin_land_pct_total,
     prior_near_yoy_change_nom, prior_near_yoy_change_pct,
     sale_recent_1_date, sale_recent_1_price, sale_recent_1_document_num,
     sale_recent_2_date, sale_recent_2_price, sale_recent_2_document_num,
@@ -162,21 +163,21 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   # Add styles to PIN sheet
   addStyle(
     wb, pin_sheet_name, style = style_price,
-    rows = pin_row_range, cols = c(9:11, 14:17, 21, 24, 27), gridExpand = TRUE
+    rows = pin_row_range, cols = c(9:11, 15:18, 23, 26, 29), gridExpand = TRUE
   )
   addStyle(
     wb, pin_sheet_name, style = style_2digit,
-    rows = pin_row_range, cols = c(12, 18:19), gridExpand = TRUE
+    rows = pin_row_range, cols = c(12:13, 19:21), gridExpand = TRUE
   )
   addStyle(
     wb, pin_sheet_name, style = style_pct,
-    rows = pin_row_range, cols = c(8, 13, 20, 22), gridExpand = TRUE
+    rows = pin_row_range, cols = c(8, 14, 22, 24), gridExpand = TRUE
   )
   addStyle(
     wb, pin_sheet_name, style = style_comma,
-    rows = pin_row_range, cols = c(30, 32, 33, 35), gridExpand = TRUE
+    rows = pin_row_range, cols = c(32, 34, 35, 37), gridExpand = TRUE
   )
-  addFilter(wb, pin_sheet_name, 6, 1:42)
+  addFilter(wb, pin_sheet_name, 6, 1:44)
   
   # Write PIN-level data to workbook
   writeData(
@@ -199,11 +200,11 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   )
   writeData(
     wb, pin_sheet_name, tibble(comp_header),
-    startCol = 10, startRow = 5, colNames = FALSE
+    startCol = 9, startRow = 5, colNames = FALSE
   )
   writeData(
     wb, pin_sheet_name, tibble(model_header),
-    startCol = 16, startRow = 5, colNames = FALSE
+    startCol = 15, startRow = 5, colNames = FALSE
   )
   
   # Save workbook to file based on town name
