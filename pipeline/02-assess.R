@@ -334,7 +334,7 @@ assessment_data_pin_final <- assessment_data_pin_2 %>%
 ## 5.5. Clean/Reorder/Save -----------------------------------------------------
 
 # Recode characteristics from numeric encodings to human-readable strings
-temp <- assessment_data_pin_final %>%
+assessment_data_pin_final %>%
   ccao::vars_recode(
     cols = starts_with("char_"),
     type = "short",
