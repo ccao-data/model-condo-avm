@@ -93,10 +93,33 @@ assessment_data_nl <- assessment_data_pred %>%
   )
 
 
-## 3.2. Prorate/Round ----------------------------------------------------------
+## 3.2. Peg to % Ownership -----------------------------------------------------
+
+# For condominiums, we need to aggregate values to the building level, then
+# multiply be proration rate/percent ownership to get the final unit value. For
+# example, if you have a 3 unit building, with percentages .25, .25, .5,
+# and the model-predicted values for all 3 units are the same, you want to
+# divide the value of the building proportionally across units. 
+# Suppose each unit is valued at $100. The whole building is worth $300.
+# Unit 1 valued at 25% of $300, or $75
+assessment_data_bldg <- assessment_data_nl %>%
+  group_by(meta_pin10) %>% 
+  mutate(
+    bldg_total_value = sum(pred_pin_final_fmv, na.rm = TRUE),
+    bldg_total_proration_rate = sum(
+      meta_tieback_proration_rate,
+      na.rm = TRUE
+    ),
+    pred_pin_final_fmv = bldg_total_value *
+      (meta_tieback_proration_rate / bldg_total_proration_rate)
+  ) %>%
+  ungroup()
+
+
+## 3.3. Round and Finalize -----------------------------------------------------
 
 # Round PIN-level predictions using the breaks and amounts specified in params
-assessment_data_final <- assessment_data_nl %>%
+assessment_data_final <- assessment_data_bldg %>%
   mutate(
     pred_pin_final_fmv_round = ccao::val_round_fmv(
       pred_pin_final_fmv,
@@ -104,7 +127,7 @@ assessment_data_final <- assessment_data_nl %>%
       round_to = params$pv$round_to_nearest,
       type = params$pv$round_type
     )
-  ) 
+  )
 
 # Merge the finalized unit-level data back to the main tibble of predictions
 assessment_data_merged <- assessment_data_pred %>%
