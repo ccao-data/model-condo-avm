@@ -12,8 +12,9 @@
 # Note included with each run. Use this to summarize what changed about the run
 # or add context
 run_note: >
-  re-running 'tender-tayun-2022-03-29' 
-  with full CV, 1500 iterations, and a learn rate of 0.075
+  re-running 'practical-kyra-2022-04-03' 
+  nonlivable_fixed_fmv changed from 20000 to 3000
+  unit level sqft removed from model
 
 # Determines what stages and outputs are produced. See misc/file_dict.csv for
 # details. Note, DVC does not support "conditional" stages, so changing this to
@@ -156,7 +157,6 @@ model:
       "char_building_non_units",
       "char_bldg_is_mixed_use",
       "char_building_sf",
-      "char_unit_sf",
       "char_bedrooms",
       "loc_longitude",
       "loc_latitude",
@@ -337,7 +337,7 @@ pv:
   # The fixed fair market value of non-livable PINs such as parking spaces,
   # common areas, and storage. These PINs are nearly impossible to value with
   # modeling since they don't really have sales
-  nonlivable_fixed_fmv: 20000
+  nonlivable_fixed_fmv: 3000
 
   # Cap the proportion of the PIN's total value dedicated to land. This is
   # necessary since sometimes the model provides low predictions relative to the
