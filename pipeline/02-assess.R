@@ -101,7 +101,9 @@ assessment_data_nl <- assessment_data_pred %>%
 # and the model-predicted values for all 3 units are the same, you want to
 # divide the value of the building proportionally across units. 
 # Suppose each unit is valued at $100. The whole building is worth $300.
-# Unit 1 valued at 25% of $300, or $75
+# Unit 1 valued at 25% of $300, or $75.
+
+# Note that this valuation method is essentially required by statute
 assessment_data_bldg <- assessment_data_nl %>%
   group_by(meta_pin10) %>% 
   mutate(
@@ -111,7 +113,16 @@ assessment_data_bldg <- assessment_data_nl %>%
       na.rm = TRUE
     ),
     pred_pin_final_fmv = bldg_total_value *
-      (meta_tieback_proration_rate / bldg_total_proration_rate)
+      (meta_tieback_proration_rate / bldg_total_proration_rate),
+    
+    # For certain units (common areas), we want to have a consistent low value
+    # across time (usually $10)
+    pred_pin_final_fmv = ifelse(
+      meta_modeling_group == "NONLIVABLE" &
+        (meta_mailed_tot * 10) <= params$pv$nonlivable_threshold,
+      meta_mailed_tot * 10,
+      pred_pin_final_fmv
+    )
   ) %>%
   ungroup()
 
