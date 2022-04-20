@@ -104,6 +104,7 @@ assessment_pin_prepped <- assessment_pin %>%
     across(starts_with("flag_"), as.numeric),
     across(where(is.numeric), ~ na_if(.x, Inf))
   ) %>%
+  arrange(meta_pin) %>%
   mutate(
     meta_pin = glue(
       '=HYPERLINK("https://www.cookcountyassessor.com/pin/{meta_pin}",
@@ -115,6 +116,27 @@ assessment_pin_prepped <- assessment_pin %>%
     )
   )
 
+# Prep building-level (PIN10) data
+assessment_pin10_prepped <- assessment_pin_prepped %>%
+  group_by(township_code, meta_pin10, meta_nbhd_code) %>%
+  summarize(
+    property_full_address = first(property_full_address),
+    loc_cook_municipality_name = first(loc_cook_municipality_name),
+    num_pin_livable = sum(!flag_nonlivable_space),
+    num_pin_nonlivable = sum(flag_nonlivable_space),
+    total_tieback_proration_rate = sum(meta_tieback_proration_rate),
+    prior_near_bldg_total = sum(prior_near_tot),
+    pred_pin_final_fmv_bldg_total = sum(pred_pin_final_fmv_round),
+    prior_near_yoy_change_nom_total =
+      pred_pin_final_fmv_bldg_total - prior_near_bldg_total,
+    prior_near_yoy_change_pct =
+      (pred_pin_final_fmv_bldg_total - prior_near_bldg_total) / prior_near_bldg_total,
+    char_yrblt = first(char_yrblt),
+    char_total_bldg_sf = first(char_total_bldg_sf)
+  ) %>%
+  ungroup() %>%
+  arrange(meta_pin10)
+
 
 
 
@@ -125,6 +147,9 @@ assessment_pin_prepped <- assessment_pin %>%
 # Write raw data to sheets for parcel details
 for (town in unique(assessment_pin_prepped$township_code)) {
   message("Now processing: ", town_convert(town))
+  
+  
+  ## 4.1. PIN-Level ------------------------------------------------------------
   
   # Filter overall data to specific township
   assessment_pin_filtered <- assessment_pin_prepped %>%
@@ -207,9 +232,53 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     startCol = 15, startRow = 5, colNames = FALSE
   )
   
+  
+  # 4.2. Building-Level --------------------------------------------------------
+  
+  # Filter building data to specific township
+  assessment_pin10_filtered <- assessment_pin10_prepped %>%
+    filter(township_code == town) %>%
+    select(-township_code)
+  
+  bldg_sheet_name <- "Building (PIN10)"
+  
+  # Get range of rows in the building data + number of header rows
+  bldg_row_range <- 5:(nrow(assessment_pin10_filtered) + 6)
+  
+  # Add styles to bldg sheet
+  addStyle(
+    wb, bldg_sheet_name, style = style_price,
+    rows = bldg_row_range, cols = c(8:10), gridExpand = TRUE
+  )
+  addStyle(
+    wb, bldg_sheet_name, style = style_pct,
+    rows = bldg_row_range, cols = c(7, 11), gridExpand = TRUE
+  )
+  addStyle(
+    wb, bldg_sheet_name, style = style_comma,
+    rows = bldg_row_range, cols = c(5:6, 13), gridExpand = TRUE
+  )
+  addFilter(wb, bldg_sheet_name, 4, 1:13)
+  
+  # Write bldg-level data to workbook
+  writeData(
+    wb, bldg_sheet_name, assessment_pin10_filtered,
+    startCol = 1, startRow = 5, colNames = FALSE
+  )
+  
+  # Write formulas and headers to workbook
+  writeData(
+    wb, bldg_sheet_name, tibble(comp_header),
+    startCol = 8, startRow = 3, colNames = FALSE
+  )
+  writeData(
+    wb, bldg_sheet_name, tibble(model_header),
+    startCol = 9, startRow = 3, colNames = FALSE
+  )
+  
   # Save workbook to file based on town name
   saveWorkbook(
-    wb, 
+    wb,
     here(
       "output", "desk_review",
       glue(
