@@ -37,17 +37,17 @@ stages:
             knn_missing: 200
     outs:
     - path: input/assessment_data.parquet
-      md5: 665dfc977abf386f69f3059cc0b6c72d
-      size: 64537444
+      md5: 8cfa600e57a14daaa5412ac75859a047
+      size: 64359254
     - path: input/condo_strata_data.parquet
-      md5: c9870268aa989ce8fd09aebe1b121079
-      size: 114861
+      md5: 3d45c4fa27b7f35355442ac40f59149b
+      size: 114801
     - path: input/land_nbhd_rate_data.parquet
       md5: 6a6859e05af8727296c223a6d2bd7c5a
       size: 3610
     - path: input/training_data.parquet
-      md5: 581ced3816e2c8c59511a37e10236ac5
-      size: 45795188
+      md5: 44f3f053775caf50ac8c001250021c0d
+      size: 45556232
   train:
     cmd: Rscript pipeline/01-train.R
     deps:
@@ -381,7 +381,7 @@ stages:
         - meta_strata_2
         pv:
           nonlivable_threshold: 5000
-          nonlivable_fixed_fmv: 10000
+          nonlivable_fixed_fmv: 50000
           land_pct_of_total_cap: 0.5
           round_break:
           - 1000
@@ -404,20 +404,20 @@ stages:
           - 10
     outs:
     - path: output/assessment_card/model_assessment_card.parquet
-      md5: 6c117670e63ea386444ebedc7d68cbd1
-      size: 35978593
+      md5: 343579d2670362542b0e9a40353f9727
+      size: 35978170
     - path: output/assessment_pin/model_assessment_pin.parquet
-      md5: ace99c46da901114fcb222f866704da6
-      size: 37943725
+      md5: 7f6280721b38c29abb37c59b9e2ee813
+      size: 37986556
     - path: output/intermediate/timing/model_timing_assess.parquet
-      md5: fed192424662886b8f1a16c2e5ef2a18
+      md5: 6995669bf33ca1ec07cfa4ab2e9954fd
       size: 2338
   evaluate:
     cmd: Rscript pipeline/03-evaluate.R
     deps:
     - path: output/assessment_pin/model_assessment_pin.parquet
-      md5: ace99c46da901114fcb222f866704da6
-      size: 37943725
+      md5: 7f6280721b38c29abb37c59b9e2ee813
+      size: 37986556
     - path: output/test_card/model_test_card.parquet
       md5: a51f42cffa60f899404bb82e285f2b91
       size: 1029700
@@ -438,17 +438,17 @@ stages:
         run_type: full
     outs:
     - path: output/intermediate/timing/model_timing_evaluate.parquet
-      md5: a2566a210bf50473e351dd19b65a4da3
+      md5: 70790c1b5c39e32088fd1d47fd9d076b
       size: 2352
     - path: output/performance/model_performance_assessment.parquet
-      md5: 886b376a2389729de5ccbe00e6b21024
-      size: 1002241
+      md5: 1044d09b0c19e019d3cbd11551a9e498
+      size: 1001870
     - path: output/performance/model_performance_test.parquet
-      md5: 6fe062d94c197d69b18c977a3b54a630
-      size: 878192
+      md5: 80c612bf32c9d773daefb0e1ab701d6a
+      size: 878189
     - path: output/performance_quantile/model_performance_quantile_assessment.parquet
-      md5: ea0c2ce5cad4894042c0017c55ec9ecb
-      size: 943418
+      md5: 3f2ffe4d29179d97d44acdaf17663064
+      size: 943387
     - path: output/performance_quantile/model_performance_quantile_test.parquet
       md5: 3c2fd0706e9ddbff7e67fd95c85d8d2f
       size: 992994
@@ -559,16 +559,16 @@ stages:
     cmd: Rscript pipeline/05-finalize.R
     deps:
     - path: output/assessment_card/model_assessment_card.parquet
-      md5: 6c117670e63ea386444ebedc7d68cbd1
-      size: 35978593
+      md5: 343579d2670362542b0e9a40353f9727
+      size: 35978170
     - path: output/assessment_pin/model_assessment_pin.parquet
-      md5: ace99c46da901114fcb222f866704da6
-      size: 37943725
+      md5: 7f6280721b38c29abb37c59b9e2ee813
+      size: 37986556
     - path: output/intermediate/timing/model_timing_assess.parquet
-      md5: fed192424662886b8f1a16c2e5ef2a18
+      md5: 6995669bf33ca1ec07cfa4ab2e9954fd
       size: 2338
     - path: output/intermediate/timing/model_timing_evaluate.parquet
-      md5: a2566a210bf50473e351dd19b65a4da3
+      md5: 70790c1b5c39e32088fd1d47fd9d076b
       size: 2352
     - path: output/intermediate/timing/model_timing_interpret.parquet
       md5: d5804444b648f7fd2edce3f576d2483e
@@ -586,14 +586,14 @@ stages:
       md5: 1f71c12f05375bf2674e696d3e70eb23
       size: 695
     - path: output/performance/model_performance_assessment.parquet
-      md5: 886b376a2389729de5ccbe00e6b21024
-      size: 1002241
+      md5: 1044d09b0c19e019d3cbd11551a9e498
+      size: 1001870
     - path: output/performance/model_performance_test.parquet
-      md5: 6fe062d94c197d69b18c977a3b54a630
-      size: 878192
+      md5: 80c612bf32c9d773daefb0e1ab701d6a
+      size: 878189
     - path: output/performance_quantile/model_performance_quantile_assessment.parquet
-      md5: ea0c2ce5cad4894042c0017c55ec9ecb
-      size: 943418
+      md5: 3f2ffe4d29179d97d44acdaf17663064
+      size: 943387
     - path: output/performance_quantile/model_performance_quantile_test.parquet
       md5: 3c2fd0706e9ddbff7e67fd95c85d8d2f
       size: 992994
@@ -816,7 +816,7 @@ stages:
               - 50
         pv:
           nonlivable_threshold: 5000
-          nonlivable_fixed_fmv: 10000
+          nonlivable_fixed_fmv: 50000
           land_pct_of_total_cap: 0.5
           round_break:
           - 1000
@@ -837,16 +837,17 @@ stages:
           - 3
           - 5
           - 10
-        run_note: "re-running 'practical-kyra-2022-04-03' nonlivable_fixed_fmv changed\
-          \ from 20000 to 10000 implement building value aggregation\n"
+        run_note: "re-running 'upbeat-mike-2022-04-15' nonlivable_fixed_fmv changed\
+          \ from 10000 to 50000 lower common area values post-pegging unit value to\
+          \ proration rate\n"
         run_type: full
         toggle:
           cv_enable: false
           upload_to_s3: true
     outs:
     - path: output/metadata/model_metadata.parquet
-      md5: a4eaef49350b08565cc657541ab26ca7
-      size: 26602
+      md5: 5c47fc4a3357a5e09f1cbcc5d5fb8a1a
+      size: 26989
     - path: output/timing/model_timing.parquet
-      md5: e057bcf204d59df5b944e3d7ccae0558
-      size: 5221
+      md5: 72380050a218e35464aaab7ae9cd250c
+      size: 5214
