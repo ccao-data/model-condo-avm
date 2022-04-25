@@ -54,7 +54,8 @@ AWS_ATHENA_CONN_JDBC <- dbConnect(
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Pull the training data, which contains actual sales + attached characteristics
-# from the condominium input view
+# from the condominium input view. We want to get sales spanning multiple
+# parcels only for sales that sell with deeded parking spots
 tictoc::tic()
 training_data <- dbGetQuery(
   conn = AWS_ATHENA_CONN_JDBC, glue("
@@ -73,7 +74,8 @@ training_data <- dbGetQuery(
   AND ((sale.sale_price_log10
       BETWEEN sale.sale_filter_lower_limit
       AND sale.sale_filter_upper_limit)
-      AND sale.sale_filter_count >= 10)
+      AND sale.sale_filter_count >= 2)
+  AND sale.num_parcels_sale <= 2
   ")
 )
 tictoc::toc()

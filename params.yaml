@@ -12,9 +12,9 @@
 # Note included with each run. Use this to summarize what changed about the run
 # or add context
 run_note: >
-  re-running 'practical-kyra-2022-04-03'
-  nonlivable_fixed_fmv changed from 20000 to 10000
-  implement building value aggregation
+  Re-running 'sad-takuya-2022-04-20'. Implement building value aggregation and
+  fix sales input filtering to include multi-parcel sales for less than or
+  equal to 2 parcels
 
 # Determines what stages and outputs are produced. See misc/file_dict.csv for
 # details. Note, DVC does not support "conditional" stages, so changing this to

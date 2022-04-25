@@ -37,23 +37,23 @@ stages:
             knn_missing: 200
     outs:
     - path: input/assessment_data.parquet
-      md5: 8cfa600e57a14daaa5412ac75859a047
-      size: 64359254
+      md5: 492add5156e5865f93103b8b50ead725
+      size: 64336550
     - path: input/condo_strata_data.parquet
-      md5: 3d45c4fa27b7f35355442ac40f59149b
-      size: 114801
+      md5: d56de151de8ae9f879606606b109ad38
+      size: 114821
     - path: input/land_nbhd_rate_data.parquet
       md5: 6a6859e05af8727296c223a6d2bd7c5a
       size: 3610
     - path: input/training_data.parquet
-      md5: 44f3f053775caf50ac8c001250021c0d
-      size: 45556232
+      md5: 24111a8532a829f3695fd69116e1b475
+      size: 60419192
   train:
     cmd: Rscript pipeline/01-train.R
     deps:
     - path: input/training_data.parquet
-      md5: 581ced3816e2c8c59511a37e10236ac5
-      size: 45795188
+      md5: 24111a8532a829f3695fd69116e1b475
+      size: 60419192
     params:
       params.yaml:
         cv:
@@ -248,7 +248,7 @@ stages:
         toggle.cv_enable: false
     outs:
     - path: output/intermediate/timing/model_timing_train.parquet
-      md5: 7ea3a2a07a7ee52cc95c48e30f60c20c
+      md5: a6d06904a7ec8f5fa297e45f6b612e51
       size: 2331
     - path: output/parameter_final/model_parameter_final.parquet
       md5: a4b73064ec03588a8890e28e16963def
@@ -260,14 +260,14 @@ stages:
       md5: 1f71c12f05375bf2674e696d3e70eb23
       size: 695
     - path: output/test_card/model_test_card.parquet
-      md5: a51f42cffa60f899404bb82e285f2b91
-      size: 1029700
+      md5: b940b56efcaa71e72b73b451d9da56cf
+      size: 1382235
     - path: output/workflow/fit/model_workflow_fit.zip
-      md5: 04102ba3b302be650e67ef3b5b27ced8
-      size: 30717458
+      md5: b56afb4ded644e712d4ad1a4af1adaf2
+      size: 31523066
     - path: output/workflow/recipe/model_workflow_recipe.rds
-      md5: c6b19c2692412fb344948e6d6d6a4f80
-      size: 3811052
+      md5: 40db7a6e90e50f4ae47ab0b3d9bb266a
+      size: 5059638
   assess:
     cmd: Rscript pipeline/02-assess.R
     deps:
