@@ -346,7 +346,7 @@ upload_data_prepped <- assessment_pin %>%
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 5. Export iasWorld Upload ----------------------------------------------------
+# 6. Export iasWorld Upload ----------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Write each town to a headerless CSV for mass upload
