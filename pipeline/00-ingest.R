@@ -78,6 +78,21 @@ training_data <- dbGetQuery(
   AND sale.num_parcels_sale <= 2
   ")
 )
+
+# Heuristic for handling multi-PIN sales. We want to keep sales with a deeded
+# parking spot, but only the sale for the unit, not the parking. Drop other 
+# multi-unit sale types since we don't have a way to disaggregate each
+# unit's value
+training_data <- training_data %>%
+  group_by(meta_sale_document_num) %>%
+  arrange(meta_tieback_proration_rate) %>%
+  mutate(keep_unit_sale =
+    meta_tieback_proration_rate >= (lag(meta_tieback_proration_rate) * 3) 
+  ) %>%
+  filter(n() == 1 | (n() == 2 & keep_unit_sale)) %>%
+  ungroup() %>%
+  select(-keep_unit_sale)
+
 tictoc::toc()
 
 # Pull all condo input data for the assessment year. This will be the
