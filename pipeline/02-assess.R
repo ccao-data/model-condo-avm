@@ -86,8 +86,10 @@ assessment_data_nl <- assessment_data_pred %>%
         (meta_mailed_tot * 10) <= params$pv$nonlivable_threshold ~
         meta_mailed_tot * 10,
       meta_modeling_group == "NONLIVABLE" &
-        (meta_mailed_tot * 10) > params$pv$nonlivable_threshold~
+        (meta_mailed_tot * 10) > params$pv$nonlivable_threshold ~
         as.numeric(params$pv$nonlivable_fixed_fmv),
+      meta_modeling_group == "NONLIVABLE" &
+        is.na(meta_mailed_tot) ~ as.numeric(params$pv$nonlivable_fixed_fmv),
       TRUE ~ pred_card_initial_fmv
     )
   )
@@ -117,11 +119,13 @@ assessment_data_bldg <- assessment_data_nl %>%
     
     # For certain units (common areas), we want to have a consistent low value
     # across time (usually $10)
-    pred_pin_final_fmv = ifelse(
+    pred_pin_final_fmv = case_when(
       meta_modeling_group == "NONLIVABLE" &
-        (meta_mailed_tot * 10) <= params$pv$nonlivable_threshold,
-      meta_mailed_tot * 10,
-      pred_pin_final_fmv
+        (meta_mailed_tot * 10) <= params$pv$nonlivable_threshold ~
+        meta_mailed_tot * 10,
+      meta_modeling_group == "NONLIVABLE" &
+        is.na(meta_mailed_tot) ~ 10,
+      TRUE ~ pred_pin_final_fmv
     )
   ) %>%
   ungroup()
