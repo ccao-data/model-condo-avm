@@ -13,6 +13,7 @@ library(dplyr)
 library(glue)
 library(here)
 library(openxlsx)
+library(readr)
 library(RJDBC)
 library(stringr)
 library(tidyr)
@@ -55,11 +56,24 @@ assessment_pin <- dbGetQuery(
   ")
 )
 
+# Pull land for condos with multiple land lines (very rare)
+land <- dbGetQuery(
+  conn = AWS_ATHENA_CONN_JDBC, glue("
+  SELECT
+      taxyr AS meta_year,
+      parid AS meta_pin,
+      lline AS meta_line_num,
+      sf AS meta_line_sf
+  FROM iasworld.land
+  WHERE taxyr = '{params$assessment$data_year}'
+  ")
+)
+
 
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 3. Prep ----------------------------------------------------------------------
+# 3. Prep Desk Review ----------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Prep data with a few additional columns + put everything in the right
@@ -80,7 +94,8 @@ assessment_pin_prepped <- assessment_pin %>%
       as.logical(as.numeric(flag_prior_near_to_pred_unchanged)) &
         prior_near_tot <= params$pv$nonlivable_threshold,
       0
-    )
+    ),
+    char_type_resd = NA
   ) %>%
   select(
     township_code, meta_pin, meta_class, meta_nbhd_code,
@@ -94,7 +109,7 @@ assessment_pin_prepped <- assessment_pin %>%
     prior_near_yoy_change_nom, prior_near_yoy_change_pct,
     sale_recent_1_date, sale_recent_1_price, sale_recent_1_document_num,
     sale_recent_2_date, sale_recent_2_price, sale_recent_2_document_num,
-    char_yrblt, char_total_bldg_sf, char_type_resd, char_land_sf,
+    char_yrblt, char_total_bldg_sf, char_type_resd, char_land_sf, 
     char_unit_sf, flag_nonlivable_space, flag_pin10_5yr_num_sale,
     flag_common_area, flag_proration_sum_not_1, flag_pin_is_multiland,
     flag_land_value_capped, flag_prior_near_to_pred_unchanged,
@@ -141,7 +156,7 @@ assessment_pin10_prepped <- assessment_pin_prepped %>%
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 4. Export Spreadsheets -------------------------------------------------------
+# 4. Export Desk Review --------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Write raw data to sheets for parcel details
@@ -291,4 +306,68 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     overwrite = TRUE
   )
   rm(wb)
+}
+
+
+
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# 5. Prep iasWorld Upload ------------------------------------------------------
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Prepare data for iasWorld upload
+upload_data_prepped <- assessment_pin %>%
+  left_join(land, by = c("meta_year", "meta_pin")) %>%
+  select(
+    meta_township_code, meta_pin, meta_line_num,
+    meta_line_sf, pred_pin_final_fmv_land
+  ) %>%
+  group_by(meta_pin) %>%
+  mutate(
+    # For multiple condo land lines, split the PIN-level land total proportional
+    # to the land square footage
+    final_fmv = (meta_line_sf / sum(meta_line_sf)) * pred_pin_final_fmv_land,
+    final_fmv = replace(final_fmv, is.nan(final_fmv), 0),
+    component = "L"
+  ) %>%
+  bind_rows(
+    # Re-add building only lines (no land)
+    assessment_pin %>%
+      select(
+        meta_township_code, meta_pin,
+        final_fmv = pred_pin_final_fmv_bldg
+      ) %>%
+      mutate(meta_line_num = 1, component = "O")
+  ) %>%
+  select(meta_township_code, meta_pin, component, meta_line_num, final_fmv) %>%
+  arrange(meta_township_code, meta_pin)
+
+
+
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# 5. Export iasWorld Upload ----------------------------------------------------
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Write each town to a headerless CSV for mass upload
+for (town in unique(assessment_pin_prepped$township_code)) {
+  message("Now processing: ", town_convert(town))
+  
+  upload_data_fil <- upload_data_prepped %>%
+    filter(meta_township_code == town)
+  
+  write_csv(
+    x = upload_data_fil,
+    file = here(
+      "output", "iasworld",
+      glue(
+        params$assessment$year,
+        str_replace(town_convert(town), " ", "_"),
+        "iasworld_upload.csv",
+        .sep = "_"
+      )
+    ),
+    na = "",
+    col_names = FALSE
+  )
 }

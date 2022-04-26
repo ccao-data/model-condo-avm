@@ -20,18 +20,20 @@ stages:
     deps:
     - input/training_data.parquet
     params:
-    - input.time_split
-    - toggle.cv_enable
     - cv
+    - input.time_split
     - model.engine
+    - model.hyperparameter
     - model.objective
+    - model.parameter
+    - model.predictor
     - model.seed
     - model.verbose
-    - model.predictor
-    - model.parameter
-    - model.hyperparameter
     - ratio_study
+    - toggle.cv_enable
     outs:
+    - output/intermediate/timing/model_timing_train.parquet:
+        cache: false
     - output/parameter_final/model_parameter_final.parquet:
         cache: false
     - output/parameter_range/model_parameter_range.parquet:
@@ -44,9 +46,6 @@ stages:
         cache: false
     - output/workflow/recipe/model_workflow_recipe.rds:
         cache: false
-    - output/intermediate/timing/model_timing_train.parquet:
-        cache: false
-
   assess:
     cmd: Rscript pipeline/02-assess.R
     desc: >
@@ -54,17 +53,17 @@ stages:
       County. Also generate flags, calculate land values, and make any
       post-modeling changes
     deps:
-    - input/training_data.parquet
     - input/assessment_data.parquet
-    - input/land_nbhd_rate_data.parquet
     - input/condo_strata_data.parquet
+    - input/land_nbhd_rate_data.parquet
+    - input/training_data.parquet
     - output/workflow/fit/model_workflow_fit.zip
     - output/workflow/recipe/model_workflow_recipe.rds
     params:
     - assessment
+    - model.predictor.all
     - pv
     - ratio_study
-    - model.predictor.all
     outs:
     - output/assessment_card/model_assessment_card.parquet:
         cache: false
@@ -81,24 +80,23 @@ stages:
         2. An assessor-specific ratio study comparing estimated assessments to
            the previous year's sales
     deps:
-    - output/test_card/model_test_card.parquet
     - output/assessment_pin/model_assessment_pin.parquet
+    - output/test_card/model_test_card.parquet
     params:
-    - run_type
     - assessment.data_year
     - ratio_study
+    - run_type
     outs:
-    - output/performance/model_performance_test.parquet:
-        cache: false
-    - output/performance_quantile/model_performance_quantile_test.parquet:
+    - output/intermediate/timing/model_timing_evaluate.parquet:
         cache: false
     - output/performance/model_performance_assessment.parquet:
         cache: false
+    - output/performance/model_performance_test.parquet:
+        cache: false
     - output/performance_quantile/model_performance_quantile_assessment.parquet:
         cache: false
-    - output/intermediate/timing/model_timing_evaluate.parquet:
+    - output/performance_quantile/model_performance_quantile_test.parquet:
         cache: false
-
   interpret:
     cmd: Rscript pipeline/04-interpret.R
     desc: >
@@ -161,7 +159,7 @@ stages:
       run. NOT automatically run since it is typically only run once. Manually
       run once a model is selected
     params:
-    - assessment.year
+    - assessment
     - ratio_study
     - export
     frozen: true

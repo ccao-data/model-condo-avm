@@ -279,7 +279,10 @@ assessment_data_pin <- assessment_data_merged %>%
     # Keep PIN-level predicted values
     pred_pin_final_fmv, pred_pin_final_fmv_round, township_code
   ) %>%
-  ungroup()
+  ungroup() %>%
+  
+  # Overwrite missing land values (only a few PINs)
+  mutate(char_land_sf = replace_na(char_land_sf, 0))
 
 
 ## 5.3. Value Land -------------------------------------------------------------
@@ -295,12 +298,12 @@ assessment_data_pin_2 <- assessment_data_pin %>%
   # total FMV for the PIN. For condos, all units in a building share the same
   # land square footage, but the value is assigned by the % of ownership
   mutate(
-    pred_pin_final_fmv_land = case_when(
+    pred_pin_final_fmv_land = ceiling(case_when(
       char_land_sf * land_rate_per_sqft * meta_tieback_proration_rate >=
         pred_pin_final_fmv_round * params$pv$land_pct_of_total_cap ~
       pred_pin_final_fmv_round * params$pv$land_pct_of_total_cap,
       TRUE ~ char_land_sf * land_rate_per_sqft * meta_tieback_proration_rate
-    ),
+    )),
     pred_pin_uncapped_fmv_land =
       char_land_sf * land_rate_per_sqft * meta_tieback_proration_rate,
     pred_pin_final_fmv_bldg =
