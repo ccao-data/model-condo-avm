@@ -354,7 +354,8 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   message("Now processing: ", town_convert(town))
   
   upload_data_fil <- upload_data_prepped %>%
-    filter(meta_township_code == town)
+    filter(meta_township_code == town) %>%
+    select(-meta_township_code)
   
   write_csv(
     x = upload_data_fil,
