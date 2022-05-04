@@ -317,31 +317,17 @@ for (town in unique(assessment_pin_prepped$township_code)) {
 
 # Prepare data for iasWorld upload
 upload_data_prepped <- assessment_pin %>%
-  left_join(land, by = c("meta_year", "meta_pin")) %>%
-  select(
-    meta_township_code, meta_pin, meta_line_num,
-    meta_line_sf, pred_pin_final_fmv_land
-  ) %>%
-  group_by(meta_pin) %>%
+  mutate(meta_pin10 = str_sub(meta_pin, 1, 10)) %>% 
+  group_by(meta_pin10) %>%
   mutate(
-    # For multiple condo land lines, split the PIN-level land total proportional
-    # to the land square footage
-    final_fmv = (meta_line_sf / sum(meta_line_sf)) * pred_pin_final_fmv_land,
-    final_fmv = replace(final_fmv, is.nan(final_fmv), 0),
-    component = "L"
+    final_fmv = sum(pred_pin_final_fmv_bldg),
+    meta_line_num = 1,
+    component = "O"
   ) %>%
-  bind_rows(
-    # Re-add building only lines (no land)
-    assessment_pin %>%
-      select(
-        meta_township_code, meta_pin,
-        final_fmv = pred_pin_final_fmv_bldg
-      ) %>%
-      mutate(meta_line_num = 1, component = "O")
-  ) %>%
+  ungroup() %>%
   select(meta_township_code, meta_pin, component, meta_line_num, final_fmv) %>%
   arrange(meta_township_code, meta_pin)
-
+  
 
 
 
