@@ -38,15 +38,13 @@ This repository contains code, data, and documentation for the Cook
 County Assessor’s 2022 condominium reassessment model. Information about
 prior year models can be found at the following links:
 
--   [2021 City of Chicago
-    Assessment](https://gitlab.com/ccao-data-science---modeling/models/ccao_condo_avm/-/tree/2021-assessment-year)
--   [2020 South Triad
-    Assessment](https://gitlab.com/ccao-data-science---modeling/ccao_sf_cama_dev)
--   [2019 North Triad
-    Assessment](https://gitlab.com/ccao-data-science---modeling/ccao_sf_cama_dev)
--   Models from before 2019 are not currently available. They are
-    primarily custom SPSS code that is difficult to run outside of the
-    CCAO environment
+| Year(s) | Triad(s) | Method                                      | Language / Framework       | Link                                                                                                                                       |
+|---------|----------|---------------------------------------------|----------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
+| 2015    | City     | N/A                                         | SPSS                       | [Link](https://gitlab.com/ccao-data-science---modeling/ccao_sf_cama_dev/-/tree/master/code.legacy/2015%20City%20Tri/2015%20Condo%20Models) |
+| 2018    | City     | N/A                                         | N/A                        | Not available. Values provided by vendor                                                                                                   |
+| 2019    | North    | Linear regression or GBM model per township | R (Base)                   | [Link](https://gitlab.com/ccao-data-science---modeling/ccao_sf_cama_dev)                                                                   |
+| 2020    | South    | Linear regression or GBM model per township | R (Base)                   | [Link](https://gitlab.com/ccao-data-science---modeling/ccao_sf_cama_dev)                                                                   |
+| 2021    | City     | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://gitlab.com/ccao-data-science---modeling/models/ccao_condo_avm/-/tree/2021-assessment-year)                                  |
 
 # Model Overview
 
