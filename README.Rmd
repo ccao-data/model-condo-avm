@@ -106,9 +106,18 @@ ccao::vars_dict %>%
 
 ### Valuation
 
-For the most part, condos are valued the same way as single- and multi-family residential property: we [train a model](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm#how-it-works) using individual condo unit sales, predict the value of unsold units, and then apply any [post-modeling adjustment](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm#post-modeling).
+For the most part, condos are valued the same way as single- and multi-family residential property: we [train a model](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm#how-it-works) using individual condo unit sales, predict the value of all units, and then apply any [post-modeling adjustment](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm#post-modeling).
 
-However, because the CCAO has so [little information about individual units](#differences-compared-to-the-residential-model), we must rely on the [condominium percentage of ownership](#features-used) to differentiate between units in a building. This feature is effectively a percentage of the building's overall value. It is created when a condominium declaration is filed with the County (usually by the developer of the building). 
+However, because the CCAO has so [little information about individual units](#differences-compared-to-the-residential-model), we must rely on the [condominium percentage of ownership](#features-used) to differentiate between units in a building. This feature is effectively the proportion of the building's overall value held by a unit. It is created when a condominium declaration is filed with the County (usually by the developer of the building). The critical assumption underlying the condo valuation process is that percentage of ownership correlates with current market value.
+
+Percentage of ownership is used in two ways: 
+
+1. It is used directly as a predictor/feature in the regression model to estimate differing unit values within the same building.
+2. It is used to reapportion unit values directly i.e. the value of a unit is ultimately equal to `% of ownership * total building value`.
+
+Visually, this looks like:
+
+![](docs/figures/valuation_perc_owner.png)
 
 Percentage of ownership is the single most important feature in the condo model. It determines almost all intra-building differences in unit values.
 
