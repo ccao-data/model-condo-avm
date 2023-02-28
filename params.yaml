@@ -25,11 +25,15 @@ run_type: "full"
 toggle:
   # Should the train stage run full cross-validation? Otherwise, the model
   # will be trained with the default hyperparameters specified below
-  cv_enable: false
+  cv_enable: FALSE
+  
+  # Should SHAP values be calculated for this run in the interpret stage? Can be
+  # desirable to save time when testing many models
+  shap_enable: FALSE
   
   # Upload all modeling artifacts and results to S3 in the finalize stage. Set
   # to FALSE if you are not a CCAO employee
-  upload_to_s3: true
+  upload_to_s3: TRUE
 
 
 # Data/Ingest ------------------------------------------------------------------
@@ -37,47 +41,54 @@ toggle:
 # Assessment context and dates
 assessment:
   # Year of assessment. Used to partition results and pull data
-  year: "2022"
+  year: "2023"
   
   # The statutorily "sale date" for the purpose of prediction
-  date: "2022-01-01"
+  date: "2023-01-01"
   
   # Added context for model artifacts stored in s3. Does not change behavior
-  triad: "north"
+  triad: "south"
   group: "condo"
   
   # Year from which property characteristics are pulled. Usually lags the
   # assessment year by 1
-  data_year: "2021"
+  data_year: "2022"
 
 # Parameters used to define the input/training data
 input:
   # The min and max years of sales to use for the training data sample
-  min_sale_year: "2013"
-  max_sale_year: "2021"
+  min_sale_year: "2014"
+  max_sale_year: "2022"
   
   # Time window (in months) used for rolling origin cross-validation and
   # calculating spatial lags i.e. lags are the average of the nearest K
   # properties for each N month window
-  time_split: 9
+  time_split: 15
   
-  # Parameters used to construct spatially lagged features
-  spatial_lag:
-    # Number of nearest neighbors (K) used to calculate spatial lags of both the
-    # dependent variable (sale price) and predictors (sqft, year built, etc.)
-    k: 20
-    
-    # Standard features to create lags from + the outcome variable
-    predictor: [
-      "meta_sale_price",
-      "char_yrblt",
-      "char_land_sf",
-      "char_building_pins",
-      "char_building_units",
-      "char_building_non_units",
-      "char_building_sf",
-      "other_tax_bill_amount_total"
+  # Parameters used to trim the training data (sales) of outliers
+  sale_validation:
+  
+    # Summary statistics grouping for detecting outlier sales i.e. an outlier
+    # might be 3 standard deviations from the mean of township and class
+    stat_groups: [
+      "meta_year",
+      "meta_township_code",
+      "meta_class"
     ]
+    
+    # Predictor variables to use in the isolation forest classifier
+    iso_forest: [
+      "meta_sale_price",
+      "sv_price_per_sqft",
+      "sv_days_since_last_transaction",
+      "sv_cgdr",
+      "sv_sale_dup_counts"
+    ]
+    
+    # Left and right boundaries (in standard deviations) used to trim the
+    # training sample e.g. any sales more than 3 standard deviations from the
+    # mean will be dropped
+    dev_bounds: [2, 3]
 
   # Parameters used to construct condominium strata features
   strata:
@@ -117,13 +128,13 @@ cv:
 
   # Number of initial iterations to create before tuning. Recommend this number
   # be greater than the number of hyperparameters being tuned
-  initial_set: 10
+  initial_set: 25
   
   # Maximum number of search iterations
-  max_iterations: 10
+  max_iterations: 70
   
   # Max number of search iterations without improvement before stopping search
-  no_improve: 3
+  no_improve: 30
   
   # Metric used to select the "best" set of parameters from CV iterations. Must
   # be manually included the metric_set() passed to tune_bayes()
@@ -140,10 +151,17 @@ model:
   # Objective/loss function minimized by LightGBM. See website for possible
   # options: https://lightgbm.readthedocs.io/en/latest/Parameters.html#objective
   objective: "rmse"
-  seed: 20220117
-  verbose: -1
-  predictor:
+
+  # Parameters related to model determinism. Current settings should force 
+  # the same output every time if the same hyperparameters are used
+  seed: 2023
+  deterministic: TRUE
+  force_row_wise: TRUE
   
+  # Model verbosity: < 0: Fatal, = 0: Error (Warning), = 1: Info, > 1: Debug
+  verbose: -1
+
+  predictor:
     # Vector of predictors from the training data included in the model. Edit
     # this list to add or remove variables from the model
     all: [
@@ -272,23 +290,25 @@ model:
   parameter:
     # Total number of iterations. Usually changed in tandem with learning_rate
     # https://lightgbm.readthedocs.io/en/latest/Parameters.html#num_iterations
-    num_iterations: 1500
-    learning_rate: 0.075
+    num_iterations: 4000
+    learning_rate: 0.025
     
     # For CV only, proportion of the training data to hold out for use in 
     # early stopping + the metric to evaluate. See R docs for details:
     # https://lightgbm.readthedocs.io/en/latest/R/reference/lgb.train.html#arguments
+    # WARNING: See issue #82 for critical notes about early stopping / CV
     validation_prop: 0.1
+    validation_type: "recent"
     validation_metric: "rmse"
     
     # Custom parameters added by the CCAO's lightsnip wrapper package. Setting
     # to TRUE will set max_depth = floor(log2(num_leaves)) + add_to_linked_depth
     # This is to prevent tune_bayes from exploring useless parameter space
-    link_max_depth: true
+    link_max_depth: TRUE
     
     # Maximum number of bins for discretizing continuous features. Lower uses
     # less memory and speeds up training
-    max_bin: 2000
+    max_bin: 1024
     
     # During CV, the number of iterations to go without improvement before
     # stopping training
@@ -359,12 +379,12 @@ pv:
 # (post-appeal) from the last reassessment and the most recent values from the
 # prior year
 ratio_study:
-  far_year: "2019"
+  far_year: "2020"
   far_stage: "board"
   far_column: "meta_2yr_pri_board_tot"
-  near_year: "2021"
-  near_stage: "mailed"
-  near_column: "meta_mailed_tot"
+  near_year: "2022"
+  near_stage: "certified"
+  near_column: "meta_certified_tot"
   
   # Quantile breakouts to use in the evaluate stage. For example, 3 will split
   # each geography in evaluate into terciles
@@ -376,5 +396,5 @@ ratio_study:
 # Final run ID(s) chosen for export to Desk Review spreadsheets and iasWorld
 # upload
 export:
-  triad_code: "2"
-  run_id: "beautiful-dan-2022-04-26"
+  triad_code: "3"
+  run_id: ""

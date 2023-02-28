@@ -2,27 +2,38 @@
 # 1. Setup ---------------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+# Start the stage timer
+tictoc::tic.clearlog()
+tictoc::tic("Ingest")
+
 # Pre-allocate memory for java JDBC driver
 options(java.parameters = "-Xmx10g")
 
 # Load R libraries
-library(arrow)
-library(ccao)
-library(DBI)
-library(data.table)
-library(dplyr)
-library(glue)
-library(here)
-library(igraph)
-library(lubridate)
-library(purrr)
-library(RJDBC)
-library(s2)
-library(sf)
-library(tictoc)
-library(tidyr)
-library(yaml)
+suppressPackageStartupMessages({
+  library(arrow)
+  library(ccao)
+  library(DBI)
+  library(data.table)
+  library(dplyr)
+  library(glue)
+  library(here)
+  library(igraph)
+  library(lubridate)
+  library(purrr)
+  library(reticulate)
+  library(RJDBC)
+  library(s2)
+  library(sf)
+  library(tictoc)
+  library(tidyr)
+  library(yaml)
+})
 source(here("R", "helpers.R"))
+
+# Load Python packages and functions with reticulate
+use_virtualenv("pipenv/")
+source_python("py/flagging.py")
 
 # Initialize a dictionary of file paths. See misc/file_dict.csv for details
 paths <- model_file_dict()
@@ -52,11 +63,12 @@ AWS_ATHENA_CONN_JDBC <- dbConnect(
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 2. Pull Data -----------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+message("Pulling data from Athena")
 
 # Pull the training data, which contains actual sales + attached characteristics
 # from the condominium input view. We want to get sales spanning multiple
 # parcels only for sales that sell with deeded parking spots
-tictoc::tic()
+tictoc::tic("Training data pulled")
 training_data <- dbGetQuery(
   conn = AWS_ATHENA_CONN_JDBC, glue("
   SELECT
@@ -97,7 +109,7 @@ tictoc::toc()
 
 # Pull all condo input data for the assessment year. This will be the
 # data we actually run the model on
-tictoc::tic()
+tictoc::tic("Assessment data pulled")
 assessment_data <- dbGetQuery(
   conn = AWS_ATHENA_CONN_JDBC, glue("
   SELECT *
@@ -108,7 +120,7 @@ assessment_data <- dbGetQuery(
 tictoc::toc()
 
 # Pull  neighborhood-level land rates per sqft, as calculated by Valuations
-tictoc::tic()
+tictoc::tic("Land rate data pulled")
 land_nbhd_rate_data <- dbGetQuery(
   conn = AWS_ATHENA_CONN_JDBC, glue("
   SELECT *
@@ -233,16 +245,72 @@ st_knn <- function(x, y = NULL, k = 1) {
 
 
 
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# 4. Validate Sales ------------------------------------------------------------
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+message("Validating training data sales")
+
+# Create an outlier sale flag using a variety of heuristics. See flagging.py for
+# the full list. Also exclude any sales that have a flag on Q10 of the PTAX-203
+# form AND are large statistical outliers
+training_data_w_sv <- training_data %>%
+  mutate(
+    meta_sale_price = as.numeric(meta_sale_price),
+    sv_is_ptax203_outlier = as.logical(as.numeric(sv_is_ptax203_outlier))
+  ) %>%
+  # Run Python-based automatic sales validation to identify outliers
+  create_stats(as.list(params$input$sale_validation$stat_groups)) %>%
+  string_processing() %>%
+  iso_forest(
+    as.list(params$input$sale_validation$stat_groups),
+    params$input$sale_validation$iso_forest
+  ) %>%
+  outlier_taxonomy(
+    as.list(params$input$sale_validation$dev_bounds),
+    as.list(params$input$sale_validation$stat_groups)
+  ) %>%
+  # Combine outliers identified via PTAX-203 with the heuristic-based outliers
+  rename(sv_is_autoval_outlier = sv_is_outlier) %>%
+  mutate(
+    sv_is_autoval_outlier = sv_is_autoval_outlier == "Outlier",
+    sv_is_autoval_outlier = replace_na(sv_is_autoval_outlier, FALSE),
+    sv_is_outlier = sv_is_autoval_outlier | sv_is_ptax203_outlier,
+    sv_outlier_type = ifelse(
+      sv_outlier_type == "Not outlier" & sv_is_ptax203_outlier,
+      "PTAX-203 flag",
+      sv_outlier_type
+    ),
+    sv_outlier_type = replace_na(sv_outlier_type, "Not outlier"),
+    sv_is_outlier = sv_outlier_type != "Not outlier"
+  ) %>%
+  select(
+    meta_pin, meta_sale_date, meta_sale_document_num,
+    sv_is_ptax203_outlier, sv_is_autoval_outlier, sv_is_outlier, sv_outlier_type
+  ) %>%
+  # Rejoin validation output to the original training data. CAUTION: converting
+  # data to pandas and back WILL alter certain R data types. For example,
+  # missing character values are replaced with "NA"
+  right_join(
+    training_data %>% select(-sv_is_ptax203_outlier),
+    by = c(
+      "meta_pin",
+      "meta_sale_date", "meta_sale_document_num"
+    )
+  )
+
+
+
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 4. Add Features and Clean ----------------------------------------------------
+# 5. Add Features and Clean ----------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+message("Adding time features and cleaning")
 
-## 4.1. Training Data ----------------------------------------------------------
+## 5.1. Training Data ----------------------------------------------------------
 
 # Clean up the training data. Goal is to get it into a publishable format.
-# Final featurization, filling, etc. is handled via Tidymodels recipes
-training_data_clean <- training_data %>%
+# Final featurization, missingness, etc. is handled via Tidymodels recipes
+training_data_clean <- training_data_w_sv %>%
   # Recode factor variables using the definitions stored in ccao::vars_dict
   # This will remove any categories not stored in the dictionary and convert
   # them to NA (useful since there are a lot of misrecorded variables)
@@ -250,64 +318,50 @@ training_data_clean <- training_data %>%
   # Coerce columns to the data types recorded in the dictionary. Necessary
   # because the SQL drivers will often coerce types on pull (boolean becomes
   # character)
-  mutate(across(everything(), ~ recode_column_type(.x, cur_column()))) %>%
-  # Create sale date features using lubridate
+  mutate(across(
+    !starts_with("sv_"),
+    ~ recode_column_type(.x, cur_column())
+  )) %>%
+  # Create time/date features using lubridate
   dplyr::mutate(
-    # Calculate interval periods and times since Jan 01, 1997
-    time_interval = interval(ymd("1997-01-01"), ymd(.data$meta_sale_date)),
+    # Calculate interval periods and time since the start of the sales sample
+    time_interval = interval(
+      make_date(params$input$min_sale_year, 1, 1),
+      ymd(meta_sale_date)
+    ),
     time_sale_year = as.numeric(year(meta_sale_date)),
-    time_sale_day = as.numeric(time_interval %/% days(1)),
-    
-    # Get components of dates for to correct for seasonality and other factors
+    time_sale_day = as.numeric(time_interval %/% days(1)) + 1,
+    # Get components of dates to correct for seasonality and other factors
     time_sale_quarter_of_year = paste0("Q", quarter(meta_sale_date)),
     time_sale_month_of_year = as.integer(month(meta_sale_date)),
     time_sale_day_of_year = as.integer(yday(meta_sale_date)),
     time_sale_day_of_month = as.integer(day(meta_sale_date)),
     time_sale_day_of_week = as.integer(wday(meta_sale_date)),
     time_sale_post_covid = meta_sale_date >= make_date(2020, 3, 15),
-    
-    # Time window to use for cross-validation and calculating spatial lags
-    time_split = time_interval %/% months(params$input$time_split)
-  )
-
-# Calculate KNN spatial lags for each N month period used in CV. The N month
-# partitioning ensures that no training data leaks into the validation set
-# during CV
-training_data_lagged <- training_data_clean %>%
-  # Convert coords to geometry used to calculate weights
-  filter(!is.na(loc_longitude), !is.na(loc_latitude)) %>%
-  st_as_sf(
-    coords = c("loc_longitude", "loc_latitude"),
-    crs = 4326,
-    remove = FALSE
+    # Time window to use for cross-validation during training. The last X% of
+    # each window is held out as a validation set
+    time_split = time_interval %/% months(params$input$time_split),
+    # Collapse the last 2 splits into their earlier neighbor. This is done
+    # because part of the final time window will be held out for the test set,
+    # which will shrink the last split to the point of being too small for CV
+    time_split = ifelse(
+      time_split > max(time_split) - 2,
+      max(time_split) - 2,
+      time_split
+    ),
+    time_split = as.character(time_split + 1),
+    time_split = factor(time_split, levels = sort(unique(time_split)))
   ) %>%
-  # Divide training data into N-month periods and calculate spatial lags
-  # for each period
-  group_by(time_split) %>%
-  mutate(
-    nb = st_knn(geometry, k = params$input$spatial_lag$k),
-    across(
-      all_of(params$input$spatial_lag$predictor),
-      function(x) purrr::map_dbl(nb, function(idx, var = x) mean(var[idx])),
-      .names = "lag_{.col}"
-    )
-  ) %>%
-  # Clean up output, bind rows that were missing lat/lon
-  ungroup() %>%
-  st_drop_geometry() %>%
-  bind_rows(
-    training_data_clean %>%
-      filter(is.na(loc_x_3435) | is.na(loc_y_3435))
-  ) %>%
-  select(-c(nb, time_interval))
+  select(-time_interval) %>%
+  relocate(starts_with("sv_"), .after = everything())
 
 
-## 4.2. Assessment Data --------------------------------------------------------
+## 5.2. Assessment Data --------------------------------------------------------
 
-# Clean the assessment data. This the target data that the trained model is 
+# Clean the assessment data. This is the target data that the trained model is
 # used on. The cleaning steps are the same as above, with the exception of the
-# time vars and identifying complexes
-assessment_data_clean <- assessment_data %>%
+# time variables
+assessment_data_clean <- assessment_data_w_hie %>%
   ccao::vars_recode(cols = starts_with("char_"), type = "code") %>%
   mutate(across(everything(), ~ recode_column_type(.x, cur_column()))) %>%
   # Create sale date features BASED ON THE ASSESSMENT DATE. The model predicts
@@ -315,71 +369,23 @@ assessment_data_clean <- assessment_data %>%
   # actual sale
   dplyr::mutate(
     meta_sale_date = as_date(params$assessment$date),
-    time_interval = interval(ymd("1997-01-01"), ymd(.data$meta_sale_date)),
+    time_interval = interval(
+      make_date(params$input$min_sale_year, 1, 1),
+      ymd(meta_sale_date)
+    ),
     time_sale_year = as.numeric(year(meta_sale_date)),
-    time_sale_day = as.numeric(time_interval %/% days(1)),
+    time_sale_day = as.numeric(time_interval %/% days(1)) + 1,
     time_sale_quarter_of_year = paste0("Q", quarter(meta_sale_date)),
     time_sale_month_of_year = as.integer(month(meta_sale_date)),
     time_sale_day_of_year = as.integer(yday(meta_sale_date)),
     time_sale_day_of_month = as.integer(day(meta_sale_date)),
     time_sale_day_of_week = as.integer(wday(meta_sale_date)),
-    time_sale_post_covid = meta_sale_date >= make_date(2020, 3, 15),
-    time_split = time_interval %/% months(params$input$time_split)
+    time_sale_post_covid = meta_sale_date >= make_date(2020, 3, 15)
   )
 
-# Grab the most recent sale within the last 3 split periods for each PIN. This
-# will be the search space for the spatial lag for assessment data
-sales_data <- training_data_clean %>%
-  filter(
-    meta_sale_date >= as_date(params$assessment$date) -
-      months(params$input$time_split * 3),
-    !is.na(loc_longitude)
-  ) %>%
-  group_by(meta_pin) %>%
-  filter(max(meta_sale_date) == meta_sale_date) %>%
-  ungroup() %>%
-  st_as_sf(
-    coords = c("loc_longitude", "loc_latitude"),
-    crs = 4326,
-    remove = TRUE
-  ) %>%
-  select(
-    meta_pin, meta_year, meta_sale_price, 
-    all_of(params$input$spatial_lag$predictor),
-  )
 
-# Join the sales data to the assessment data. Create lagged spatial predictors
-# using the K-nearest neighboring sales. This replicates a spatial Durbin model
-# with a time component
-assessment_data_lagged <- assessment_data_clean %>%
-  filter(!is.na(loc_longitude), !is.na(loc_latitude)) %>%
-  st_as_sf(
-    coords = c("loc_longitude", "loc_latitude"),
-    crs = 4326,
-    remove = FALSE
-  ) %>%
-  mutate(
-    nb = st_knn(geometry, sales_data$geometry, k = params$input$spatial_lag$k),
-    meta_sale_price = NA_real_,
-    across(
-      all_of(params$input$spatial_lag$predictor),
-      function(x) purrr::map_dbl(nb, function(idx, var = dplyr::cur_column()) {
-        mean(sales_data[[var]][idx])
-      }),
-      .names = "lag_{.col}"
-    )
-  ) %>%
-  # Clean up output
-  ungroup() %>%
-  st_drop_geometry() %>%
-  bind_rows(
-    assessment_data_clean %>%
-      filter(is.na(loc_x_3435) | is.na(loc_y_3435))
-  ) %>%
-  select(-c(nb, meta_sale_price, time_interval))
-
-
-## 4.3. Land Rates -------------------------------------------------------------
+## 5.3. Land Rates -------------------------------------------------------------
+message("Saving land rates")
 
 # Write land data directly to file, since it's already mostly clean
 land_nbhd_rate_data %>%
@@ -390,10 +396,11 @@ land_nbhd_rate_data %>%
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 5. Condo Strata --------------------------------------------------------------
+# 6. Condo Strata --------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+message("Calculating condo strata")
 
-## 5.1. Calculate Strata -------------------------------------------------------
+## 6.1. Calculate Strata -------------------------------------------------------
 
 # Condominiums' unit characteristics (such as square footage, # of bedrooms,
 # etc.) are not tracked by the CCAO. As such, e need to rely on other
@@ -412,7 +419,7 @@ land_nbhd_rate_data %>%
 # the unit)
 
 # Get the the recency-weighted mean log10 sale price of each building
-bldg_5yr_sales_avg <- training_data_lagged %>%
+bldg_5yr_sales_avg <- training_data_clean %>%
   filter(
     meta_sale_date > make_date(as.numeric(params$input$max_sale_year) - 4)
   ) %>%
@@ -494,7 +501,7 @@ bldg_strata_model %>%
   write_parquet(paths$input$condo_strata$local)
 
 
-## 5.2. Assign Strata ----------------------------------------------------------
+## 6.2. Assign Strata ----------------------------------------------------------
 
 # Use strata models to create strata of building-level, previous-5-year sale
 # prices. These strata are used as categorical variables in the model
@@ -523,18 +530,18 @@ bldg_strata <- bldg_5yr_sales_avg %>%
   )
 
 # Attach the strata and sale counts for both assessment and training data
-training_data_w_strata <- training_data_lagged %>%
+training_data_w_strata <- training_data_clean %>%
   left_join(bldg_strata, by = "meta_pin10") %>%
   mutate(meta_pin10_5yr_num_sale = replace_na(meta_pin10_5yr_num_sale, 0)) %>%
   write_parquet(paths$input$training$local)
 
-assessment_data_w_strata <- assessment_data_lagged %>%
+assessment_data_w_strata <- assessment_data_clean %>%
   left_join(bldg_strata, by = "meta_pin10") %>%
   mutate(meta_pin10_5yr_num_sale = replace_na(meta_pin10_5yr_num_sale, 0)) %>%
   write_parquet(paths$input$assessment$local)
 
 
-## 5.3. Missing Strata ---------------------------------------------------------
+## 6.3. Missing Strata ---------------------------------------------------------
 
 # Condo buildings that don't have any recent sales will be missing strata.
 # We use KNN to assign strata for those buildings based on longitude, latitude,
@@ -547,3 +554,6 @@ message(
   "Be sure to add updated input data to DVC and finalized data to git LFS!\n",
   "See https://dvc.org/doc/start/data-and-model-versioning for more information"
 )
+
+# End the stage timer
+tictoc::toc(log = FALSE)

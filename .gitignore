@@ -4,7 +4,6 @@
 
 # R project files
 .Rproj.user/
-*.Rproj
 
 # knitr and R markdown default cache directories
 /*_cache/
@@ -18,6 +17,11 @@
 *.parquet
 *.rds
 *.zip
-*.swp
 *.csv
 *.xlsx
+*.xlsm
+*.html
+
+# Ignore python environment
+pipenv/
+pipenv
