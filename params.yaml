@@ -176,6 +176,8 @@ model:
       "char_building_sf",
       "char_unit_sf",
       "char_bedrooms",
+      "char_half_baths",
+      "char_full_baths",
       "loc_longitude",
       "loc_latitude",
       "loc_cook_municipality_name",
