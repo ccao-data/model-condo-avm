@@ -75,6 +75,10 @@ training_data <- dbGetQuery(
       sale.sale_price AS meta_sale_price,
       sale.sale_date AS meta_sale_date,
       sale.doc_no AS meta_sale_document_num,
+      sale.deed_type AS meta_sale_deed_type,
+      sale.seller_name AS meta_sale_seller_name,
+      sale.buyer_name AS meta_sale_buyer_name,
+      sale.sale_filter_is_outlier AS sv_is_ptax203_outlier,
       condo.*
   FROM model.vw_pin_condo_input condo
   INNER JOIN default.vw_pin_sale sale
@@ -361,7 +365,7 @@ training_data_clean <- training_data_w_sv %>%
 # Clean the assessment data. This is the target data that the trained model is
 # used on. The cleaning steps are the same as above, with the exception of the
 # time variables
-assessment_data_clean <- assessment_data_w_hie %>%
+assessment_data_clean <- assessment_data %>%
   ccao::vars_recode(cols = starts_with("char_"), type = "code") %>%
   mutate(across(everything(), ~ recode_column_type(.x, cur_column()))) %>%
   # Create sale date features BASED ON THE ASSESSMENT DATE. The model predicts

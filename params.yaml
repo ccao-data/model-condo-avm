@@ -79,7 +79,6 @@ input:
     # Predictor variables to use in the isolation forest classifier
     iso_forest: [
       "meta_sale_price",
-      "sv_price_per_sqft",
       "sv_days_since_last_transaction",
       "sv_cgdr",
       "sv_sale_dup_counts"

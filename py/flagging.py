@@ -130,21 +130,19 @@ def pricing_info(df: pd.DataFrame, permut: tuple, groups: tuple) -> pd.DataFrame
     Outputs:
         df (pd.DataFrame): dataframe with 3 extra columns of price info.
     """
+    
     group_string = create_group_string(groups, '_')
 
-    df = z_normalize(df, ['meta_sale_price', 'sv_price_per_sqft'])
+    df = z_normalize(df, ['meta_sale_price'])
 
-    prices = [f'sv_price_per_sqft_deviation_{group_string}',
-              f'sv_price_deviation_{group_string}', f'sv_cgdr_deviation_{group_string}']
+    prices = [f'sv_price_deviation_{group_string}', f'sv_cgdr_deviation_{group_string}']
 
     df[f'sv_price_deviation_{group_string}'] = df.groupby(list(groups), group_keys=False)['meta_sale_price'].apply(z_normalize_groupby)
-    df[f'sv_price_per_sqft_deviation_{group_string}'] = df.groupby(list(groups), group_keys=False)['sv_price_per_sqft'].apply(z_normalize_groupby)
     df[f'sv_cgdr_deviation_{group_string}'] = df.groupby(list(groups), group_keys=False)['sv_cgdr'].apply(z_normalize_groupby)
 
     holds = get_thresh(df, prices, permut, groups)
-
     df['sv_pricing'] = df.apply(price_column, args=(holds, groups), axis=1)
-    df['sv_which_price'] = df.apply(which_price, args=(holds, groups), axis=1)
+    #df['sv_which_price'] = df.apply(which_price, args=(holds, groups), axis=1)
 
     return df
 
@@ -217,21 +215,15 @@ def price_column(row: pd.Series, thresholds: dict, groups: tuple) -> str:
     group_string = create_group_string(groups, '_')
     key = tuple(row[group] for group in groups)
 
-    if thresholds.get(f'sv_price_deviation_{group_string}').get(key) and \
-        thresholds.get(f'sv_price_per_sqft_deviation_{group_string}').get(key):
+    if thresholds.get(f'sv_price_deviation_{group_string}').get(key):
 
         s_std, *s_std_range = thresholds.get(f'sv_price_deviation_{group_string}').get(key)
         s_lower, s_upper = s_std_range
 
-        sq_std, *sq_std_range = thresholds.get(f'sv_price_per_sqft_deviation_{group_string}').get(key)
-        sq_lower, sq_upper = sq_std_range
-
-        if row[f'sv_price_deviation_{group_string}'] > s_upper or\
-            row[f'sv_price_per_sqft_deviation_{group_string}'] > sq_upper:
+        if row[f'sv_price_deviation_{group_string}'] > s_upper:
             value = 'High price'
             price = True
-        elif row[f'sv_price_deviation_{group_string}'] < s_lower or\
-            row[f'sv_price_per_sqft_deviation_{group_string}'] < sq_lower:
+        elif row[f'sv_price_deviation_{group_string}'] < s_lower:
             value = 'Low price'
             price = True
 
@@ -258,9 +250,9 @@ def create_stats(df: pd.DataFrame, groups: tuple) -> pd.DataFrame:
         df(pd.DataFrame): dataframe with statistical measures calculated.
     """
 
-    df = price_sqft(df)
+    # df = price_sqft(df)
     df = grouping_mean(df, groups)
-    df = deviation_dollars(df, groups)
+    # df = deviation_dollars(df, groups)
     df = dup_stats(df, groups)
     df = transaction_days(df)
     df = percent_change(df)
@@ -358,10 +350,10 @@ def grouping_mean(df: pd.DataFrame, groups: tuple) -> pd.DataFrame:
     group_string = create_group_string(groups, '_')
 
     group_mean = df.groupby(list(groups))['meta_sale_price'].mean()
-    group_mean_sqft = df.groupby(list(groups))['sv_price_per_sqft'].mean()
+    #group_mean_sqft = df.groupby(list(groups))['sv_price_per_sqft'].mean()
     df.set_index(list(groups), inplace=True)
     df[f'sv_mean_price_{group_string}'] = group_mean
-    df[f'sv_mean_price_per_sqft_{group_string}'] = group_mean_sqft
+    #df[f'sv_mean_price_per_sqft_{group_string}'] = group_mean_sqft
 
     df.reset_index(inplace=True)
 
@@ -522,28 +514,22 @@ def outlier_type(df: pd.DataFrame) -> pd.DataFrame:
     (df['sv_transaction_type'] == 'legal_entity-legal_entity') & (df['sv_pricing'].str.contains('High')),
     (df['sv_anomaly'] == 'Outlier') & (df['sv_pricing'].str.contains('High')),
     (df['sv_pricing'].str.contains('High price swing')),
-    (df['sv_pricing'].str.contains('High')) & (df['sv_which_price'] == '(raw & sqft)'),
-    (df['sv_pricing'].str.contains('High')) & (df['sv_which_price'] == '(raw)'),
-    (df['sv_pricing'].str.contains('High')) & (df['sv_which_price'] == '(sqft)'),
+    (df['sv_pricing'].str.contains('High')),
     (df['sv_short_owner'] == 'Short-term owner') & (df['sv_pricing'].str.contains('Low')),
     (df['sv_name_match'] != 'No match') & (df['sv_pricing'].str.contains('Low')),
     (df['sv_transaction_type'] == 'legal_entity-legal_entity') & (df['sv_pricing'].str.contains('Low')),
     (df['sv_anomaly'] == 'Outlier') & (df['sv_pricing'].str.contains('Low')),
     (df['sv_pricing'].str.contains('Low price swing')),
-    (df['sv_pricing'].str.contains('Low')) & (df['sv_which_price'] == '(raw & sqft)'),
-    (df['sv_pricing'].str.contains('Low')) & (df['sv_which_price'] == '(raw)'),
-    (df['sv_pricing'].str.contains('Low')) & (df['sv_which_price'] == '(sqft)')]
+    (df['sv_pricing'].str.contains('Low'))]
 
     labels = ['Home flip sale (high)', 'Family sale (high)',
               'Non-person sale (high)', 'Anomaly (high)',
               'High price swing',
-              'High price (raw & sqft)', 'High price (raw)',
-              'High price (sqft)',
+              'High price (raw)',
               'Home flip sale (low)', 'Family sale (low)',
               'Non-person sale (low)', 'Anomaly (low)',
               'Low price swing',
-              'Low price (raw & sqft)', 'Low price (raw)',
-              'Low price (sqft)']
+              'Low price (raw)',]
 
     df["sv_outlier_type"] = np.select(conditions, labels, default='Not outlier')
 
