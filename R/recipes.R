@@ -28,12 +28,11 @@ model_main_recipe <- function(data, pred_vars, cat_vars,
     update_role(meta_sale_price, new_role = "outcome") %>%
     update_role(all_of(pred_vars), new_role = "predictor") %>%
     update_role(all_of(id_vars), new_role = "ID") %>%
+    update_role_requirements("ID", bake = FALSE) %>%
+    update_role_requirements("NA", bake = FALSE) %>%
     
     # Remove any variables not an outcome var or in the pred_vars vector
     step_rm(-all_outcomes(), -all_predictors(), -has_role("ID")) %>%
-    
-    # Replace novel levels with "new"
-    step_novel(all_of(cat_vars), -has_role("ID")) %>%
     
     # Impute missing values using KNN. Specific to condo model, usually used to
     # impute missing condo building strata
@@ -46,6 +45,9 @@ model_main_recipe <- function(data, pred_vars, cat_vars,
         eps = 1e-08
       )
     ) %>%
+    
+    # Replace novel levels with "new"
+    step_novel(all_of(cat_vars), -has_role("ID")) %>%
     
     # Replace NA in factors with "unknown" 
     step_unknown(all_of(cat_vars), -has_role("ID")) %>%
