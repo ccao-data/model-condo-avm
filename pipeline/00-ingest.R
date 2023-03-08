@@ -232,6 +232,8 @@ normalize <- function(x, min = 0, max = 1) {
 }
 
 
+
+
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 4. Validate Sales ------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -461,7 +463,7 @@ if (params$input$strata$type == "kmeans") {
     ) %>%
     ungroup()
   
-} else {
+} else if (params$input$strata$type == "ntile") {
   
   # Construct strata as quantile bins of the average sale price of the building
   bldg_strata_model <- bldg_5yr_sales_avg %>%
@@ -539,7 +541,8 @@ assessment_data_w_strata <- assessment_data_clean %>%
 # Reminder to upload to DVC store
 message(
   "Be sure to add updated input data to DVC and finalized data to git LFS!\n",
-  "See https://dvc.org/doc/start/data-and-model-versioning for more information"
+  "See https://dvc.org/doc/start/data-management/data-versioning ",
+  "for more information"
 )
 
 # End the stage timer

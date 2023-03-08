@@ -110,10 +110,6 @@ input:
     # Max and min weights for mean sale price weighted by sale date
     weight_min: 0.5
     weight_max: 1.0
-  
-    # Number of nearest neighbors (units) used to calculate strata for condo
-    # buildings without enough sales
-    knn_missing: 200
 
 
 # Cross-validation -------------------------------------------------------------

@@ -63,12 +63,12 @@ assessment_data_prepped <- read_parquet(paths$input$assessment$local) %>%
   )
 
 # Use the trained lightgbm model to estimate a single FMV per unit
-assessment_data_pred <- assessment_data_prepped %>%
+assessment_data_pred <- read_parquet(paths$input$assessment$local) %>%
   as_tibble() %>%
   mutate(
     pred_card_initial_fmv = predict(
       lgbm_final_full_fit,
-      new_data = .
+      new_data = assessment_data_prepped
     )$.pred
   )
 
