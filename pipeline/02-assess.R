@@ -8,23 +8,24 @@ tictoc::tic("Assess")
 
 # Load libraries and scripts
 options(dplyr.summarise.inform = FALSE)
-library(arrow)
-library(assessr)
-library(ccao)
-library(dplyr)
-library(here)
-library(lightsnip)
-library(purrr)
-library(recipes)
-library(stringr)
-library(tictoc)
-library(tidyr)
-library(yaml)
+suppressPackageStartupMessages({
+  library(arrow)
+  library(assessr)
+  library(ccao)
+  library(dplyr)
+  library(here)
+  library(lightsnip)
+  library(purrr)
+  library(recipes)
+  library(tictoc)
+  library(tidyr)
+  library(yaml)
+})
 
 # Load helpers and recipes from files
 walk(list.files("R/", "\\.R$", full.names = TRUE), source)
 
-# Initialize a dictionary of file paths. See R/file_dict.csv for details
+# Initialize a dictionary of file paths. See misc/file_dict.csv for details
 paths <- model_file_dict()
 
 # Load the parameters file containing the run settings
@@ -37,7 +38,8 @@ rsn_prefix <- gsub("_tot", "", params$ratio_study$near_column)
 # Load the training data to use as a source of sales. These will be attached to
 # PIN-level output (for comparison) and used as the basis for a sales ratio
 # analysis on the assessment data
-sales_data <- read_parquet(paths$input$training$local)
+sales_data <- read_parquet(paths$input$training$local) %>%
+  filter(!sv_is_outlier)
 
 
 
@@ -45,6 +47,7 @@ sales_data <- read_parquet(paths$input$training$local)
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 2. Predict Values ------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+message("Predicting off-market values with trained model")
 
 # Load the final lightgbm model object and recipe from file
 lgbm_final_full_fit <- lightsnip::lgbm_load(paths$output$workflow_fit$local)
@@ -72,8 +75,10 @@ assessment_data_pred <- read_parquet(paths$input$assessment$local) %>%
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 3. Post-Modeling Adjustments -------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+message("Performing post-modeling adjustments")
 
 ## 3.1. Value Non-Livable Units ------------------------------------------------
+message("Fixing non-livable unit values")
 
 # Many 14-digit PINs are non-livable units such as parking spaces, common
 # areas, or storage areas. These units are valued by the model but tend to be
@@ -96,9 +101,10 @@ assessment_data_nl <- assessment_data_pred %>%
 
 
 ## 3.2. Peg to % Ownership -----------------------------------------------------
+message("Aggregating to building level")
 
 # For condominiums, we need to aggregate values to the building level, then
-# multiply be proration rate/percent ownership to get the final unit value. For
+# multiply by proration rate/percent ownership to get the final unit value. For
 # example, if you have a 3 unit building, with percentages .25, .25, .5,
 # and the model-predicted values for all 3 units are the same, you want to
 # divide the value of the building proportionally across units. 
@@ -132,6 +138,7 @@ assessment_data_bldg <- assessment_data_nl %>%
 
 
 ## 3.3. Round and Finalize -----------------------------------------------------
+message("Rounding and finalizing")
 
 # Round PIN-level predictions using the breaks and amounts specified in params
 assessment_data_final <- assessment_data_bldg %>%
@@ -165,6 +172,7 @@ assessment_data_merged <- assessment_data_pred %>%
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 4. Card-Level Data -----------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+message("Saving card-level data")
 
 # Keep only card-level variables of interest, including: ID variables (run_id,
 # pin, card), characteristics, and predictions. For condos card and PIN are the
@@ -193,6 +201,7 @@ assessment_data_merged %>%
 # looking at YoY changes, comparing to sales, etc.
 
 ## 5.1. Load Sales/Land --------------------------------------------------------
+message("Attaching recent sales to PIN-level data")
 
 # Load the MOST RECENT sale per PIN from the year prior to the assessment year.
 # These are the sales that will be used for ratio studies in the evaluate stage.
@@ -250,6 +259,7 @@ land_nbhd_rate <- read_parquet(paths$input$land_nbhd_rate$local)
 
 
 ## 5.2. Keep PIN-Level Data ----------------------------------------------------
+message("Saving PIN-level data")
 
 # Clean PIN level data, keeping only columns in common with the SF/MF model
 assessment_data_pin <- assessment_data_merged %>%
@@ -275,7 +285,7 @@ assessment_data_pin <- assessment_data_merged %>%
     # Keep locations, prior year values, and indicators
     loc_longitude, loc_latitude,
     starts_with(c(
-      "loc_property_", "loc_cook_", "loc_chicago_",
+      "loc_property_", "loc_cook_", "loc_ward_", "loc_chicago_",
       "loc_census", "loc_school_", "prior_", "ind_"
     )),
     meta_pin10_5yr_num_sale,
@@ -290,6 +300,7 @@ assessment_data_pin <- assessment_data_merged %>%
 
 
 ## 5.3. Value Land -------------------------------------------------------------
+message("Attaching and parsing land values")
 
 # Attach land and sales data to the PIN-level data, then calculate land and
 # building values for each PIN
@@ -332,6 +343,7 @@ assessment_data_pin_2 <- assessment_data_pin %>%
 
 
 ## 5.4. Add Flags --------------------------------------------------------------
+message("Adding Desk Review flags")
 
 # Flags are used for identifying PINs for potential desktop review
 assessment_data_pin_final <- assessment_data_pin_2 %>%
@@ -373,6 +385,7 @@ assessment_data_pin_final <- assessment_data_pin_2 %>%
 
 
 ## 5.5. Clean/Reorder/Save -----------------------------------------------------
+message("Saving final PIN-level data")
 
 # Recode characteristics from numeric encodings to human-readable strings
 assessment_data_pin_final %>%

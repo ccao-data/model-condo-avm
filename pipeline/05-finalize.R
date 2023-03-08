@@ -6,18 +6,19 @@
 # setup and multi-factor authentication help
 
 # Load libraries and scripts
-library(arrow)
-library(aws.s3)
-library(ccao)
-library(dplyr)
-library(here)
-library(lubridate)
-library(paws.application.integration)
-library(purrr)
-library(stringr)
-library(tidyr)
-library(tune)
-library(yaml)
+suppressPackageStartupMessages({
+  library(arrow)
+  library(aws.s3)
+  library(ccao)
+  library(dplyr)
+  library(here)
+  library(lubridate)
+  library(paws.application.integration)
+  library(purrr)
+  library(tidyr)
+  library(tune)
+  library(yaml)
+})
 source(here("R", "helpers.R"))
 
 # Initialize a dictionary of file paths. See misc/file_dict.csv for details
@@ -26,9 +27,12 @@ paths <- model_file_dict()
 # Load the parameters file containing the run settings
 params <- read_yaml("params.yaml")
 
-# Override CV toggle and run_type, used for CI or limited runs
+# Override CV toggle, SHAP toggle, and run_type, used for CI or limited runs
 cv_enable <- as.logical(
   Sys.getenv("CV_ENABLE_OVERRIDE", unset = params$toggle$cv_enable)
+)
+shap_enable <- as.logical(
+  Sys.getenv("SHAP_ENABLE_OVERRIDE", unset = params$toggle$shap_enable)
 )
 run_type <- as.character(
   Sys.getenv("RUN_TYPE_OVERRIDE", unset = params$run_type)
@@ -40,6 +44,7 @@ run_type <- as.character(
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 2. Save Metadata -------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+message("Saving run metadata")
 
 ## 2.1. Run Info ---------------------------------------------------------------
 
@@ -107,6 +112,7 @@ metadata <- tibble::tibble(
   ratio_study_near_stage = params$ratio_study$near_stage,
   ratio_study_near_column = params$ratio_study$near_column,
   ratio_study_num_quantile = list(params$ratio_study$num_quantile),
+  shap_enable = shap_enable,
   cv_enable = cv_enable,
   cv_num_folds = params$cv$num_folds,
   cv_initial_set = params$cv$initial_set,
@@ -141,6 +147,7 @@ metadata <- tibble::tibble(
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 3. Save Timings --------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+message("Saving run timings")
 
 # Filter ensure we only get timing files for stages that actually ran
 if (run_type == "full") {
@@ -189,10 +196,10 @@ tictoc::tic.clearlog()
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 4. Upload --------------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+message("Uploading run artifacts")
 
 # Only upload files if explicitly enabled
 if (params$toggle$upload_to_s3) {
-
   # Initialize a dictionary of paths AND S3 URIs specific to the run ID and year
   paths <- model_file_dict(
     run_id = run_id,
@@ -240,6 +247,7 @@ if (params$toggle$upload_to_s3) {
   # Upload the parameter search objects if CV was enabled. Requires some
   # cleaning since the Tidymodels output is stored as a nested data frame
   if (cv_enable) {
+    message("Uploading cross-validation artifacts")
 
     # Upload the raw parameters object to S3 in case we need to use it later
     aws.s3::put_object(
@@ -254,32 +262,39 @@ if (params$toggle$upload_to_s3) {
       write_parquet(paths$output$parameter_range$s3)
 
     # Clean and unnest the raw parameters data, then write the results to S3
-    read_parquet(paths$output$parameter_raw$local) %>%
-      tidyr::unnest(cols = .metrics) %>%
-      mutate(run_id = run_id) %>%
-      left_join(
-        rename(., notes = .notes) %>%
-          tidyr::unnest(cols = notes) %>%
-          rename(notes = note)
-      ) %>%
-      select(-.notes) %>%
-      rename_with(~ gsub("^\\.", "", .x)) %>%
-      tidyr::pivot_wider(names_from = "metric", values_from = "estimate") %>%
-      relocate(
-        all_of(c(
-          "run_id",
-          "iteration" = "iter",
-          "configuration" = "config", "fold_id" = "id"
-        ))
-      ) %>%
-      relocate(notes, .after = everything()) %>%
-      dplyr::select(-any_of(c("estimator"))) %>%
+    bind_cols(
+      read_parquet(paths$output$parameter_raw$local) %>%
+        tidyr::unnest(cols = .metrics) %>%
+        mutate(run_id = run_id) %>%
+        left_join(
+          rename(., notes = .notes) %>%
+            tidyr::unnest(cols = notes) %>%
+            rename(notes = note)
+        ) %>%
+        select(-.notes) %>%
+        rename_with(~ gsub("^\\.", "", .x)) %>%
+        tidyr::pivot_wider(names_from = "metric", values_from = "estimate") %>%
+        relocate(
+          all_of(c(
+            "run_id",
+            "iteration" = "iter",
+            "configuration" = "config", "fold_id" = "id"
+          ))
+        ) %>%
+        relocate(c(location, type, notes), .after = everything()),
+      read_parquet(paths$output$parameter_raw$local) %>%
+        tidyr::unnest(cols = .extracts) %>%
+        tidyr::unnest(cols = .extracts) %>%
+        dplyr::select(num_iterations = .extracts)
+    ) %>%
+      dplyr::select(-any_of(c("estimator")), -extracts) %>%
       write_parquet(paths$output$parameter_search$s3)
   }
 
 
   # 4.2. Assess ----------------------------------------------------------------
-
+  message("Uploading final assessment results")
+  
   # Upload PIN and card-level values for full runs. These outputs are very
   # large, so to help reduce file size and improve query performance we
   # partition them by year, run ID, and township
@@ -308,6 +323,7 @@ if (params$toggle$upload_to_s3) {
   # 4.3. Evaluate --------------------------------------------------------------
 
   # Upload test set performance
+  message("Uploading test set evaluation")
   read_parquet(paths$output$performance_test$local) %>%
     mutate(run_id = run_id) %>%
     relocate(run_id) %>%
@@ -319,6 +335,7 @@ if (params$toggle$upload_to_s3) {
 
   # Upload assessment set performance if a full run
   if (run_type == "full") {
+    message("Uploading assessment set evaluation")
     read_parquet(paths$output$performance_assessment$local) %>%
       mutate(run_id = run_id) %>%
       relocate(run_id) %>%
@@ -335,7 +352,8 @@ if (params$toggle$upload_to_s3) {
   # Upload SHAP values if a full run. SHAP values are one row per card and one
   # column per feature, so the output is very large. Therefore, we partition
   # the data by year, run, and township
-  if (run_type == "full") {
+  if (run_type == "full" && shap_enable) {
+    message("Uploading SHAP values")
     read_parquet(paths$output$shap$local) %>%
       mutate(run_id = run_id, year = params$assessment$year) %>%
       group_by(year, run_id, township_code) %>%
@@ -346,10 +364,20 @@ if (params$toggle$upload_to_s3) {
         compression = "snappy"
       )
   }
+  
+  # Upload feature importance metrics
+  if (run_type == "full") {
+    message("Uploading feature importance metrics")
+    read_parquet(paths$output$feature_importance$local) %>%
+      mutate(run_id = run_id) %>%
+      relocate(run_id) %>%
+      write_parquet(paths$output$feature_importance$s3)
+  }
 
 
   # 4.5. Finalize --------------------------------------------------------------
-
+  message("Uploading run metadata and timings")
+  
   # Upload metadata
   aws.s3::put_object(
     paths$output$metadata$local,
@@ -373,6 +401,7 @@ if (params$toggle$upload_to_s3) {
 # This will run a Glue crawler to update schemas and send an email to any SNS
 # subscribers. Only run when actually uploading
 if (params$toggle$upload_to_s3) {
+  message("Sending run email and running model crawler")
 
   # If assessments and SHAP values were uploaded, trigger a Glue crawler to find
   # any new partitions

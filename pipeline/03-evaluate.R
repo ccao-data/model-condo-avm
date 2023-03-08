@@ -8,21 +8,22 @@ tictoc::tic("Evaluate")
 
 # Load libraries and scripts
 options(dplyr.summarise.inform = FALSE)
-library(arrow)
-library(assessr)
-library(ccao)
-library(dplyr)
-library(here)
-library(furrr)
-library(lightsnip)
-library(purrr)
-library(rlang)
-library(recipes)
-library(stringr)
-library(tictoc)
-library(tidyr)
-library(yaml)
-library(yardstick)
+suppressPackageStartupMessages({
+  library(arrow)
+  library(assessr)
+  library(ccao)
+  library(dplyr)
+  library(here)
+  library(furrr)
+  library(lightsnip)
+  library(purrr)
+  library(rlang)
+  library(recipes)
+  library(tictoc)
+  library(tidyr)
+  library(yaml)
+  library(yardstick)
+})
 
 # Load helpers and recipes from files
 walk(list.files("R/", "\\.R$", full.names = TRUE), source)
@@ -43,7 +44,7 @@ run_type <- as.character(
 num_threads <- parallel::detectCores(logical = FALSE)
 plan(multisession, workers = num_threads)
 
-# Renaming dictionary for input columns. We want actual value of the column
+# Renaming dictionary for input columns. We want the actual value of the column
 # to become geography_id and the NAME of the column to become geography_name
 col_rename_dict <- c(
   "triad_code" = "meta_triad_code",
@@ -52,7 +53,7 @@ col_rename_dict <- c(
   "geography_id" = "meta_township_name",
   "geography_id" = "meta_nbhd_code",
   "geography_id" = "loc_cook_municipality_name",
-  "geography_id" = "loc_chicago_ward_num",
+  "geography_id" = "loc_ward_num",
   "geography_id" = "loc_census_puma_geoid",
   "geography_id" = "loc_census_tract_geoid",
   "geography_id" = "loc_school_elementary_district_geoid",
@@ -66,18 +67,20 @@ col_rename_dict <- c(
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 2. Load Data -----------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+message("Loading evaluation data")
 
 # Load the test results from the end of the train stage. This will be the most
 # recent 10% of sales and already includes predictions
 test_data_card <- read_parquet(paths$output$test_card$local)
 
 # Load the assessment results from the previous stage. This will include every
-# residential PIN that needs a value. Only runs for full runs due to compute cost
+# residential PIN that needs a value. It WILL include multicard properties
+# aggregated to the PIN-level. Only runs for full runs due to compute cost
 if (run_type == "full") {
   assessment_data_pin <- read_parquet(paths$output$assessment_pin$local) %>%
     select(
       meta_pin, meta_class, meta_triad_code, meta_township_code, meta_nbhd_code,
-      loc_cook_municipality_name, loc_chicago_ward_num, loc_census_puma_geoid,
+      loc_cook_municipality_name, loc_ward_num, loc_census_puma_geoid,
       loc_census_tract_geoid, loc_school_elementary_district_geoid,
       loc_school_secondary_district_geoid, loc_school_unified_district_geoid,
       char_total_bldg_sf, char_unit_sf, prior_far_tot, prior_near_tot,
@@ -104,7 +107,6 @@ if (run_type == "full") {
 # aggregate performance statistics for different levels of geography
 gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
                           rsn_col, rsf_col, triad, geography, class, col_dict) {
-
   # List of summary stat/performance functions applied within summarize() below
   # Each function is listed on the right while the name of the function is on
   # the left
@@ -144,7 +146,7 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
     q75         = ~ quantile((.x - .y) / .y, na.rm = T, probs = 0.75),
     max         = ~ max((.x - .y) / .y, na.rm = T)
   )
-
+  
   # Generate aggregate performance stats by geography
   df_stat <- data %>%
     # Aggregate to get counts by geography without class
@@ -156,7 +158,7 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
     # Aggregate including class
     group_by({{ triad }}, {{ geography }}, {{ class }}) %>%
     summarize(
-
+      
       # Basic summary stats, counts, proportions, etc
       num_pin = n(),
       num_sale = sum(!is.na({{ truth }})),
@@ -166,21 +168,21 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
       prior_far_total_av = sum({{ rsf_col }} / 10, na.rm = TRUE),
       prior_near_total_av = sum({{ rsn_col }} / 10, na.rm = TRUE),
       estimate_total_av = sum({{ estimate }} / 10, na.rm = TRUE),
-
+      
       # Assessment-specific statistics
       across(.fns = rs_fns_list, {{ estimate }}, {{ truth }}, .names = "{.fn}"),
       median_ratio = median({{ estimate }} / {{ truth }}, na.rm = TRUE),
-
+      
       # Yardstick (ML-specific) performance stats
       across(.fns = ys_fns_list, {{ truth }}, {{ estimate }}, .names = "{.fn}"),
-
+      
       # Summary stats of sale price and sale price per sqft
       across(.fns = sum_fns_list, {{ truth }}, .names = "sale_fmv_{.fn}"),
       across(
         .fns = sum_sqft_fns_list, {{ truth }}, {{ bldg_sqft }},
         .names = "sale_fmv_per_sqft_{.fn}"
       ),
-
+      
       # Summary stats of prior values and value per sqft. Need to multiply
       # by 10 first since PIN history is in AV, not FMV
       prior_far_num_missing = sum(is.na({{ rsf_col }})),
@@ -203,7 +205,7 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
         .fns = yoy_fns_list, {{ estimate }}, {{ rsn_col }},
         .names = "prior_near_yoy_pct_chg_{.fn}"
       ),
-
+      
       # Summary stats of estimate value and estimate per sqft
       estimate_num_missing = sum(is.na({{ estimate }})),
       across(
@@ -227,7 +229,7 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
     tidyr::unnest_wider(PRB_CI, names_sep = "_") %>%
     # Rename columns resulting from unnesting
     rename_with(~ gsub("%", "", gsub("\\.", "_", tolower(.x))))
-
+  
   # Clean up the stats output (rename cols, relocate cols, etc.)
   df_stat %>%
     mutate(
@@ -259,7 +261,6 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
 gen_agg_stats_quantile <- function(data, truth, estimate,
                                    rsn_col, rsf_col, triad, geography,
                                    class, col_dict, num_quantile) {
-
   # Calculate the median ratio by quantile of sale price, plus the upper and
   # lower bounds of each quantile
   df_quantile <- data %>%
@@ -282,7 +283,7 @@ gen_agg_stats_quantile <- function(data, truth, estimate,
       .groups = "drop"
     ) %>%
     ungroup()
-
+  
   # Clean up the quantile output
   df_quantile %>%
     mutate(
@@ -325,7 +326,7 @@ gen_agg_stats_quantile <- function(data, truth, estimate,
 geographies_quosures <- rlang::quos(
   meta_township_code,
   meta_nbhd_code, loc_cook_municipality_name,
-  loc_chicago_ward_num, loc_census_puma_geoid, loc_census_tract_geoid,
+  loc_ward_num, loc_census_puma_geoid, loc_census_tract_geoid,
   loc_school_elementary_district_geoid, loc_school_secondary_district_geoid,
   loc_school_unified_district_geoid,
   NULL
@@ -347,6 +348,7 @@ geographies_list_quantile <- purrr::cross3(
 
 # Use parallel map to calculate aggregate stats for every geography level and
 # class combination for the test set
+message("Calculating test set aggregate statistics")
 future_map_dfr(
   geographies_list,
   ~ gen_agg_stats(
@@ -362,11 +364,12 @@ future_map_dfr(
     col_dict = col_rename_dict
   ),
   .options = furrr_options(seed = TRUE, stdout = FALSE),
-  .progress = TRUE
+  .progress = FALSE
 ) %>%
   write_parquet(paths$output$performance_test$local)
 
 # Same as above, but calculate stats per quantile of sale price
+message("Calculating test set quantile statistics")
 future_map_dfr(
   geographies_list_quantile,
   ~ gen_agg_stats_quantile(
@@ -382,7 +385,7 @@ future_map_dfr(
     num_quantile = .x[[3]]
   ),
   .options = furrr_options(seed = TRUE, stdout = FALSE),
-  .progress = TRUE
+  .progress = FALSE
 ) %>%
   write_parquet(paths$output$performance_quantile_test$local)
 
@@ -391,9 +394,9 @@ future_map_dfr(
 
 # Only value the assessment set for full runs
 if (run_type == "full") {
-
   # Do the same thing for the assessment set. This will have accurate property
   # counts and proportions, since it also includes unsold properties
+  message("Calculating assessment set aggregate statistics")
   future_map_dfr(
     geographies_list,
     ~ gen_agg_stats(
@@ -409,11 +412,12 @@ if (run_type == "full") {
       col_dict = col_rename_dict
     ),
     .options = furrr_options(seed = TRUE, stdout = FALSE),
-    .progress = TRUE
+    .progress = FALSE
   ) %>%
     write_parquet(paths$output$performance_assessment$local)
-
+  
   # Same as above, but calculate stats per quantile of sale price
+  message("Calculating assessment set quantile statistics")
   future_map_dfr(
     geographies_list_quantile,
     ~ gen_agg_stats_quantile(
@@ -429,7 +433,7 @@ if (run_type == "full") {
       num_quantile = .x[[3]]
     ),
     .options = furrr_options(seed = TRUE, stdout = FALSE),
-    .progress = TRUE
+    .progress = FALSE
   ) %>%
     write_parquet(paths$output$performance_quantile_assessment$local)
 }

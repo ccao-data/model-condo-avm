@@ -341,7 +341,7 @@ test %>%
     loc_cook_municipality_name, loc_ward_num, loc_census_puma_geoid,
     loc_census_tract_geoid, loc_school_elementary_district_geoid,
     loc_school_secondary_district_geoid, loc_school_unified_district_geoid,
-    char_unit_sf, char_building_sf,
+    char_unit_sf, char_building_sf, char_full_baths, char_half_baths,
     all_of(c(
       "prior_far_tot" = params$ratio_study$far_column,
       "prior_near_tot" = params$ratio_study$near_column
@@ -379,4 +379,3 @@ bind_rows(tictoc::tic.log(format = FALSE)) %>%
     paths$intermediate$timing$local,
     "model_timing_train.parquet"
   )))
-

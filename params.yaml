@@ -272,6 +272,7 @@ model:
       "meta_strata_1",
       "meta_strata_2"
     ]
+    
     knn_imp: [
       "loc_latitude",
       "loc_longitude",
