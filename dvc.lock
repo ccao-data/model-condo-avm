@@ -33,23 +33,22 @@ stages:
             - meta_township_code
             type: ntile
             k_1: 10
-            k_2: 300
-            weight_min: 0.5
+            k_2: 100
+            weight_min: 0.3
             weight_max: 1.0
-            knn_missing: 200
     outs:
     - path: input/assessment_data.parquet
-      md5: 6d880706a053552e7daf6630a1615062
-      size: 62847753
+      md5: 893b567bb6755bc2526ba65e850d379b
+      size: 62812656
     - path: input/condo_strata_data.parquet
-      md5: 43b6a93bbb41797652649cce0a341497
-      size: 115195
+      md5: 42c189d0f6031b3e2cbb367c1e5d3ea5
+      size: 40855
     - path: input/land_nbhd_rate_data.parquet
-      md5: 64d9827b62ebb1f645e1344351f56c19
+      md5: 730c5638b23ef13d160b65c1ad35549c
       size: 4246
     - path: input/training_data.parquet
-      md5: 2388ffa5274d58e5c3056d2575415514
-      size: 54506096
+      md5: 7f0698226e76a24e75996f4fd8ce457c
+      size: 54519112
   train:
     cmd: Rscript pipeline/01-train.R
     deps:
