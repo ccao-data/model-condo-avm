@@ -193,7 +193,6 @@ model:
       "loc_access_cmap_walk_nta_score",
       "loc_access_cmap_walk_total_score",
       "loc_misc_subdivision_id",
-      "loc_misc_unincorporated_area_bool",
       "prox_num_pin_in_half_mile",
       "prox_num_bus_stop_in_half_mile",
       "prox_num_foreclosure_per_1000_pin_past_5_years",
@@ -291,8 +290,8 @@ model:
   parameter:
     # Total number of iterations. Usually changed in tandem with learning_rate
     # https://lightgbm.readthedocs.io/en/latest/Parameters.html#num_iterations
-    num_iterations: 4000
-    learning_rate: 0.025
+    num_iterations: 1500
+    learning_rate: 0.08
     
     # For CV only, proportion of the training data to hold out for use in 
     # early stopping + the metric to evaluate. See R docs for details:
@@ -309,7 +308,7 @@ model:
     
     # Maximum number of bins for discretizing continuous features. Lower uses
     # less memory and speeds up training
-    max_bin: 1024
+    max_bin: 512
     
     # During CV, the number of iterations to go without improvement before
     # stopping training
