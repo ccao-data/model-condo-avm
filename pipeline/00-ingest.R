@@ -408,7 +408,8 @@ message("Calculating condo strata")
 # Get the the recency-weighted mean log10 sale price of each building
 bldg_5yr_sales_avg <- training_data_clean %>%
   filter(
-    meta_sale_date > make_date(as.numeric(params$input$max_sale_year) - 4)
+    meta_sale_date > make_date(as.numeric(params$input$max_sale_year) - 4),
+    !sv_is_outlier
   ) %>%
   select(
     meta_pin10, meta_sale_price, meta_sale_date,

@@ -228,8 +228,8 @@ if (cv_enable) {
   lgbm_search <- tune_bayes(
     object = lgbm_wflow,
     resamples = train_folds,
-    initial = 2,
-    iter = 1,
+    initial = params$cv$initial_set,
+    iter = params$cv$max_iterations,
     param_info = lgbm_params,
     metrics = metric_set(rmse, mape, mae),
     control = control_bayes(
