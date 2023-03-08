@@ -54,18 +54,21 @@ lgbm_final_full_fit <- lightsnip::lgbm_load(paths$output$workflow_fit$local)
 lgbm_final_full_recipe <- readRDS(paths$output$workflow_recipe$local)
 
 # Load the data for assessment. This is the universe of condo units 
-# that need values. Use the trained lightgbm model to estimate a single
-# fair-market value for each unit
-assessment_data_pred <- read_parquet(paths$input$assessment$local) %>%
+# that need values
+assessment_data_prepped <- read_parquet(paths$input$assessment$local) %>%
+  recipes::bake(
+    object = lgbm_final_full_recipe,
+    new_data = .,
+    all_predictors()
+  )
+
+# Use the trained lightgbm model to estimate a single FMV per unit
+assessment_data_pred <- assessment_data_prepped %>%
   as_tibble() %>%
   mutate(
     pred_card_initial_fmv = predict(
       lgbm_final_full_fit,
-      new_data = bake(
-        lgbm_final_full_recipe,
-        new_data = .,
-        all_predictors()
-      )
+      new_data = .
     )$.pred
   )
 

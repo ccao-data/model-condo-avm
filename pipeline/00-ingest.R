@@ -232,23 +232,6 @@ normalize <- function(x, min = 0, max = 1) {
 }
 
 
-# Find the K-nearest neighbors within a group to calculate a spatial lag
-st_knn <- function(x, y = NULL, k = 1) {
-  s2x <- sf::st_as_s2(x)
-  if (is.null(y)) {
-    z <- s2::s2_closest_edges(s2x, s2x, k = (k + 1))
-    # Drop the starting observation/point
-    z <- lapply(z, sort)
-    z <- lapply(seq_along(z), function(i) setdiff(z[[i]], i))
-    return(z)
-  } else {
-    s2y <- sf::st_as_s2(y)
-    z <- s2::s2_closest_edges(s2x, s2y, k = k)
-  }
-}
-
-
-
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 4. Validate Sales ------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
