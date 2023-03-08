@@ -220,12 +220,10 @@ val_assign_center <- function(x, centers) {
 }
 
 
-# Normalize data so that knn isn't biased by scale of any dimension (i.e. one
-# dimension having a range of 1000 vs another having a range of 100). This can
-# create issues since knn depends on the distance formula
-normalize <- function(x, min = 0, max = 1) {
-  output <- (x - min(x, na.rm = T)) /
-    (max(x, na.rm = T) - min(x, na.rm = T)) *
+# Rescaling function to normalize a continuous range to be between a min and max
+rescale <- function(x, min = 0, max = 1) {
+  output <- (x - min(x, na.rm = TRUE)) /
+    (max(x, na.rm = TRUE) - min(x, na.rm = TRUE)) *
     (max - min) + min
   
   return(output)
@@ -417,7 +415,7 @@ bldg_5yr_sales_avg <- training_data_clean %>%
     all_of(params$input$strata$group_var)
   ) %>%
   mutate(
-    meta_sale_date_norm = normalize(
+    meta_sale_date_norm = rescale(
       as.numeric(meta_sale_date),
       params$input$strata$weight_min,
       params$input$strata$weight_max
