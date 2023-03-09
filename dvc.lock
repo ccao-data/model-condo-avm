@@ -53,15 +53,15 @@ stages:
     cmd: Rscript pipeline/01-train.R
     deps:
     - path: input/training_data.parquet
-      md5: 2388ffa5274d58e5c3056d2575415514
-      size: 54506096
+      md5: 7f0698226e76a24e75996f4fd8ce457c
+      size: 54519112
     params:
       params.yaml:
         cv:
           split_prop: 0.9
           initial_set: 25
           max_iterations: 70
-          no_improve: 30
+          no_improve: 20
           best_metric: rmse
         input.time_split: 15
         model.engine: lightgbm
@@ -78,10 +78,10 @@ stages:
             cat_l2: 0.83
             lambda_l1: 0.105
             lambda_l2: 0.024
-            neighbors: 20
+            neighbors: 10
           range:
             num_leaves:
-            - 500
+            - 50
             - 2500
             add_to_linked_depth:
             - 1
@@ -115,11 +115,11 @@ stages:
             - 1
             neighbors:
             - 5
-            - 50
+            - 40
         model.objective: rmse
         model.parameter:
           num_iterations: 1500
-          learning_rate: 0.08
+          learning_rate: 0.03
           validation_prop: 0.1
           validation_type: recent
           validation_metric: rmse
@@ -133,7 +133,6 @@ stages:
           - meta_tieback_proration_rate
           - char_yrblt
           - char_land_sf
-          - char_building_pins
           - char_building_units
           - char_building_non_units
           - char_bldg_is_mixed_use
@@ -149,14 +148,10 @@ stages:
           - loc_env_flood_fs_factor
           - loc_env_flood_fs_risk_direction
           - loc_env_airport_noise_dnl
-          - loc_env_ohare_noise_contour_no_buffer_bool
           - loc_school_elementary_district_geoid
           - loc_school_secondary_district_geoid
-          - loc_school_unified_district_geoid
-          - loc_tax_special_service_area_num
           - loc_access_cmap_walk_nta_score
           - loc_access_cmap_walk_total_score
-          - loc_misc_subdivision_id
           - prox_num_pin_in_half_mile
           - prox_num_bus_stop_in_half_mile
           - prox_num_foreclosure_per_1000_pin_past_5_years
@@ -192,14 +187,10 @@ stages:
           - acs5_percent_employment_unemployed
           - acs5_median_household_total_occupied_year_built
           - acs5_median_household_renter_occupied_gross_rent
-          - acs5_median_household_owner_occupied_value
           - acs5_percent_household_owner_occupied
           - acs5_percent_household_total_occupied_w_sel_cond
           - acs5_percent_mobility_moved_in_county
-          - other_ihs_avg_year_index
           - other_tax_bill_rate
-          - other_school_district_elementary_avg_rating
-          - other_school_district_secondary_avg_rating
           - time_sale_year
           - time_sale_day
           - time_sale_quarter_of_year
@@ -216,9 +207,6 @@ stages:
           - loc_cook_municipality_name
           - loc_school_elementary_district_geoid
           - loc_school_secondary_district_geoid
-          - loc_school_unified_district_geoid
-          - loc_tax_special_service_area_num
-          - loc_misc_subdivision_id
           - time_sale_quarter_of_year
           - meta_strata_1
           - meta_strata_2
@@ -234,6 +222,7 @@ stages:
           - meta_year
           - meta_pin
           - meta_class
+          - meta_card_num
           - meta_sale_document_num
         model.seed: 2023
         model.verbose: -1
@@ -251,10 +240,10 @@ stages:
         toggle.cv_enable: false
     outs:
     - path: output/intermediate/timing/model_timing_train.parquet
-      md5: 4c36b8a1c0adf2bb69a9e989a37a9894
+      md5: e78c0f9fb92bec2a577ac0c3bae8529c
       size: 2865
     - path: output/parameter_final/model_parameter_final.parquet
-      md5: ffe719c49340fee89399ae73fd426d78
+      md5: 809aad04f920f35aa014521019238667
       size: 8845
     - path: output/parameter_range/model_parameter_range.parquet
       md5: bef5a22b3eb8fb426e80cb5f9cd4eb48
@@ -263,35 +252,35 @@ stages:
       md5: bef5a22b3eb8fb426e80cb5f9cd4eb48
       size: 696
     - path: output/test_card/model_test_card.parquet
-      md5: 11c9711ea8f0192364026bbb3fa8cf7f
-      size: 1230353
+      md5: 0ae5cbe9fdcb7dd584abca066e2fb760
+      size: 1230904
     - path: output/workflow/fit/model_workflow_fit.zip
-      md5: a467302e3c0fe32f4692dd551fa8df00
-      size: 40870009
+      md5: 22872229efa92820f35e9fb51d355d9b
+      size: 42276171
     - path: output/workflow/recipe/model_workflow_recipe.rds
-      md5: 0f739b3ab822dc3b5ae32546b4f0ac2f
-      size: 4413739
+      md5: 32a56ba1d04aaf7ad58deedb14a07917
+      size: 4282937
   assess:
     cmd: Rscript pipeline/02-assess.R
     deps:
     - path: input/assessment_data.parquet
-      md5: 6d880706a053552e7daf6630a1615062
-      size: 62847753
+      md5: 893b567bb6755bc2526ba65e850d379b
+      size: 62812656
     - path: input/condo_strata_data.parquet
-      md5: 43b6a93bbb41797652649cce0a341497
-      size: 115195
+      md5: 42c189d0f6031b3e2cbb367c1e5d3ea5
+      size: 40855
     - path: input/land_nbhd_rate_data.parquet
-      md5: 64d9827b62ebb1f645e1344351f56c19
+      md5: 730c5638b23ef13d160b65c1ad35549c
       size: 4246
     - path: input/training_data.parquet
-      md5: 2388ffa5274d58e5c3056d2575415514
-      size: 54506096
+      md5: 7f0698226e76a24e75996f4fd8ce457c
+      size: 54519112
     - path: output/workflow/fit/model_workflow_fit.zip
-      md5: a467302e3c0fe32f4692dd551fa8df00
-      size: 40870009
+      md5: 22872229efa92820f35e9fb51d355d9b
+      size: 42276171
     - path: output/workflow/recipe/model_workflow_recipe.rds
-      md5: 0f739b3ab822dc3b5ae32546b4f0ac2f
-      size: 4413739
+      md5: 32a56ba1d04aaf7ad58deedb14a07917
+      size: 4282937
     params:
       params.yaml:
         assessment:
@@ -306,7 +295,6 @@ stages:
         - meta_tieback_proration_rate
         - char_yrblt
         - char_land_sf
-        - char_building_pins
         - char_building_units
         - char_building_non_units
         - char_bldg_is_mixed_use
@@ -322,14 +310,10 @@ stages:
         - loc_env_flood_fs_factor
         - loc_env_flood_fs_risk_direction
         - loc_env_airport_noise_dnl
-        - loc_env_ohare_noise_contour_no_buffer_bool
         - loc_school_elementary_district_geoid
         - loc_school_secondary_district_geoid
-        - loc_school_unified_district_geoid
-        - loc_tax_special_service_area_num
         - loc_access_cmap_walk_nta_score
         - loc_access_cmap_walk_total_score
-        - loc_misc_subdivision_id
         - prox_num_pin_in_half_mile
         - prox_num_bus_stop_in_half_mile
         - prox_num_foreclosure_per_1000_pin_past_5_years
@@ -365,14 +349,10 @@ stages:
         - acs5_percent_employment_unemployed
         - acs5_median_household_total_occupied_year_built
         - acs5_median_household_renter_occupied_gross_rent
-        - acs5_median_household_owner_occupied_value
         - acs5_percent_household_owner_occupied
         - acs5_percent_household_total_occupied_w_sel_cond
         - acs5_percent_mobility_moved_in_county
-        - other_ihs_avg_year_index
         - other_tax_bill_rate
-        - other_school_district_elementary_avg_rating
-        - other_school_district_secondary_avg_rating
         - time_sale_year
         - time_sale_day
         - time_sale_quarter_of_year
@@ -408,23 +388,23 @@ stages:
           - 10
     outs:
     - path: output/assessment_card/model_assessment_card.parquet
-      md5: b22b1ed5eae6f1b061bcc0eb3c98c9e5
-      size: 37480820
+      md5: 63aedd1e96979a6f572c7492373d2a8f
+      size: 35904115
     - path: output/assessment_pin/model_assessment_pin.parquet
-      md5: 013e68cc7d4f400b71f6dd53c2065539
-      size: 39538646
+      md5: afed390e0835886becb16badd274d551
+      size: 39534346
     - path: output/intermediate/timing/model_timing_assess.parquet
-      md5: cf39d87bbfb3d775e4af4ed13c0f3f7c
-      size: 2879
+      md5: b20713c32860a06dab6bedb67bb8ac06
+      size: 2886
   evaluate:
     cmd: Rscript pipeline/03-evaluate.R
     deps:
     - path: output/assessment_pin/model_assessment_pin.parquet
-      md5: 013e68cc7d4f400b71f6dd53c2065539
-      size: 39538646
+      md5: afed390e0835886becb16badd274d551
+      size: 39534346
     - path: output/test_card/model_test_card.parquet
-      md5: 11c9711ea8f0192364026bbb3fa8cf7f
-      size: 1230353
+      md5: 0ae5cbe9fdcb7dd584abca066e2fb760
+      size: 1230904
     params:
       params.yaml:
         assessment.data_year: '2022'
@@ -442,32 +422,32 @@ stages:
         run_type: full
     outs:
     - path: output/intermediate/timing/model_timing_evaluate.parquet
-      md5: 119c08b3e6b8ca92f532b0001dffd602
+      md5: c52d3d1ad3baeca6d9fa6c965ebc67c1
       size: 2907
     - path: output/performance/model_performance_assessment.parquet
-      md5: 59954e52fb3931342ab30642c6aa6551
-      size: 1120711
+      md5: d47c6926ed38e0d850277b577348c0ab
+      size: 1117900
     - path: output/performance/model_performance_test.parquet
-      md5: 9de283cd7f2a27fcb66dc7a20fa83c1f
-      size: 959608
+      md5: 604c406efdcd41057121c6a745b79b7b
+      size: 959927
     - path: output/performance_quantile/model_performance_quantile_assessment.parquet
-      md5: 03c58454b1b2a02c791b4ca0fb30ae66
-      size: 989301
+      md5: 967721d25a85b0767230b54112c032c8
+      size: 989251
     - path: output/performance_quantile/model_performance_quantile_test.parquet
-      md5: 18af81b311d2cf4714eeec6303caf602
-      size: 1036278
+      md5: b680edad1ec526191fdf53745796297e
+      size: 1036858
   interpret:
     cmd: Rscript pipeline/04-interpret.R
     deps:
     - path: input/assessment_data.parquet
-      md5: 6d880706a053552e7daf6630a1615062
-      size: 62847753
+      md5: 893b567bb6755bc2526ba65e850d379b
+      size: 62812656
     - path: output/workflow/fit/model_workflow_fit.zip
-      md5: a467302e3c0fe32f4692dd551fa8df00
-      size: 40870009
+      md5: 22872229efa92820f35e9fb51d355d9b
+      size: 42276171
     - path: output/workflow/recipe/model_workflow_recipe.rds
-      md5: 0f739b3ab822dc3b5ae32546b4f0ac2f
-      size: 4413739
+      md5: 32a56ba1d04aaf7ad58deedb14a07917
+      size: 4282937
     params:
       params.yaml:
         model.predictor.all:
@@ -476,7 +456,6 @@ stages:
         - meta_tieback_proration_rate
         - char_yrblt
         - char_land_sf
-        - char_building_pins
         - char_building_units
         - char_building_non_units
         - char_bldg_is_mixed_use
@@ -492,14 +471,10 @@ stages:
         - loc_env_flood_fs_factor
         - loc_env_flood_fs_risk_direction
         - loc_env_airport_noise_dnl
-        - loc_env_ohare_noise_contour_no_buffer_bool
         - loc_school_elementary_district_geoid
         - loc_school_secondary_district_geoid
-        - loc_school_unified_district_geoid
-        - loc_tax_special_service_area_num
         - loc_access_cmap_walk_nta_score
         - loc_access_cmap_walk_total_score
-        - loc_misc_subdivision_id
         - prox_num_pin_in_half_mile
         - prox_num_bus_stop_in_half_mile
         - prox_num_foreclosure_per_1000_pin_past_5_years
@@ -535,14 +510,10 @@ stages:
         - acs5_percent_employment_unemployed
         - acs5_median_household_total_occupied_year_built
         - acs5_median_household_renter_occupied_gross_rent
-        - acs5_median_household_owner_occupied_value
         - acs5_percent_household_owner_occupied
         - acs5_percent_household_total_occupied_w_sel_cond
         - acs5_percent_mobility_moved_in_county
-        - other_ihs_avg_year_index
         - other_tax_bill_rate
-        - other_school_district_elementary_avg_rating
-        - other_school_district_secondary_avg_rating
         - time_sale_year
         - time_sale_day
         - time_sale_quarter_of_year
@@ -555,7 +526,7 @@ stages:
         - meta_strata_2
     outs:
     - path: output/intermediate/timing/model_timing_interpret.parquet
-      md5: 4e716de12856ee57f77d7c5056799334
+      md5: 24cce453d1e2e222b2b05c2ec969bae0
       size: 2921
     - path: output/shap/model_shap.parquet
       md5: bef5a22b3eb8fb426e80cb5f9cd4eb48
@@ -564,25 +535,25 @@ stages:
     cmd: Rscript pipeline/05-finalize.R
     deps:
     - path: output/assessment_card/model_assessment_card.parquet
-      md5: b22b1ed5eae6f1b061bcc0eb3c98c9e5
-      size: 37480820
+      md5: 63aedd1e96979a6f572c7492373d2a8f
+      size: 35904115
     - path: output/assessment_pin/model_assessment_pin.parquet
-      md5: 013e68cc7d4f400b71f6dd53c2065539
-      size: 39538646
+      md5: afed390e0835886becb16badd274d551
+      size: 39534346
     - path: output/intermediate/timing/model_timing_assess.parquet
-      md5: cf39d87bbfb3d775e4af4ed13c0f3f7c
-      size: 2879
+      md5: b20713c32860a06dab6bedb67bb8ac06
+      size: 2886
     - path: output/intermediate/timing/model_timing_evaluate.parquet
-      md5: 119c08b3e6b8ca92f532b0001dffd602
+      md5: c52d3d1ad3baeca6d9fa6c965ebc67c1
       size: 2907
     - path: output/intermediate/timing/model_timing_interpret.parquet
-      md5: 4e716de12856ee57f77d7c5056799334
+      md5: 24cce453d1e2e222b2b05c2ec969bae0
       size: 2921
     - path: output/intermediate/timing/model_timing_train.parquet
-      md5: 4c36b8a1c0adf2bb69a9e989a37a9894
+      md5: e78c0f9fb92bec2a577ac0c3bae8529c
       size: 2865
     - path: output/parameter_final/model_parameter_final.parquet
-      md5: ffe719c49340fee89399ae73fd426d78
+      md5: 809aad04f920f35aa014521019238667
       size: 8845
     - path: output/parameter_range/model_parameter_range.parquet
       md5: bef5a22b3eb8fb426e80cb5f9cd4eb48
@@ -591,36 +562,36 @@ stages:
       md5: bef5a22b3eb8fb426e80cb5f9cd4eb48
       size: 696
     - path: output/performance/model_performance_assessment.parquet
-      md5: 59954e52fb3931342ab30642c6aa6551
-      size: 1120711
+      md5: d47c6926ed38e0d850277b577348c0ab
+      size: 1117900
     - path: output/performance/model_performance_test.parquet
-      md5: 9de283cd7f2a27fcb66dc7a20fa83c1f
-      size: 959608
+      md5: 604c406efdcd41057121c6a745b79b7b
+      size: 959927
     - path: output/performance_quantile/model_performance_quantile_assessment.parquet
-      md5: 03c58454b1b2a02c791b4ca0fb30ae66
-      size: 989301
+      md5: 967721d25a85b0767230b54112c032c8
+      size: 989251
     - path: output/performance_quantile/model_performance_quantile_test.parquet
-      md5: 18af81b311d2cf4714eeec6303caf602
-      size: 1036278
+      md5: b680edad1ec526191fdf53745796297e
+      size: 1036858
     - path: output/shap/model_shap.parquet
       md5: bef5a22b3eb8fb426e80cb5f9cd4eb48
       size: 696
     - path: output/test_card/model_test_card.parquet
-      md5: 11c9711ea8f0192364026bbb3fa8cf7f
-      size: 1230353
+      md5: 0ae5cbe9fdcb7dd584abca066e2fb760
+      size: 1230904
     - path: output/workflow/fit/model_workflow_fit.zip
-      md5: a467302e3c0fe32f4692dd551fa8df00
-      size: 40870009
+      md5: 22872229efa92820f35e9fb51d355d9b
+      size: 42276171
     - path: output/workflow/recipe/model_workflow_recipe.rds
-      md5: 0f739b3ab822dc3b5ae32546b4f0ac2f
-      size: 4413739
+      md5: 32a56ba1d04aaf7ad58deedb14a07917
+      size: 4282937
     params:
       params.yaml:
         cv:
           split_prop: 0.9
           initial_set: 25
           max_iterations: 70
-          no_improve: 30
+          no_improve: 20
           best_metric: rmse
         input:
           min_sale_year: '2014'
@@ -645,10 +616,9 @@ stages:
             - meta_township_code
             type: ntile
             k_1: 10
-            k_2: 300
-            weight_min: 0.5
+            k_2: 100
+            weight_min: 0.3
             weight_max: 1.0
-            knn_missing: 200
         model:
           engine: lightgbm
           objective: rmse
@@ -663,7 +633,6 @@ stages:
             - meta_tieback_proration_rate
             - char_yrblt
             - char_land_sf
-            - char_building_pins
             - char_building_units
             - char_building_non_units
             - char_bldg_is_mixed_use
@@ -679,14 +648,10 @@ stages:
             - loc_env_flood_fs_factor
             - loc_env_flood_fs_risk_direction
             - loc_env_airport_noise_dnl
-            - loc_env_ohare_noise_contour_no_buffer_bool
             - loc_school_elementary_district_geoid
             - loc_school_secondary_district_geoid
-            - loc_school_unified_district_geoid
-            - loc_tax_special_service_area_num
             - loc_access_cmap_walk_nta_score
             - loc_access_cmap_walk_total_score
-            - loc_misc_subdivision_id
             - prox_num_pin_in_half_mile
             - prox_num_bus_stop_in_half_mile
             - prox_num_foreclosure_per_1000_pin_past_5_years
@@ -722,14 +687,10 @@ stages:
             - acs5_percent_employment_unemployed
             - acs5_median_household_total_occupied_year_built
             - acs5_median_household_renter_occupied_gross_rent
-            - acs5_median_household_owner_occupied_value
             - acs5_percent_household_owner_occupied
             - acs5_percent_household_total_occupied_w_sel_cond
             - acs5_percent_mobility_moved_in_county
-            - other_ihs_avg_year_index
             - other_tax_bill_rate
-            - other_school_district_elementary_avg_rating
-            - other_school_district_secondary_avg_rating
             - time_sale_year
             - time_sale_day
             - time_sale_quarter_of_year
@@ -746,9 +707,6 @@ stages:
             - loc_cook_municipality_name
             - loc_school_elementary_district_geoid
             - loc_school_secondary_district_geoid
-            - loc_school_unified_district_geoid
-            - loc_tax_special_service_area_num
-            - loc_misc_subdivision_id
             - time_sale_quarter_of_year
             - meta_strata_1
             - meta_strata_2
@@ -764,10 +722,11 @@ stages:
             - meta_year
             - meta_pin
             - meta_class
+            - meta_card_num
             - meta_sale_document_num
           parameter:
             num_iterations: 1500
-            learning_rate: 0.08
+            learning_rate: 0.03
             validation_prop: 0.1
             validation_type: recent
             validation_metric: rmse
@@ -787,10 +746,10 @@ stages:
               cat_l2: 0.83
               lambda_l1: 0.105
               lambda_l2: 0.024
-              neighbors: 20
+              neighbors: 10
             range:
               num_leaves:
-              - 500
+              - 50
               - 2500
               add_to_linked_depth:
               - 1
@@ -824,7 +783,7 @@ stages:
               - 1
               neighbors:
               - 5
-              - 50
+              - 40
         pv:
           nonlivable_threshold: 1000
           nonlivable_fixed_fmv: 30000
@@ -848,9 +807,8 @@ stages:
           - 3
           - 5
           - 10
-        run_note: "Re-running 'sad-takuya-2022-04-20'. Implement building value aggregation\
-          \ and fix sales input filtering to include multi-parcel sales for less than\
-          \ or equal to 2 parcels\n"
+        run_note: "Second 2023 condo run with dropped predictors. Secondary strata\
+          \ equal to 100. Ntile-based strata\n"
         run_type: full
         toggle:
           cv_enable: false
@@ -858,11 +816,11 @@ stages:
           upload_to_s3: true
     outs:
     - path: output/metadata/model_metadata.parquet
-      md5: e521fbb9cea06a01b7044c48751847b7
-      size: 27365
+      md5: 362d317eeda3e937e2eff89f06850691
+      size: 26401
     - path: output/timing/model_timing.parquet
-      md5: 2e051e526c74e44ee50dcf301216b9ea
-      size: 5250
+      md5: 7c07ee6b680e7463b8c849bc29fa7dfb
+      size: 5229
   export:
     cmd: Rscript pipeline/06-export.R
     params:
