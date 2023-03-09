@@ -308,7 +308,7 @@
       "RemoteRepo": "packages/ccao",
       "RemoteSubdir": "",
       "RemoteRef": "master",
-      "RemoteSha": "814c7284e6c73dede0f389171891e5a038e39ab9",
+      "RemoteSha": "c056eeb54f15958c1c979a0e443557f878ebaf96",
       "Remotes": "gitlab::ccao-data-science---modeling/packages/assessr",
       "Requirements": [
         "R",
@@ -318,7 +318,7 @@
         "rlang",
         "tidyr"
       ],
-      "Hash": "43529730a4f927257f84b07affcf6b38"
+      "Hash": "d4a5bf8353b98e03c1d14dea052ae759"
     },
     "class": {
       "Package": "class",

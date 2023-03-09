@@ -113,6 +113,14 @@ message("Aggregating to building level")
 
 # Note that this valuation method is essentially required by statute
 assessment_data_bldg <- assessment_data_nl %>%
+  # In cases where a PIN has multiple llines, count only the value of the first
+  # line when getting the building total value
+  arrange(meta_pin, meta_card_num, meta_lline_num) %>%
+  group_by(meta_pin) %>%
+  mutate(first_lline = first(meta_lline_num)) %>%
+  ungroup() %>%
+  filter(meta_lline_num == first_lline) %>%
+  select(-first_lline) %>%
   group_by(meta_pin10) %>%
   mutate(
     bldg_total_value = sum(pred_pin_final_fmv, na.rm = TRUE),
@@ -151,10 +159,10 @@ assessment_data_merged <- assessment_data_pred %>%
   left_join(
     assessment_data_final %>%
       select(
-        meta_pin, meta_card_num, 
+        meta_pin, meta_card_num, meta_lline_num,
         pred_pin_final_fmv, pred_pin_final_fmv_round
       ),
-    by = c("meta_pin", "meta_card_num")
+    by = c("meta_pin", "meta_card_num", "meta_lline_num")
   ) %>%
   mutate(
     township_code = meta_township_code,
@@ -174,8 +182,8 @@ message("Saving card-level data")
 # same
 assessment_data_merged %>%
   select(
-    meta_year, meta_pin, meta_class, meta_card_num, meta_modeling_group,
-    ends_with("_num_sale"), pred_card_initial_fmv,
+    meta_year, meta_pin, meta_class, meta_card_num, meta_lline_num,
+    meta_modeling_group, ends_with("_num_sale"), pred_card_initial_fmv,
     all_of(params$model$predictor$all), township_code
   ) %>%
   ccao::vars_recode(

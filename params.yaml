@@ -24,7 +24,7 @@ run_type: "full"
 toggle:
   # Should the train stage run full cross-validation? Otherwise, the model
   # will be trained with the default hyperparameters specified below
-  cv_enable: FALSE
+  cv_enable: TRUE
   
   # Should SHAP values be calculated for this run in the interpret stage? Can be
   # desirable to save time when testing many models
@@ -270,13 +270,14 @@ model:
       "meta_pin",
       "meta_class",
       "meta_card_num",
+      "meta_lline_num",
       "meta_sale_document_num"
     ]
 
   parameter:
     # Total number of iterations. Usually changed in tandem with learning_rate
     # https://lightgbm.readthedocs.io/en/latest/Parameters.html#num_iterations
-    num_iterations: 1500
+    num_iterations: 2500
     learning_rate: 0.03
     
     # For CV only, proportion of the training data to hold out for use in 

@@ -107,6 +107,7 @@ training_data <- training_data %>%
   ) %>%
   filter(n() == 1 | (n() == 2 & keep_unit_sale)) %>%
   ungroup() %>%
+  filter(!as.logical(as.numeric(ind_pin_is_multilline))) %>%
   select(-keep_unit_sale)
 
 tictoc::toc()
