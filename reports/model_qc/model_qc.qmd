@@ -20,6 +20,7 @@ params:
 
 ```{r setup}
 options(knitr.kable.NA = "", scipen = 99, width = 150)
+#options(htmlwidgets.TOJSON_ARGS = list(na = 'string'))
 
 # Load necessary libraries
 library(arrow)
@@ -30,601 +31,141 @@ library(glue)
 library(here)
 library(htmltools)
 library(kableExtra)
-library(leaflet)
 library(plotly)
 library(purrr)
 library(recipes)
 library(scales)
-library(sf)
 library(skimr)
 library(stringr)
 library(tableone)
 library(tidyr)
+library(yaml)
 source(here("R", "helpers.R"))
 
-# Initialize a dictionary of file paths. See misc/file_dict.csv for details
-paths <- model_file_dict(params$run_id, params$year)
+# # Initialize a dictionary of file paths. See misc/file_dict.csv for details
+# paths <- model_file_dict(params$run_id, params$year)
+# 
+# # Grab metadata to check input alignment
+# metadata <- read_parquet(paths$output$metadata$local)
+# if (metadata$run_id != params$run_id) {
+#   stop(
+#     "Local run outputs are NOT equal to the requested run_id. You ", 
+#     "should run model_fetch_run() to fetch model outputs from S3"
+#   )
+# }
+# 
+# # Get the triad of the run to use for filtering
+# run_triad <- tools::toTitleCase(metadata$assessment_triad)
+# run_triad_code <- ccao::town_dict %>%
+#   filter(triad_name == run_triad) %>%
+#   distinct(triad_code) %>%
+#   pull(triad_code)
+# 
+# # Ingest training set used for this run from DVC bucket (if not local)
+# train_md5_s3 <- metadata$dvc_md5_training_data
+# train_md5_local <- digest::digest(paths$input$training$local, algo = "md5")
+# train_md5 <- if (train_md5_s3 != train_md5_local) train_md5_s3 else train_md5_local
+# training_path <- paste0(
+#   params$dvc_bucket, "/",
+#   substr(train_md5, 1, 2), "/",
+#   substr(train_md5, 3, nchar(train_md5))
+# )
+# training_data <- read_parquet(training_path)
+# 
+# # Load SHAP and feature importance data
+# shap_exists <- file.exists(paths$output$shap$local)
+# if (shap_exists) {
+#   shap_df <- read_parquet(paths$output$shap$local)
+# }
+# feat_imp_df <- read_parquet(paths$output$feature_importance$local)
 
-# Grab metadata to check input alignment
-metadata <- read_parquet(paths$output$metadata$local)
-if (metadata$run_id != params$run_id) {
-  stop(
-    "Local run outputs are NOT equal to the requested run_id. You ", 
-    "should run model_fetch_run() to fetch model outputs from S3"
-  )
-}
+training_data <- read_parquet(here("input/training_data.parquet")) %>% filter(!sv_is_outlier)
+assessment_data <- read_parquet(here("input/assessment_data.parquet"))
+strata_data <- read_parquet(here("input/condo_strata_data.parquet"))
 
-# Get the triad of the run to use for filtering
-run_triad <- tools::toTitleCase(metadata$assessment_triad)
-run_triad_code <- ccao::town_dict %>%
-  filter(triad_name == run_triad) %>%
-  distinct(triad_code) %>%
-  pull(triad_code)
-
-# Ingest training set used for this run from DVC bucket (if not local)
-train_md5_s3 <- metadata$dvc_md5_training_data
-train_md5_local <- digest::digest(paths$input$training$local, algo = "md5")
-train_md5 <- if (train_md5_s3 != train_md5_local) train_md5_s3 else train_md5_local
-training_path <- paste0(
-  params$dvc_bucket, "/",
-  substr(train_md5, 1, 2), "/",
-  substr(train_md5, 3, nchar(train_md5))
-)
-training_data <- read_parquet(training_path)
-
-# Load SHAP and feature importance data
-shap_exists <- file.exists(paths$output$shap$local)
-if (shap_exists) {
-  shap_df <- read_parquet(paths$output$shap$local)
-}
-feat_imp_df <- read_parquet(paths$output$feature_importance$local)
 ```
 
-## Sales Data
+## Strata
+
+*NOTE: STRATA is the plural of STRATUM*
 
 ::: {.panel-tabset}
 
-## By Year
+## Median Sale Price
 
-*NOTE: Outliers are removed*
+``` {r strata_1}
 
-``` {r town_year}
-township <- training_data %>%
-  filter(!sv_is_outlier, meta_triad_name == run_triad) %>%
-  mutate(meta_year = as.numeric(meta_year)) %>%
-  group_by(meta_township_name, meta_year) %>%
-  summarise(sales = n()) %>%
-  select(Sales = sales, Year = meta_year, Township = meta_township_name) %>%
-ggplot() +
-  geom_line(aes(x = Year, y = Sales, color = Township)) +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 6000, 1000)) +
-  scale_x_continuous(breaks = seq(2014, 2022, 1)) +
+strata_1 <- training_data %>%
+    mutate(
+      Stratum = as.numeric(meta_strata_1),
+      Township = meta_township_name
+      ) %>%
+    group_by(Township, Stratum) %>%
+    summarise(
+      `Min` = min(meta_sale_price, na.rm = TRUE),
+      `Median` = median(meta_sale_price, na.rm = TRUE),
+      `Max` = max(meta_sale_price, na.rm = TRUE),
+      `SD` = sd(meta_sale_price, na.rm = TRUE),
+      `N` = n()
+      ) %>%
+    filter(!is.na(Stratum), !is.na(Median)) %>%
+  rename("Median Sale Price" = "Median") %>%
+  ggplot() +
+  geom_line(aes(x = Stratum, y = `Median Sale Price`, color = Township)) +
+  scale_y_continuous(labels = scales::dollar) +
+  scale_x_continuous(breaks = seq(1, 10, 1)) +
   theme_minimal() +
   theme(
     legend.position = "none",
     axis.title.x = element_blank()
   )
 
-ggplotly(township)
+ggplotly(strata_1)
+
 ```
 
-## By Quarter
+## Strata Range
 
-*NOTE: Outliers are removed*
+``` {r strata_2}
 
-``` {r town_bin1, fig.height=10, fig.width=8}
 training_data %>%
-  filter(!sv_is_outlier, meta_triad_name == run_triad, meta_year >= "2018") %>%
-  mutate(
-    Bin = cut(
-      meta_sale_price,
-      breaks = c(1, 100000, 300000, 600000, 1000000, max(meta_sale_price)),
-      labels = c(
-        "$1 - $100,000",
-        "$100,000 - $300,000",
-        "$300,000 - $600,000",
-        "$600,000 - $1,000,000",
-        "$1,000,000+"
-      )
-    ),
-    Quarter = lubridate::quarter(meta_sale_date) + 4 *
-      (as.numeric(meta_year) - 2018)
-  ) %>%
-  group_by(meta_township_name, Quarter, Bin) %>%
-  summarise(Sales = n()) %>%
-  ungroup() %>%
-  select(Sales, Bin, Township = meta_township_name, Quarter) %>%
-ggplot(aes(x = Quarter, y = Sales, fill = Bin, group = Bin)) +
-  geom_area() +
-  scale_color_brewer(palette = "PuOr") +
-  theme_minimal() +
-  theme(
-    legend.position = "bottom",
-    axis.text.x = element_text(angle = 90, hjust = 1),
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank()
-  ) +
-  facet_wrap(vars(Township), scales = "free_y", ncol = 3)
-```
-
-## By Class and Year
-
-*NOTE: Outliers are removed*
-
-``` {r class_year}
-class <- training_data %>%
-  filter(
-    sv_is_outlier,
-    meta_triad_name == run_triad,
-    !ind_pin_is_multicard
-  ) %>%
-  mutate(meta_year = as.numeric(meta_year)) %>%
-  group_by(meta_class, meta_year) %>%
-  summarise(sales = n()) %>%
-  rename(Class = meta_class) %>%
-  pivot_wider(id_cols = Class, names_from = meta_year, values_from = sales)
-
-class %>%
-  kable() %>%
-  kable_styling() %>%
-  row_spec(
-    unique(which(is.na(class), arr.ind = TRUE)[, 1]),
-    bold = TRUE,
-    background = "lightgrey"
-  )
-```
-
-## Removed Outliers
-
-``` {r}
-rbind(
-  training_data %>%
-    filter(
-      sv_is_outlier,
-      meta_triad_name == run_triad,
-      !ind_pin_is_multicard
-    ) %>%
-    slice_max(order_by = meta_sale_price, n = 25),
-  training_data %>%
-    filter(
-      sv_is_outlier,
-      meta_triad_name == run_triad,
-      !ind_pin_is_multicard
-    ) %>%
-    slice_min(order_by = meta_sale_price, n = 25)
-) %>%
-  datatable(rownames = FALSE)
-```
-
-## Kept Outliers
-
-``` {r}
-rbind(
-  training_data %>%
-    filter(
-      !sv_is_outlier,
-      meta_triad_name == run_triad,
-      !ind_pin_is_multicard
-    ) %>%
-    slice_max(order_by = meta_sale_price, n = 25),
-  training_data %>%
-    filter(
-      !sv_is_outlier,
-      meta_triad_name == run_triad,
-      !ind_pin_is_multicard
-    ) %>%
-    slice_min(order_by = meta_sale_price, n = 25)
-) %>%
-  datatable(rownames = FALSE)
-```
-
-:::
-
-## Model Time Tracking
-
-::: {.panel-tabset}
-
-## Training Data (Seen)
-
-Does the model accurately model time trends for the data it's already seen?
-
-```{r, fig.height=10, fig.width=8}
-model_fit <- lightsnip::lgbm_load(paths$output$workflow_fit$local)
-model_recipe <- readRDS(paths$output$workflow_recipe$local)
-
-training_data_pred <- training_data %>%
-  mutate(
-    pred_card_initial_fmv = predict(
-      model_fit,
-      new_data = bake(model_recipe, new_data = ., all_predictors())
-    )$.pred
-  )
-
-training_data_pred %>%
-  filter(
-    !sv_is_outlier,
-    meta_triad_name == run_triad,
-    !ind_pin_is_multicard
-  ) %>%
-  mutate(
-    time_interval = lubridate::interval(
-      lubridate::make_date(metadata$input_min_sale_year, 1, 1),
-      lubridate::ymd(meta_sale_date)
-    ),
-    time_sale_month = as.numeric(time_interval %/% lubridate::dmonths(1)) + 1
-  ) %>%
-  group_by(meta_township_name, time_sale_month) %>%
-  summarize(
-    `Median Prediction` = median(pred_card_initial_fmv),
-    `Median Sale Price` = median(meta_sale_price)
-  ) %>%
-  tidyr::pivot_longer(cols = starts_with("Median")) %>%
-ggplot() +
-  geom_line(aes(x = time_sale_month, y = value, color = name))+
-  scale_color_manual(
-    name = "",
-    values = c("Median Prediction" = "red", "Median Sale Price" = "blue")
-  ) + 
-  scale_y_continuous(labels = scales::label_dollar(scale = 1e-3, suffix = "K")) +
-  facet_wrap(vars(meta_township_name), scales = "free_y", ncol = 3) +
-  theme_minimal() +
-  theme(
-    legend.position = "bottom",
-    axis.text.x = element_text(angle = 90, hjust = 1),
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank()
-  )
-```
-
-## Test Data (Unseen)
-
-Does the model accurately model time trends on unseen data slightly in the future?
-
-```{r, fig.height=10, fig.width=8}
-test_data <- read_parquet(paths$output$test_card$local)
-test_data %>%
-  filter(meta_triad_code == run_triad_code) %>%
-  mutate(
-    time_interval = lubridate::interval(
-      lubridate::make_date(metadata$input_min_sale_year, 1, 1),
-      lubridate::ymd(meta_sale_date)
-    ),
-    time_sale_month = as.numeric(time_interval %/% lubridate::dmonths(1)) + 1,
-    meta_township_name = ccao::town_convert(meta_township_code)
-  ) %>%
-  group_by(meta_township_name, time_sale_month) %>%
-  summarize(
-    `Median Prediction` = median(pred_card_initial_fmv),
-    `Median Sale Price` = median(meta_sale_price)
-  ) %>%
-  tidyr::pivot_longer(cols = starts_with("Median")) %>%
-ggplot() +
-  geom_line(aes(x = time_sale_month, y = value, color = name))+
-  scale_color_manual(
-    name = "",
-    values = c("Median Prediction" = "red", "Median Sale Price" = "blue")
-  ) + 
-  scale_y_continuous(labels = scales::label_dollar(scale = 1e-3, suffix = "K")) +
-  facet_wrap(vars(meta_township_name), scales = "free_y", ncol = 3) +
-  theme_minimal() +
-  theme(
-    legend.position = "bottom",
-    axis.text.x = element_text(angle = 90, hjust = 1),
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank()
-  )
-```
-
-:::
-
-
-
-## SHAP Values
-
-``` {r chars}
-shap_tables <- shaps %>%
-  slice_sample(n = 100000) %>%
-  split(.$run_id) %>%
-  lapply(function(x) {
-    x %>%
-      select(where(~ !all(is.na(.x))) & !starts_with("pred") & where(is.numeric)) %>%
-      skim() %>%
-      rename_with(~ str_replace_all(.x, "skim_|numeric.", "")) %>%
-      select(-c(type, n_missing, complete_rate, p25, p75)) %>%
-      rename("histogram" = "hist", "median" = "p50", "min" = "p0", "max" = "p100") %>%
-      mutate(
-        variable = str_replace_all(variable, "_", " "),
-        across(where(is.numeric), ~ round(.x, 1)),
-        `mean direction` = case_when(
-          mean < 0 ~ "-", mean > 0 ~ "+", TRUE ~ ""
-        ),
-        `median direction` = case_when(
-          median < 0 ~ "-", median > 0 ~ "+", TRUE ~ ""
-        ),
-        mean = abs(mean),
-        median = abs(median)
+    mutate(
+      Stratum = as.numeric(meta_strata_1),
+      Township = meta_township_name
       ) %>%
-      relocate(`mean direction`, .before = mean) %>%
-      relocate(`median direction`, .before = median) %>%
-      datatable(
-        rownames = FALSE,
-        height = "500px",
-        options = list(
-          columnDefs = list(
-            list(className = "dt-center", targets = c(1:7))
-          )
+    group_by(Township, Stratum) %>%
+    summarise(
+      Range = paste(
+        label_dollar()(min(meta_sale_price, na.rm = TRUE)),
+        label_dollar()(median(meta_sale_price, na.rm = TRUE)),
+       label_dollar()(max(meta_sale_price, na.rm = TRUE))
         )
-      )
-  })
-```
-
-::: {.panel-tabset}
-
-## `r names(shap_tables)[1]`
-
-``` {r}
-shap_tables[[1]]
-```
-
-## `r names(shap_tables)[2]`
-
-``` {r}
-shap_tables[[2]]
-```
-
-:::
-
-## RMSE
-
-``` {r}
-
-RMSE <- training_data %>%
-  filter(!sv_is_outlier) %>%
-  left_join(
-    ccao::town_dict %>% select(meta_township_code = township_code, triad_name)
+      ) %>%
+    filter(!is.na(Stratum)) %>%
+  pivot_wider(
+    id_cols = Township,
+    names_from = Stratum,
+    values_from = Range
     ) %>%
-  filter(meta_year == '2022' & triad_name == 'South') %>%
-  left_join(preds, by = "meta_pin") %>%
-  group_by(run_id, meta_township_name) %>%
-  arrange(meta_sale_price) %>%
-  mutate(Quintile = ntile(meta_sale_price, 5)) %>%
-  group_by(run_id, meta_township_name, Quintile) %>%
-  summarise(
-    median_sale_price = median(meta_sale_price, na.rm = TRUE),
-    median_predicted_fmv = median(pred_pin_final_fmv, na.rm = TRUE),
-    RMSE = sqrt((sum(meta_sale_price - pred_pin_final_fmv) ^ 2) / n())
+  datatable(
+    rownames = FALSE,
+    options = list(
+      pageLength = 38,
+      columnDefs = list(
+        list(className = "dt-center", targets = c(1:10)),
+        list(className = "dt-left", targets = c(0))
+      )
+    )
   ) %>%
-  rename(Township = meta_township_name)
-
-```
-
-::: {.panel-tabset}
-
-## `r names(shap_tables)[1]`
-
-``` {r}
-
-ggplotly(
-  RMSE %>%
-  filter(run_id == model_ids[1]) %>%
-  ggplot(aes(x = Quintile, y = RMSE, color = Township)) +
-  geom_line() +
-  theme_minimal()
-)
-
-```
-
-## `r names(shap_tables)[2]`
-
-``` {r}
-
-ggplotly(
-  RMSE %>%
-  filter(run_id == model_ids[2]) %>%
-  ggplot(aes(x = Quintile, y = RMSE, color = Township)) +
-  geom_line() +
-  theme_minimal()
-)
+  formatStyle(columns = c(0:10), fontSize = '85%')
 
 ```
 
 :::
 
-## Consistency Across Runs
+## Missing Strata
 
-#### Median and Standard Deviation
-
-``` {r}
-model_ids %>%
-  lapply(function(x) {
-    shaps %>%
-      filter(run_id == !!x) %>%
-      select(where(~ !all(is.na(.x))) & !starts_with("pred") & where(is.numeric)) %>%
-      skim() %>%
-      rename_with(~ str_replace_all(.x, "skim_|numeric.", "")) %>%
-      select(variable, median = p50, sd) %>%
-      mutate(run_id = x)
-  }) %>%
-  bind_rows() %>%
-  pivot_wider(values_from = c(median, sd), names_from = run_id) %>%
-  mutate(
-    variable = str_replace_all(variable, "_", " "),
-    median_difference = .[[2]] - .[[3]],
-    sd_difference = .[[4]] - .[[5]]
-  ) %>%
-  select(1, 2, 3, 6, 4, 5, 7) %>%
-  kable(
-    col.names = c("Feature", rep(c(model_ids, "Difference"), 2))
-  ) %>%
-  kable_styling(
-    "striped"
-  ) %>%
-  add_header_above(c("", "Median" = 3, "Standard Deviation" = 3))
-```
-
-#### Standardized Mean Difference
-
-The standardized (mean) difference is a measure of distance between two group means in terms of one or more variables.
-
-$$SMD = {\text{Difference in mean outcome between groups} \over \text{Standard deviation of outcome among participants}}$$
-
-We're looking for SMDs greater than .1 or .05 for sensitive covariates.
+``` {r missing}
 
 
-``` {r}
-vars <- names(
-  shaps %>%
-    select(where(~ !all(is.na(.x))) & !starts_with("pred") & where(is.numeric))
-)
-
-smd_table <- CreateTableOne(
-  vars = vars,
-  strata = "run_id",
-  data = shaps,
-  test = FALSE,
-  includeNA = TRUE
-)
-
-print(smd_table, smd = TRUE)
-```
-
-## 211/212s
-
-::: {.panel-tabset}
-
-## YoY Changes
-
-``` {r}
-preds %>%
-  filter(meta_class %in% c("211", "212") & meta_triad_code == "3") %>%
-  mutate(
-    yoy_far = abs((pred_pin_final_fmv - prior_far_tot) / pred_pin_final_fmv),
-    yoy_near = abs((pred_pin_final_fmv - prior_near_tot) / pred_pin_final_fmv)
-  ) %>%
-  mutate(
-    big_swing_near = yoy_near > 0.5,
-    big_swing_far = yoy_far > 0.5
-  ) %>%
-  group_by(meta_township_code, meta_class, run_id) %>%
-  summarise(
-    big_swings_near = sum(as.numeric(big_swing_near), na.rm = TRUE) / n(),
-    big_swings_far = sum(as.numeric(big_swing_far), na.rm = TRUE) / n()
-  ) %>%
-  ungroup() %>%
-  arrange(desc(big_swings_near)) %>%
-  mutate(across(starts_with("big"), ~ label_percent(accuracy = 0.1)(.x))) %>%
-  left_join(
-    ccao::town_dict %>% select(meta_township_code = township_code, township_name)
-  ) %>%
-  select(
-    "Township Name" = township_name,
-    Class = meta_class, run_id,
-    "% Delta Near > 50%" = big_swings_near,
-    "% Delta Far > 50%" = big_swings_far
-  ) %>%
-  datatable(
-    rownames = FALSE,
-    height = "500px",
-    options = list(
-      columnDefs = list(
-        list(className = "dt-center", targets = c(1:2))
-      )
-    )
-  )
-```
-
-## Large SQFT 212s
-
-``` {r}
-training_data %>%
-  filter(meta_class %in% c("211", "212") & meta_triad_code == "3" & !duplicated(meta_pin)) %>%
-  group_by(meta_class) %>%
-  mutate(
-    mean_sf = round(mean(char_bldg_sf, na.rm = TRUE), 0),
-    outlier = abs(char_bldg_sf) > mean(char_bldg_sf, na.rm = TRUE) + 3 * sd(char_bldg_sf, na.rm = TRUE)
-  ) %>%
-  ungroup() %>%
-  filter(outlier) %>%
-  select(
-    PIN = meta_pin,
-    Township = meta_township_name,
-    Class = meta_class,
-    "Mean SF" = mean_sf,
-    "Building SF" = char_bldg_sf
-  ) %>%
-  datatable(
-    rownames = FALSE,
-    height = "500px",
-    options = list(
-      columnDefs = list(
-        list(className = "dt-center", targets = c(1:4))
-      )
-    )
-  )
-```
-
-:::
-
-## 210s/295s
-
-Standard deviations of less than $5 of FMV per SQFT excluded.
-
-``` {r}
-preds %>%
-  filter(!is.na(meta_complex_id) & meta_triad_code == "3") %>%
-  group_by(meta_complex_id, run_id) %>%
-  mutate(fmvpsf = pred_pin_final_fmv / char_total_bldg_sf) %>%
-  summarise(
-    n = n(),
-    "FMV per SQFT Standard Deviation" = sd(fmvpsf, na.rm = TRUE),
-    "Min FMV per SQFT" = min(fmvpsf, na.rm = TRUE),
-    "Max FMV per SQFT" = max(fmvpsf, na.rm = TRUE),
-    "Min SQFT" = min(char_total_bldg_sf, na.rm = TRUE),
-    "Max SQFT" = max(char_total_bldg_sf, na.rm = TRUE)
-  ) %>%
-  filter(`FMV per SQFT Standard Deviation` > 5) %>%
-  mutate(
-    across(contains("SQFT"), ~ round(.x, 1)),
-    across(contains("FMV"), dollar)
-  ) %>%
-  select(
-    "Complex ID" = meta_complex_id, run_id, n,
-    `FMV per SQFT Standard Deviation`, `Min FMV per SQFT`, `Max FMV per SQFT`,
-    `Min SQFT`, `Max SQFT`
-  ) %>%
-  datatable(
-    rownames = FALSE,
-    height = "500px",
-    options = list(
-      columnDefs = list(
-        list(className = "dt-center", targets = c(1:7))
-      )
-    )
-  )
-```
-
-## Recent Renovations
-
-TRUE indicates change in any column with prefix "char" between first year where char_recent_reno = TRUE and previous year. Sample is all PINs in default.vw_card_res_char with at least one TRUE observation for char_recent_reno.
-
-``` {r}
-chars %>%
-  left_join(
-    chars %>%
-      filter(char_recent_renovation) %>%
-      group_by(pin) %>%
-      summarise(reno_year = as.numeric(min(year))) %>%
-      select(pin, reno_year)
-  ) %>%
-  filter(year == reno_year | year == reno_year - 1) %>%
-  group_by(pin) %>%
-  summarise(
-    across(starts_with("char") & where(is.numeric), ~ sd(.x, na.rm = TRUE))
-  ) %>%
-  ungroup() %>%
-  mutate(`Characteristics Change` = if_any(starts_with("char"), ~ !is.na(.x) & .x > 0)) %>%
-  group_by(`Characteristics Change`) %>%
-  summarise(n = n()) %>%
-  kable() %>%
-  kable_styling(full_width = FALSE)
 ```
