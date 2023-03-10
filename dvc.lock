@@ -9,7 +9,7 @@ stages:
           date: '2023-01-01'
           triad: south
           group: condo
-          data_year: '2022'
+          data_year: '2023'
         input:
           min_sale_year: '2014'
           max_sale_year: '2022'
@@ -38,17 +38,17 @@ stages:
             weight_max: 1.0
     outs:
     - path: input/assessment_data.parquet
-      md5: 7925c5790e58189abf5e5cfad5be02a4
-      size: 63196116
+      md5: e6c5362be3c4de31973c2ab3799fac2d
+      size: 20335488
     - path: input/condo_strata_data.parquet
-      md5: 9a3123c28c19cfe5cabca076328a199d
+      md5: 2dae65e9d64545b1e2a3bd754d7d7103
       size: 40855
     - path: input/land_nbhd_rate_data.parquet
       md5: 730c5638b23ef13d160b65c1ad35549c
       size: 4246
     - path: input/training_data.parquet
-      md5: eb8267f3c178bb009fdfcf45a6cc9a31
-      size: 54745064
+      md5: 1af707b08110c0e06478a2c31ca5e2d5
+      size: 54567282
   train:
     cmd: Rscript pipeline/01-train.R
     deps:
