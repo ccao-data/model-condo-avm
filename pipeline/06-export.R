@@ -6,18 +6,20 @@
 options(java.parameters = "-Xmx10g")
 
 # Load R libraries
-library(aws.s3)
-library(ccao)
-library(DBI)
-library(dplyr)
-library(glue)
-library(here)
-library(openxlsx)
-library(readr)
-library(RJDBC)
-library(stringr)
-library(tidyr)
-library(yaml)
+suppressPackageStartupMessages({
+  library(aws.s3)
+  library(ccao)
+  library(DBI)
+  library(dplyr)
+  library(glue)
+  library(here)
+  library(openxlsx)
+  library(readr)
+  library(RJDBC)
+  library(stringr)
+  library(tidyr)
+  library(yaml)
+})
 
 # Setup the Athena JDBC driver
 aws_athena_jdbc_driver <- RJDBC::JDBC(

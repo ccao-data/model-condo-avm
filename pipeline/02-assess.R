@@ -119,8 +119,8 @@ assessment_data_bldg <- assessment_data_nl %>%
   group_by(meta_pin) %>%
   mutate(first_lline = first(meta_lline_num)) %>%
   ungroup() %>%
-  filter(meta_lline_num == first_lline) %>%
-  select(-first_lline) %>%
+  filter(meta_lline_num == first_lline | is.na(first_lline)) %>%
+  # select(-first_lline) %>%
   group_by(meta_pin10) %>%
   mutate(
     bldg_total_value = sum(pred_pin_final_fmv, na.rm = TRUE),

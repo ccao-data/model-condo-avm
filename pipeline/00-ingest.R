@@ -369,7 +369,8 @@ assessment_data_clean <- assessment_data %>%
     time_sale_day_of_month = as.integer(day(meta_sale_date)),
     time_sale_day_of_week = as.integer(wday(meta_sale_date)),
     time_sale_post_covid = meta_sale_date >= make_date(2020, 3, 15)
-  )
+  ) %>%
+  select(-time_interval)
 
 
 ## 5.3. Land Rates -------------------------------------------------------------
