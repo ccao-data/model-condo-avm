@@ -12,7 +12,7 @@
 # Note included with each run. Use this to summarize what changed about the run
 # or add context
 run_note: >
-  Full condo CV run for 2023
+  Final 2023 run using params from elated-nicole. No CV, no SHAPs
 
 # Determines what stages and outputs are produced. See misc/file_dict.csv for
 # details. Note, DVC does not support "conditional" stages, so changing this to
@@ -23,7 +23,7 @@ run_type: "full"
 toggle:
   # Should the train stage run full cross-validation? Otherwise, the model
   # will be trained with the default hyperparameters specified below
-  cv_enable: TRUE
+  cv_enable: FALSE
   
   # Should SHAP values be calculated for this run in the interpret stage? Can be
   # desirable to save time when testing many models
@@ -50,7 +50,7 @@ assessment:
   
   # Year from which property characteristics are pulled. Usually lags the
   # assessment year by 1
-  data_year: "2022"
+  data_year: "2023"
 
 # Parameters used to define the input/training data
 input:
@@ -122,7 +122,7 @@ cv:
 
   # Number of initial iterations to create before tuning. Recommend this number
   # be greater than the number of hyperparameters being tuned
-  initial_set: 25
+  initial_set: 20
   
   # Maximum number of search iterations
   max_iterations: 70
@@ -276,7 +276,7 @@ model:
   parameter:
     # Total number of iterations. Usually changed in tandem with learning_rate
     # https://lightgbm.readthedocs.io/en/latest/Parameters.html#num_iterations
-    num_iterations: 2000
+    num_iterations: 1042
     learning_rate: 0.06
     
     # For CV only, proportion of the training data to hold out for use in 
@@ -304,18 +304,18 @@ model:
     # Default set of hyperparameters to use if CV is not enabled. See docs for
     # details: https://lightgbm.readthedocs.io/en/latest/Parameters.html
     default:
-      num_leaves: 1363
+      num_leaves: 159
       add_to_linked_depth: 1
-      feature_fraction: 0.475
-      min_gain_to_split: 3.73
-      min_data_in_leaf: 7
-      max_cat_threshold: 195
-      min_data_per_group: 80
-      cat_smooth: 40.44
-      cat_l2: 0.83
-      lambda_l1: 0.105
-      lambda_l2: 0.024
-      neighbors: 10
+      feature_fraction: 0.688
+      min_gain_to_split: 5.58
+      min_data_in_leaf: 44
+      max_cat_threshold: 228
+      min_data_per_group: 160
+      cat_smooth: 54.52
+      cat_l2: 0.11
+      lambda_l1: 0.016
+      lambda_l2: 2.413
+      neighbors: 5
     
     # Range of possible hyperparameter values for tune_bayes to explore
     range:
