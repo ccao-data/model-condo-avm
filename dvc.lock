@@ -38,17 +38,17 @@ stages:
             weight_max: 1.0
     outs:
     - path: input/assessment_data.parquet
-      md5: e6c5362be3c4de31973c2ab3799fac2d
-      size: 20335488
+      md5: 3617267c3b6b022217cf3998b7449bab
+      size: 61554874
     - path: input/condo_strata_data.parquet
-      md5: 2dae65e9d64545b1e2a3bd754d7d7103
+      md5: 68c1b58a31e3f20bc4d241d3cb3c80cf
       size: 40855
     - path: input/land_nbhd_rate_data.parquet
       md5: 730c5638b23ef13d160b65c1ad35549c
       size: 4246
     - path: input/training_data.parquet
-      md5: 1af707b08110c0e06478a2c31ca5e2d5
-      size: 54567282
+      md5: da2445b77cdb3d7fe4a69fc3e0855eb3
+      size: 54728128
   train:
     cmd: Rscript pipeline/01-train.R
     deps:
