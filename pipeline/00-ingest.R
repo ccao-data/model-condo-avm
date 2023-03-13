@@ -115,14 +115,71 @@ tictoc::toc()
 # Pull all condo input data for the assessment year. This will be the
 # data we actually run the model on
 tictoc::tic("Assessment data pulled")
+
+# 2022/2023 data is currently desynchronized between office collected
+# characteristics and the newest data available in the system of record.
+# Here we attach all of the data department's 2022 non-iasWorld data to
+# iasWorld's 2023 universe of condos and their associated iasWorld data to make
+# sure all condo data is as up-to-date as possible, and the assessment universe
+# is complete. THIS STEP SHOULD BE TEMPORARY AND ADDRESSED WITH A PERMANENT
+# SOLUTION ASAP.
 assessment_data <- dbGetQuery(
   conn = AWS_ATHENA_CONN_JDBC, glue("
   SELECT *
   FROM model.vw_pin_condo_input
-  WHERE meta_year = '{params$assessment$data_year}'
+  WHERE meta_year IN (
+    '{params$input$max_sale_year}',
+    '{params$assessment$data_year}'
+  )
   ")
 )
 tictoc::toc()
+
+assessment_data <- left_join(
+  assessment_data %>%
+    filter(meta_year == params$assessment$data_year) %>%
+    select(starts_with("meta") & !c(
+      "meta_mailed_bldg",
+      "meta_mailed_land",
+      "meta_mailed_tot",
+      "meta_certified_bldg",
+      "meta_certified_land",
+      "meta_certified_tot",
+      "meta_board_bldg",
+      "meta_board_land",
+      "meta_board_tot",
+      "meta_1yr_pri_board_bldg",
+      "meta_1yr_pri_board_land",
+      "meta_1yr_pri_board_tot",
+      "meta_2yr_pri_board_bldg",
+      "meta_2yr_pri_board_land",
+      "meta_2yr_pri_board_tot"
+    )),
+  assessment_data %>%
+    filter(meta_year == params$input$max_sale_year) %>%
+    select(
+      c(
+        "meta_pin", "meta_card_num", "meta_lline_num",
+        "meta_mailed_bldg",
+        "meta_mailed_land",
+        "meta_mailed_tot",
+        "meta_certified_bldg",
+        "meta_certified_land",
+        "meta_certified_tot",
+        "meta_board_bldg",
+        "meta_board_land",
+        "meta_board_tot",
+        "meta_1yr_pri_board_bldg",
+        "meta_1yr_pri_board_land",
+        "meta_1yr_pri_board_tot",
+        "meta_2yr_pri_board_bldg",
+        "meta_2yr_pri_board_land",
+        "meta_2yr_pri_board_tot",
+        !starts_with("meta")
+        )
+      ),
+  by = join_by(meta_pin, meta_card_num, meta_lline_num)
+)
 
 # Pull  neighborhood-level land rates per sqft, as calculated by Valuations
 tictoc::tic("Land rate data pulled")
