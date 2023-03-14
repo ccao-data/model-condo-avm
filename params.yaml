@@ -50,7 +50,11 @@ assessment:
   
   # Year from which property characteristics are pulled. Usually lags the
   # assessment year by 1
-  data_year: "2023"
+  data_year: "2022"
+  
+  # Temporary alternative year used to accomadate data issues between
+  # 2023 iasWorld data and CCAO characteristics
+  shift_year: "2023"
 
 # Parameters used to define the input/training data
 input:

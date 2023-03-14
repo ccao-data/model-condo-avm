@@ -13,7 +13,7 @@ format:
     fontsize: 12pt
 editor: source
 params:
-  run_id: '2023-02-28-recursing-nathan'
+  run_id: '2023-03-08-magical-boni'
   year: '2023'
   dvc_bucket: 's3://ccao-data-dvc-us-east-1'
 ---
@@ -42,14 +42,14 @@ library(tidyr)
 library(yaml)
 source(here("R", "helpers.R"))
 
-# # Initialize a dictionary of file paths. See misc/file_dict.csv for details
+# Initialize a dictionary of file paths. See misc/file_dict.csv for details
 # paths <- model_file_dict(params$run_id, params$year)
 # 
 # # Grab metadata to check input alignment
 # metadata <- read_parquet(paths$output$metadata$local)
 # if (metadata$run_id != params$run_id) {
 #   stop(
-#     "Local run outputs are NOT equal to the requested run_id. You ", 
+#     "Local run outputs are NOT equal to the requested run_id. You ",
 #     "should run model_fetch_run() to fetch model outputs from S3"
 #   )
 # }
@@ -70,7 +70,7 @@ source(here("R", "helpers.R"))
 #   substr(train_md5, 1, 2), "/",
 #   substr(train_md5, 3, nchar(train_md5))
 # )
-# training_data <- read_parquet(training_path)
+# training_data <- read_parquet(training_path) %>% filter(!sv_is_outlier)
 # 
 # # Load SHAP and feature importance data
 # shap_exists <- file.exists(paths$output$shap$local)
@@ -165,7 +165,64 @@ training_data %>%
 
 ## Missing Strata
 
+::: {.panel-tabset}
+
+## Training
+
 ``` {r missing}
 
+training_data %>%
+  group_by("Missing Strata" = is.na(meta_strata_1)) %>%
+  summarise(
+    n = n(),
+    across(starts_with("char") & where(is.numeric), ~ mean(.x, na.rm = TRUE), .names = "mean_{.col}")
+    ) %>%
+  mutate(across(!c(`Missing Strata`), ~ round(.x, 1))) %>%
+  pivot_longer(cols = c(starts_with("mean_"), n), names_to = "Char", values_to = "Value") %>%
+  pivot_wider(names_from = `Missing Strata`, values_from = Value) %>%
+  datatable(
+    rownames = FALSE,
+    options = list(
+      columnDefs = list(
+        list(className = "dt-center", targets = c(1:2)),
+        list(className = "dt-left", targets = c(0))
+      )
+    )
+  )
+
+```
+
+## Assessment
+
+``` {r}
+
+assessment_data %>%
+  group_by("Missing Strata" = is.na(meta_strata_1)) %>%
+  summarise(
+    n = n(),
+    across(starts_with("char") & where(is.numeric), ~ mean(.x, na.rm = TRUE), .names = "mean_{.col}")
+    ) %>%
+  mutate(across(!c(`Missing Strata`), ~ round(.x, 1))) %>%
+  pivot_longer(cols = c(starts_with("mean_"), n), names_to = "Char", values_to = "Value") %>%
+  pivot_wider(names_from = `Missing Strata`, values_from = Value) %>%
+  datatable(
+    rownames = FALSE,
+    options = list(
+      columnDefs = list(
+        list(className = "dt-center", targets = c(1:2)),
+        list(className = "dt-left", targets = c(0))
+      )
+    )
+  )
+
+```
+
+:::
+
+## 2023/2033 Join
+ 
+``` {r}
+
+skim(assessment_data)
 
 ```

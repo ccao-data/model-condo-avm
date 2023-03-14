@@ -128,53 +128,44 @@ assessment_data <- dbGetQuery(
   SELECT *
   FROM model.vw_pin_condo_input
   WHERE meta_year IN (
-    '{params$input$max_sale_year}',
-    '{params$assessment$data_year}'
+    '{params$assessment$data_year}',
+    '{params$assessment$shift_year}'
   )
   ")
 )
 tictoc::toc()
 
-assessment_data <- left_join(
+# These meta columns need to be brought forward one year along with other
+# data department-sourced columns.
+shifted_meta_columns <- c(
+  "meta_year",
+  "meta_mailed_bldg",
+  "meta_mailed_land",
+  "meta_mailed_tot",
+  "meta_certified_bldg",
+  "meta_certified_land",
+  "meta_certified_tot",
+  "meta_board_bldg",
+  "meta_board_land",
+  "meta_board_tot",
+  "meta_1yr_pri_board_bldg",
+  "meta_1yr_pri_board_land",
+  "meta_1yr_pri_board_tot",
+  "meta_2yr_pri_board_bldg",
+  "meta_2yr_pri_board_land",
+  "meta_2yr_pri_board_tot"
+)
+
+assessment_data_shifted <- left_join(
+  assessment_data %>%
+    filter(meta_year == params$assessment$shift_year) %>%
+    select(starts_with("meta") & !shifted_meta_columns),
   assessment_data %>%
     filter(meta_year == params$assessment$data_year) %>%
-    select(starts_with("meta") & !c(
-      "meta_mailed_bldg",
-      "meta_mailed_land",
-      "meta_mailed_tot",
-      "meta_certified_bldg",
-      "meta_certified_land",
-      "meta_certified_tot",
-      "meta_board_bldg",
-      "meta_board_land",
-      "meta_board_tot",
-      "meta_1yr_pri_board_bldg",
-      "meta_1yr_pri_board_land",
-      "meta_1yr_pri_board_tot",
-      "meta_2yr_pri_board_bldg",
-      "meta_2yr_pri_board_land",
-      "meta_2yr_pri_board_tot"
-    )),
-  assessment_data %>%
-    filter(meta_year == params$input$max_sale_year) %>%
     select(
       c(
         "meta_pin", "meta_card_num", "meta_lline_num",
-        "meta_mailed_bldg",
-        "meta_mailed_land",
-        "meta_mailed_tot",
-        "meta_certified_bldg",
-        "meta_certified_land",
-        "meta_certified_tot",
-        "meta_board_bldg",
-        "meta_board_land",
-        "meta_board_tot",
-        "meta_1yr_pri_board_bldg",
-        "meta_1yr_pri_board_land",
-        "meta_1yr_pri_board_tot",
-        "meta_2yr_pri_board_bldg",
-        "meta_2yr_pri_board_land",
-        "meta_2yr_pri_board_tot",
+        shifted_meta_columns,
         !starts_with("meta")
         )
       ),
@@ -406,7 +397,7 @@ training_data_clean <- training_data_w_sv %>%
 # Clean the assessment data. This is the target data that the trained model is
 # used on. The cleaning steps are the same as above, with the exception of the
 # time variables
-assessment_data_clean <- assessment_data %>%
+assessment_data_clean <- assessment_data_shifted %>%
   ccao::vars_recode(cols = starts_with("char_"), type = "code") %>%
   mutate(across(everything(), ~ recode_column_type(.x, cur_column()))) %>%
   # Create sale date features BASED ON THE ASSESSMENT DATE. The model predicts
