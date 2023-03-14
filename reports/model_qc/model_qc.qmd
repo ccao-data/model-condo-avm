@@ -13,7 +13,7 @@ format:
     fontsize: 12pt
 editor: source
 params:
-  run_id: '2023-03-08-magical-boni'
+  run_id: '2023-03-14-happy-sam'
   year: '2023'
   dvc_bucket: 's3://ccao-data-dvc-us-east-1'
 ---
@@ -24,6 +24,7 @@ options(knitr.kable.NA = "", scipen = 99, width = 150)
 
 # Load necessary libraries
 library(arrow)
+
 library(dplyr)
 library(DT)
 library(ggplot2)
@@ -42,44 +43,57 @@ library(tidyr)
 library(yaml)
 source(here("R", "helpers.R"))
 
-# Initialize a dictionary of file paths. See misc/file_dict.csv for details
-# paths <- model_file_dict(params$run_id, params$year)
-# 
-# # Grab metadata to check input alignment
-# metadata <- read_parquet(paths$output$metadata$local)
-# if (metadata$run_id != params$run_id) {
-#   stop(
-#     "Local run outputs are NOT equal to the requested run_id. You ",
-#     "should run model_fetch_run() to fetch model outputs from S3"
-#   )
-# }
-# 
-# # Get the triad of the run to use for filtering
-# run_triad <- tools::toTitleCase(metadata$assessment_triad)
-# run_triad_code <- ccao::town_dict %>%
-#   filter(triad_name == run_triad) %>%
-#   distinct(triad_code) %>%
-#   pull(triad_code)
-# 
-# # Ingest training set used for this run from DVC bucket (if not local)
-# train_md5_s3 <- metadata$dvc_md5_training_data
-# train_md5_local <- digest::digest(paths$input$training$local, algo = "md5")
-# train_md5 <- if (train_md5_s3 != train_md5_local) train_md5_s3 else train_md5_local
-# training_path <- paste0(
-#   params$dvc_bucket, "/",
-#   substr(train_md5, 1, 2), "/",
-#   substr(train_md5, 3, nchar(train_md5))
-# )
-# training_data <- read_parquet(training_path) %>% filter(!sv_is_outlier)
-# 
-# # Load SHAP and feature importance data
-# shap_exists <- file.exists(paths$output$shap$local)
-# if (shap_exists) {
-#   shap_df <- read_parquet(paths$output$shap$local)
-# }
-# feat_imp_df <- read_parquet(paths$output$feature_importance$local)
+# TODO: Catch for weird arrow bug with SIGPIPE. Need to permanently fix later
+# https://github.com/apache/arrow/issues/32026
+cpp11::cpp_source(code = '
+#include <csignal>
+#include <cpp11.hpp>
 
-training_data <- read_parquet(here("input/training_data.parquet")) %>% filter(!sv_is_outlier)
+[[cpp11::register]] void ignore_sigpipes() {
+  signal(SIGPIPE, SIG_IGN);
+}
+')
+
+ignore_sigpipes()
+
+# Initialize a dictionary of file paths. See misc/file_dict.csv for details
+paths <- model_file_dict(params$run_id, params$year)
+
+# Grab metadata to check input alignment
+metadata <- read_parquet(paths$output$metadata$local)
+if (metadata$run_id != params$run_id) {
+  stop(
+    "Local run outputs are NOT equal to the requested run_id. You ",
+    "should run model_fetch_run() to fetch model outputs from S3"
+  )
+}
+
+# Get the triad of the run to use for filtering
+run_triad <- tools::toTitleCase(metadata$assessment_triad)
+run_triad_code <- ccao::town_dict %>%
+  filter(triad_name == run_triad) %>%
+  distinct(triad_code) %>%
+  pull(triad_code)
+
+# Ingest training set used for this run from DVC bucket (if not local)
+train_md5_s3 <- metadata$dvc_md5_training_data
+train_md5_local <- digest::digest(paths$input$training$local, algo = "md5")
+train_md5 <- if (train_md5_s3 != train_md5_local) train_md5_s3 else train_md5_local
+training_path <- paste0(
+  params$dvc_bucket, "/",
+  substr(train_md5, 1, 2), "/",
+  substr(train_md5, 3, nchar(train_md5))
+)
+training_data <- read_parquet(training_path) %>% filter(!sv_is_outlier)
+
+# Load SHAP and feature importance data
+shap_exists <- file.exists(paths$output$shap$local)
+if (shap_exists) {
+  shap_df <- read_parquet(paths$output$shap$local)
+}
+feat_imp_df <- read_parquet(paths$output$feature_importance$local)
+
+# training_data <- read_parquet(here("input/training_data.parquet")) %>% filter(!sv_is_outlier)
 assessment_data <- read_parquet(here("input/assessment_data.parquet"))
 strata_data <- read_parquet(here("input/condo_strata_data.parquet"))
 
@@ -219,10 +233,43 @@ assessment_data %>%
 
 :::
 
+## Completeness
+
+::: {.panel-tabset}
+
 ## 2023/2033 Join
  
 ``` {r}
 
-skim(assessment_data)
+assessment_data %>% skim() %>%
+  select(variable = skim_variable, n_missing, complete_rate)  %>%
+      datatable(
+        rownames = FALSE,
+        options = list(
+          columnDefs = list(
+            list(className = "dt-center", targets = c(2:3))
+          )
+        )
+      )
 
 ```
+
+## Assessment Pin-Level Output
+
+``` {r model_assessment_pin}
+
+read_parquet(here("output/assessment_pin/model_assessment_pin.parquet")) %>%
+  skim() %>%
+  select(variable = skim_variable, n_missing, complete_rate)  %>%
+      datatable(
+        rownames = FALSE,
+        options = list(
+          columnDefs = list(
+            list(className = "dt-center", targets = c(2:3))
+          )
+        )
+      )
+
+```
+
+:::
