@@ -164,13 +164,16 @@ assessment_data_shifted <- left_join(
     filter(meta_year == params$assessment$data_year) %>%
     select(
       c(
-        "meta_pin", "meta_card_num", "meta_lline_num",
+        "meta_pin", "meta_card_num",
         shifted_meta_columns,
         !starts_with("meta")
         )
       ),
-  by = join_by(meta_pin, meta_card_num, meta_lline_num)
-)
+  by = join_by(meta_pin, meta_card_num)
+) %>%
+  # We can't join on lline due to PINs that were switched from 399s to 299s b/w
+  # 2022 and 2023, which means we need to remove some duplicates.
+  distinct()
 
 # Pull  neighborhood-level land rates per sqft, as calculated by Valuations
 tictoc::tic("Land rate data pulled")

@@ -247,7 +247,7 @@ assessment_data %>% skim() %>%
         rownames = FALSE,
         options = list(
           columnDefs = list(
-            list(className = "dt-center", targets = c(2:3))
+            list(className = "dt-center", targets = c(1:2))
           )
         )
       )
@@ -265,7 +265,7 @@ read_parquet(here("output/assessment_pin/model_assessment_pin.parquet")) %>%
         rownames = FALSE,
         options = list(
           columnDefs = list(
-            list(className = "dt-center", targets = c(2:3))
+            list(className = "dt-center", targets = c(1:2))
           )
         )
       )
