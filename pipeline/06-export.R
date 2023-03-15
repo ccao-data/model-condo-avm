@@ -58,6 +58,24 @@ assessment_pin <- dbGetQuery(
   ")
 )
 
+# Pull card-level data only for all PINs. Needed for upload, since values are
+# tracked by card, even though they're presented by PIN
+assessment_card <- dbGetQuery(
+  conn = AWS_ATHENA_CONN_JDBC, glue("
+  SELECT c.*
+  FROM model.assessment_card c
+  INNER JOIN (
+      SELECT *
+      FROM model.assessment_pin
+      WHERE run_id = '{params$export$run_id}'
+      AND meta_triad_code = '{params$export$triad_code}'
+  ) p
+  ON c.year = p.year
+      AND c.run_id = p.run_id
+      AND c.meta_pin = p.meta_pin
+  ")
+)
+
 # Pull land for condos with multiple land lines (very rare)
 land <- dbGetQuery(
   conn = AWS_ATHENA_CONN_JDBC, glue("
@@ -319,17 +337,42 @@ for (town in unique(assessment_pin_prepped$township_code)) {
 
 # Prepare data for iasWorld upload
 upload_data_prepped <- assessment_pin %>%
+  left_join(
+    assessment_card %>%
+      select(meta_year, meta_pin, meta_card_num, meta_lline_num),
+    by = c("meta_year", "meta_pin")
+  ) %>%
   mutate(meta_pin10 = str_sub(meta_pin, 1, 10)) %>% 
+  group_by(meta_pin10, meta_tieback_proration_rate) %>%
+  # For PINs missing an individual building value, fill with the average of
+  # PINs with the same proration rate in the building. This is super rare,
+  # maybe 1 PIN out of every 100K. It happens mostly because of mis-coded nbhds
+  mutate(
+    pred_pin_final_fmv_bldg = ifelse(
+      is.na(pred_pin_final_fmv_bldg),
+      mean(pred_pin_final_fmv_bldg, na.rm = TRUE),
+      pred_pin_final_fmv_bldg
+    )
+  ) %>%
   group_by(meta_pin10) %>%
   mutate(
-    final_fmv = sum(pred_pin_final_fmv_bldg),
-    meta_line_num = 1,
-    component = "O"
+    # Sum the building value of each PIN to the building total value
+    pred_pin10_final_fmv_bldg = sum(pred_pin_final_fmv_bldg, na.rm = TRUE),
+    # For any missing LLINE values, simply fill with 1
+    meta_lline_num = replace_na(meta_lline_num, 1)
   ) %>%
   ungroup() %>%
-  select(meta_township_code, meta_pin, component, meta_line_num, final_fmv) %>%
-  arrange(meta_township_code, meta_pin)
-  
+  select(
+    township_code = meta_township_code,
+    PARID = meta_pin,
+    CARD = meta_card_num,
+    LLINE = meta_lline_num,
+    USER18 = pred_pin10_final_fmv_bldg,
+    USER20 = meta_tieback_proration_rate,
+    OVRRCNLD = pred_pin_final_fmv_bldg
+  ) %>%
+  arrange(township_code, PARID)
+
 
 
 
@@ -338,12 +381,12 @@ upload_data_prepped <- assessment_pin %>%
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Write each town to a headerless CSV for mass upload
-for (town in unique(assessment_pin_prepped$township_code)) {
+for (town in unique(upload_data_prepped$township_code)) {
   message("Now processing: ", town_convert(town))
   
   upload_data_fil <- upload_data_prepped %>%
-    filter(meta_township_code == town) %>%
-    select(-meta_township_code)
+    filter(township_code == town) %>%
+    select(-township_code)
   
   write_csv(
     x = upload_data_fil,
@@ -357,6 +400,6 @@ for (town in unique(assessment_pin_prepped$township_code)) {
       )
     ),
     na = "",
-    col_names = FALSE
+    col_names = TRUE
   )
 }
