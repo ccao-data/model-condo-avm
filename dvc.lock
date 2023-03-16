@@ -54,8 +54,8 @@ stages:
     cmd: Rscript pipeline/01-train.R
     deps:
     - path: input/training_data.parquet
-      md5: d1e6679498d194941112d0b057b9a7e2
-      size: 54761622
+      md5: ba32348279a4b4d48a39349981196df8
+      size: 54776089
     params:
       params.yaml:
         cv:
@@ -242,8 +242,8 @@ stages:
         toggle.cv_enable: false
     outs:
     - path: output/intermediate/timing/model_timing_train.parquet
-      md5: 66e5a9f1cfbb54fcaeabf07d10a5acbf
-      size: 2872
+      md5: aecb489570c87e967b1989582a6cb588
+      size: 2865
     - path: output/parameter_final/model_parameter_final.parquet
       md5: 3bb8f177886fcceb65317ebe40f11004
       size: 8845
@@ -254,14 +254,14 @@ stages:
       md5: bef5a22b3eb8fb426e80cb5f9cd4eb48
       size: 696
     - path: output/test_card/model_test_card.parquet
-      md5: d60778ce2b10e8c4aaf9e19ba3adbcc4
-      size: 1231974
+      md5: d00c3c060b127ed7eb05ed0ac00670cf
+      size: 1231792
     - path: output/workflow/fit/model_workflow_fit.zip
-      md5: dde224e4b63eacc7da011f2c011c657d
-      size: 4879392
+      md5: 5ee214f6ccc4f517c499abb31f030ed6
+      size: 4767098
     - path: output/workflow/recipe/model_workflow_recipe.rds
-      md5: 992f905aa049f24442b46c7774cec6da
-      size: 4266636
+      md5: a6ddaa21bd924831d3f52e08cd789f4f
+      size: 4266638
   assess:
     cmd: Rscript pipeline/02-assess.R
     deps:

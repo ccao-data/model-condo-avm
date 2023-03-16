@@ -120,11 +120,17 @@ assessment_data_bldg <- assessment_data_nl %>%
   mutate(first_lline = first(meta_lline_num)) %>%
   ungroup() %>%
   filter(meta_lline_num == first_lline | is.na(first_lline)) %>%
-  # select(-first_lline) %>%
+  select(-first_lline) %>%
   group_by(meta_pin10) %>%
   mutate(
     bldg_total_value = sum(pred_pin_final_fmv, na.rm = TRUE),
-    pred_pin_final_fmv = bldg_total_value * meta_tieback_proration_rate,
+    bldg_total_proration_rate = sum(
+      meta_tieback_proration_rate,
+      na.rm = TRUE
+    ),
+    
+    pred_pin_final_fmv = bldg_total_value *
+      (meta_tieback_proration_rate / bldg_total_proration_rate),
     
     # For certain units (common areas), we want to have a consistent low value
     # across time (usually $10)

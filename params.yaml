@@ -12,7 +12,7 @@
 # Note included with each run. Use this to summarize what changed about the run
 # or add context
 run_note: >
-  Final 2023 run using params from elated-nicole. No CV, no SHAPs
+  Quick fix for buildings whose rates don't sum to 1
 
 # Determines what stages and outputs are produced. See misc/file_dict.csv for
 # details. Note, DVC does not support "conditional" stages, so changing this to
@@ -387,4 +387,4 @@ ratio_study:
 # upload
 export:
   triad_code: "3"
-  run_id: "2023-03-15-clever-kyra"
+  run_id: "2023-03-16-keen-tayun"
