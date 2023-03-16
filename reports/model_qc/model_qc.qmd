@@ -13,7 +13,7 @@ format:
     fontsize: 12pt
 editor: source
 params:
-  run_id: '2023-03-14-happy-sam'
+  run_id: '2023-03-15-clever-kyra'
   year: '2023'
   dvc_bucket: 's3://ccao-data-dvc-us-east-1'
 ---
@@ -24,7 +24,6 @@ options(knitr.kable.NA = "", scipen = 99, width = 150)
 
 # Load necessary libraries
 library(arrow)
-
 library(dplyr)
 library(DT)
 library(ggplot2)
@@ -93,7 +92,7 @@ if (shap_exists) {
 }
 feat_imp_df <- read_parquet(paths$output$feature_importance$local)
 
-# training_data <- read_parquet(here("input/training_data.parquet")) %>% filter(!sv_is_outlier)
+#training_data <- read_parquet(here("input/training_data.parquet")) %>% filter(!sv_is_outlier)
 assessment_data <- read_parquet(here("input/assessment_data.parquet"))
 strata_data <- read_parquet(here("input/condo_strata_data.parquet"))
 
