@@ -87,10 +87,6 @@ training_data <- dbGetQuery(
   WHERE (condo.meta_year 
       BETWEEN '{params$input$min_sale_year}' 
       AND '{params$input$max_sale_year}')
-  AND ((sale.sale_price_log10
-      BETWEEN sale.sale_filter_lower_limit
-      AND sale.sale_filter_upper_limit)
-      AND sale.sale_filter_count >= 2)
   AND sale.num_parcels_sale <= 2
   ")
 )
