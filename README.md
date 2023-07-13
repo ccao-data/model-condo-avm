@@ -1,45 +1,38 @@
 Table of Contents
 ================
 
-- <a href="#prior-models" id="toc-prior-models">Prior Models</a>
-- <a href="#model-overview" id="toc-model-overview">Model Overview</a>
-  - <a href="#differences-compared-to-the-residential-model"
-    id="toc-differences-compared-to-the-residential-model">Differences
-    Compared to the Residential Model</a>
-    - <a href="#features-used" id="toc-features-used">Features Used</a>
-    - <a href="#valuation" id="toc-valuation">Valuation</a>
-  - <a href="#condo-strata" id="toc-condo-strata">Condo Strata</a>
-- <a href="#ongoing-issues" id="toc-ongoing-issues">Ongoing Issues</a>
-  - <a href="#unit-heterogeneity" id="toc-unit-heterogeneity">Unit
-    Heterogeneity</a>
-  - <a href="#buildings-with-few-sales"
-    id="toc-buildings-with-few-sales">Buildings With Few Sales</a>
-  - <a href="#buildings-without-sales"
-    id="toc-buildings-without-sales">Buildings Without Sales</a>
-- <a href="#faqs" id="toc-faqs">FAQs</a>
-- <a href="#usage" id="toc-usage">Usage</a>
-- <a href="#license" id="toc-license">License</a>
-- <a href="#contributing" id="toc-contributing">Contributing</a>
+- [Prior Models](#prior-models)
+- [Model Overview](#model-overview)
+  - [Differences Compared to the Residential
+    Model](#differences-compared-to-the-residential-model)
+    - [Features Used](#features-used)
+    - [Valuation](#valuation)
+  - [Condo Strata](#condo-strata)
+- [Ongoing Issues](#ongoing-issues)
+  - [Unit Heterogeneity](#unit-heterogeneity)
+  - [Buildings With Few Sales](#buildings-with-few-sales)
+  - [Buildings Without Sales](#buildings-without-sales)
+- [FAQs](#faqs)
+- [Usage](#usage)
+- [License](#license)
+- [Contributing](#contributing)
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
 > :warning: **NOTE** :warning:
 >
-> The [condominium
-> model](https://gitlab.com/ccao-data-science---modeling/models/ccao_condo_avm)
+> The [condominium model](https://github.com/ccao-data/model-condo-avm)
 > (this repo) is nearly identical to the [residential
 > (single/multi-family)
-> model](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm),
-> with a few [key
+> model](https://github.com/ccao-data/model-res-avm), with a few [key
 > differences](#differences-compared-to-the-residential-model). Please
 > read the documentation for the [residential
-> model](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm)
-> first.
+> model](https://github.com/ccao-data/model-res-avm) first.
 
 # Prior Models
 
 This repository contains code, data, and documentation for the Cook
-County Assessor’s 2023 condominium reassessment model. Information about
+County Assessor’s condominium reassessment model. Information about
 prior year models can be found at the following links:
 
 | Year(s) | Triad(s) | Method                                      | Language / Framework       | Link                                                                                                                                       |
@@ -48,8 +41,9 @@ prior year models can be found at the following links:
 | 2018    | City     | N/A                                         | N/A                        | Not available. Values provided by vendor                                                                                                   |
 | 2019    | North    | Linear regression or GBM model per township | R (Base)                   | [Link](https://gitlab.com/ccao-data-science---modeling/ccao_sf_cama_dev)                                                                   |
 | 2020    | South    | Linear regression or GBM model per township | R (Base)                   | [Link](https://gitlab.com/ccao-data-science---modeling/ccao_sf_cama_dev)                                                                   |
-| 2021    | City     | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://gitlab.com/ccao-data-science---modeling/models/ccao_condo_avm/-/tree/2021-assessment-year)                                  |
-| 2022    | North    | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://gitlab.com/ccao-data-science---modeling/models/ccao_condo_avm/-/tree/2022-assessment-year)                                  |
+| 2021    | City     | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2021-assessment-year)                                                             |
+| 2022    | North    | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2022-assessment-year)                                                             |
+| 2023    | South    | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2023-assessment-year)                                                             |
 
 # Model Overview
 
@@ -190,10 +184,10 @@ the 2023 assessment model.
 
 For the most part, condos are valued the same way as single- and
 multi-family residential property. We [train a
-model](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm#how-it-works)
-using individual condo unit sales, predict the value of all units, and
-then apply any [post-modeling
-adjustment](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm#post-modeling).
+model](https://github.com/ccao-data/model-res-avm#how-it-works) using
+individual condo unit sales, predict the value of all units, and then
+apply any [post-modeling
+adjustment](https://github.com/ccao-data/model-res-avm#post-modeling).
 
 However, because the CCAO has so [little information about individual
 units](#differences-compared-to-the-residential-model), we must rely on
@@ -321,14 +315,14 @@ to ensure the accuracy of individual unit values.
 
 **Note:** The FAQs listed here are for condo-specific questions. See the
 residential model documentation for [more general
-FAQs](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm#faqs).
+FAQs](https://github.com/ccao-data/model-res-avm#faqs).
 
 **Q: What are the most important features in the condo model?**
 
 As with the [residential
-model](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm),
-the importance of individual features varies by location and time.
-However, generally speaking, the most important features are:
+model](https://github.com/ccao-data/model-res-avm), the importance of
+individual features varies by location and time. However, generally
+speaking, the most important features are:
 
 - Location, location, location. Location is the largest driver of
   county-wide variation in condo value. We account for location using
@@ -365,18 +359,17 @@ board or condo declaration.
 
 Installation and usage of this model is identical to the [installation
 and usage of the residential
-model](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm#usage).
-Please follow the instructions listed there.
+model](https://github.com/ccao-data/model-res-avm#usage). Please follow
+the instructions listed there.
 
 # License
 
-Distributed under the GPL-3 License. See [LICENSE](./LICENSE.txt) for
-more information.
+Distributed under the GPL-3 License. See [LICENSE](./LICENSE) for more
+information.
 
 # Contributing
 
-We welcome pull requests, comments, and other feedback via GitLab. For
+We welcome pull requests, comments, and other feedback via GitHub. For
 more involved collaboration or projects, please see the [Developer
-Engagement
-Program](https://gitlab.com/groups/ccao-data-science---modeling/-/wikis/People/Contributing)
+Engagement Program](https://github.com/ccao-data/people#external)
 documentation on our group wiki.

@@ -35,7 +35,7 @@ paths <- model_file_dict()
 params <- read_yaml("params.yaml")
 
 # Override the default run_type from params.yaml. This is useful for manually
-# running "limited" runs without assessment data (also used for GitLab CI)
+# running "limited" runs without assessment data (also used for GitHub CI)
 run_type <- as.character(
   Sys.getenv("RUN_TYPE_OVERRIDE", unset = params$run_type)
 )
@@ -146,7 +146,7 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
     q75         = ~ quantile((.x - .y) / .y, na.rm = T, probs = 0.75),
     max         = ~ max((.x - .y) / .y, na.rm = T)
   )
-  
+
   # Generate aggregate performance stats by geography
   df_stat <- data %>%
     # Aggregate to get counts by geography without class
@@ -158,7 +158,7 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
     # Aggregate including class
     group_by({{ triad }}, {{ geography }}, {{ class }}) %>%
     summarize(
-      
+
       # Basic summary stats, counts, proportions, etc
       num_pin = n(),
       num_sale = sum(!is.na({{ truth }})),
@@ -168,21 +168,21 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
       prior_far_total_av = sum({{ rsf_col }} / 10, na.rm = TRUE),
       prior_near_total_av = sum({{ rsn_col }} / 10, na.rm = TRUE),
       estimate_total_av = sum({{ estimate }} / 10, na.rm = TRUE),
-      
+
       # Assessment-specific statistics
       across(.fns = rs_fns_list, {{ estimate }}, {{ truth }}, .names = "{.fn}"),
       median_ratio = median({{ estimate }} / {{ truth }}, na.rm = TRUE),
-      
+
       # Yardstick (ML-specific) performance stats
       across(.fns = ys_fns_list, {{ truth }}, {{ estimate }}, .names = "{.fn}"),
-      
+
       # Summary stats of sale price and sale price per sqft
       across(.fns = sum_fns_list, {{ truth }}, .names = "sale_fmv_{.fn}"),
       across(
         .fns = sum_sqft_fns_list, {{ truth }}, {{ bldg_sqft }},
         .names = "sale_fmv_per_sqft_{.fn}"
       ),
-      
+
       # Summary stats of prior values and value per sqft. Need to multiply
       # by 10 first since PIN history is in AV, not FMV
       prior_far_num_missing = sum(is.na({{ rsf_col }})),
@@ -205,7 +205,7 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
         .fns = yoy_fns_list, {{ estimate }}, {{ rsn_col }},
         .names = "prior_near_yoy_pct_chg_{.fn}"
       ),
-      
+
       # Summary stats of estimate value and estimate per sqft
       estimate_num_missing = sum(is.na({{ estimate }})),
       across(
@@ -229,7 +229,7 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
     tidyr::unnest_wider(PRB_CI, names_sep = "_") %>%
     # Rename columns resulting from unnesting
     rename_with(~ gsub("%", "", gsub("\\.", "_", tolower(.x))))
-  
+
   # Clean up the stats output (rename cols, relocate cols, etc.)
   df_stat %>%
     mutate(
@@ -283,7 +283,7 @@ gen_agg_stats_quantile <- function(data, truth, estimate,
       .groups = "drop"
     ) %>%
     ungroup()
-  
+
   # Clean up the quantile output
   df_quantile %>%
     mutate(
@@ -415,7 +415,7 @@ if (run_type == "full") {
     .progress = FALSE
   ) %>%
     write_parquet(paths$output$performance_assessment$local)
-  
+
   # Same as above, but calculate stats per quantile of sale price
   message("Calculating assessment set quantile statistics")
   future_map_dfr(

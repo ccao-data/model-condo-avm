@@ -19,11 +19,11 @@ knitr::opts_chunk$set(
 
 > :warning: **NOTE** :warning:
 >
-> The [condominium model](https://gitlab.com/ccao-data-science---modeling/models/ccao_condo_avm) (this repo) is nearly identical to the [residential (single/multi-family) model](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm), with a few [key differences](#differences-compared-to-the-residential-model). Please read the documentation for the [residential model](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm) first.
+> The [condominium model](https://github.com/ccao-data/model-condo-avm) (this repo) is nearly identical to the [residential (single/multi-family) model](https://github.com/ccao-data/model-res-avm), with a few [key differences](#differences-compared-to-the-residential-model). Please read the documentation for the [residential model](https://github.com/ccao-data/model-res-avm) first.
 
 # Prior Models
 
-This repository contains code, data, and documentation for the Cook County Assessor's 2023 condominium reassessment model. Information about prior year models can be found at the following links:
+This repository contains code, data, and documentation for the Cook County Assessor's condominium reassessment model. Information about prior year models can be found at the following links:
 
 | Year(s) | Triad(s) | Method                                      | Language / Framework       | Link                                                                                                                                       |
 |---------|----------|---------------------------------------------|----------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
@@ -31,8 +31,9 @@ This repository contains code, data, and documentation for the Cook County Asses
 | 2018    | City     | N/A                                         | N/A                        | Not available. Values provided by vendor                                                                                                   |
 | 2019    | North    | Linear regression or GBM model per township | R (Base)                   | [Link](https://gitlab.com/ccao-data-science---modeling/ccao_sf_cama_dev)                                                                   |
 | 2020    | South    | Linear regression or GBM model per township | R (Base)                   | [Link](https://gitlab.com/ccao-data-science---modeling/ccao_sf_cama_dev)                                                                   |
-| 2021    | City     | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://gitlab.com/ccao-data-science---modeling/models/ccao_condo_avm/-/tree/2021-assessment-year)                                  |
-| 2022    | North    | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://gitlab.com/ccao-data-science---modeling/models/ccao_condo_avm/-/tree/2022-assessment-year)                                  |
+| 2021    | City     | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2021-assessment-year)                                  |
+| 2022    | North    | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2022-assessment-year)                                  |
+| 2023    | South    | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2023-assessment-year)                                  |
 
 # Model Overview
 
@@ -116,7 +117,7 @@ ccao::vars_dict %>%
 
 ### Valuation
 
-For the most part, condos are valued the same way as single- and multi-family residential property. We [train a model](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm#how-it-works) using individual condo unit sales, predict the value of all units, and then apply any [post-modeling adjustment](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm#post-modeling).
+For the most part, condos are valued the same way as single- and multi-family residential property. We [train a model](https://github.com/ccao-data/model-res-avm#how-it-works) using individual condo unit sales, predict the value of all units, and then apply any [post-modeling adjustment](https://github.com/ccao-data/model-res-avm#post-modeling).
 
 However, because the CCAO has so [little information about individual units](#differences-compared-to-the-residential-model), we must rely on the [condominium percentage of ownership](#features-used) to differentiate between units in a building. This feature is effectively the proportion of the building's overall value held by a unit. It is created when a condominium declaration is filed with the County (usually by the developer of the building). The critical assumption underlying the condo valuation process is that percentage of ownership correlates with current market value.
 
@@ -190,11 +191,11 @@ Most of the time, this technique produces reasonable results. However, buildings
 
 # FAQs
 
-**Note:** The FAQs listed here are for condo-specific questions. See the residential model documentation for [more general FAQs](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm#faqs).
+**Note:** The FAQs listed here are for condo-specific questions. See the residential model documentation for [more general FAQs](https://github.com/ccao-data/model-res-avm#faqs).
 
 **Q: What are the most important features in the condo model?**
 
-As with the [residential model](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm), the importance of individual features varies by location and time. However, generally speaking, the most important features are:
+As with the [residential model](https://github.com/ccao-data/model-res-avm), the importance of individual features varies by location and time. However, generally speaking, the most important features are:
 
 * Location, location, location. Location is the largest driver of county-wide variation in condo value. We account for location using [geospatial features like neighborhood](#features-used).
 * Condo percentage of ownership, which determines the intra-building variation in unit price.
@@ -214,12 +215,12 @@ The percentage of ownership for individual units is printed on assessment notice
 
 # Usage
 
-Installation and usage of this model is identical to the [installation and usage of the residential model](https://gitlab.com/ccao-data-science---modeling/models/ccao_res_avm#usage). Please follow the instructions listed there.
+Installation and usage of this model is identical to the [installation and usage of the residential model](https://github.com/ccao-data/model-res-avm#usage). Please follow the instructions listed there.
 
 # License
 
-Distributed under the GPL-3 License. See [LICENSE](./LICENSE.txt) for more information.
+Distributed under the GPL-3 License. See [LICENSE](./LICENSE) for more information.
 
 # Contributing
 
-We welcome pull requests, comments, and other feedback via GitLab. For more involved collaboration or projects, please see the [Developer Engagement Program](https://gitlab.com/groups/ccao-data-science---modeling/-/wikis/People/Contributing) documentation on our group wiki.
+We welcome pull requests, comments, and other feedback via GitHub. For more involved collaboration or projects, please see the [Developer Engagement Program](https://github.com/ccao-data/people#external) documentation on our group wiki.
