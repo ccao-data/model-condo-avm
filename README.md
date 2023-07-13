@@ -364,7 +364,7 @@ the instructions listed there.
 
 # License
 
-Distributed under the GPL-3 License. See [LICENSE](./LICENSE) for more
+Distributed under the AGPL-3 License. See [LICENSE](./LICENSE) for more
 information.
 
 # Contributing

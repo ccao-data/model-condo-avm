@@ -219,7 +219,7 @@ Installation and usage of this model is identical to the [installation and usage
 
 # License
 
-Distributed under the GPL-3 License. See [LICENSE](./LICENSE) for more information.
+Distributed under the AGPL-3 License. See [LICENSE](./LICENSE) for more information.
 
 # Contributing
 
