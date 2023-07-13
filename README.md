@@ -14,6 +14,7 @@ Table of Contents
   - [Buildings Without Sales](#buildings-without-sales)
 - [FAQs](#faqs)
 - [Usage](#usage)
+  - [Getting Data](#getting-data)
 - [License](#license)
 - [Contributing](#contributing)
 
@@ -361,6 +362,44 @@ Installation and usage of this model is identical to the [installation
 and usage of the residential
 model](https://github.com/ccao-data/model-res-avm#usage). Please follow
 the instructions listed there.
+
+## Getting Data
+
+The data required to run these scripts is produced by the [ingest
+stage](pipeline/00-ingest.R), which uses SQL pulls from the CCAO’s
+Athena database as a primary data source. CCAO employees can run the
+ingest stage or pull the latest version of the input data from our
+internal DVC store using:
+
+``` bash
+dvc pull
+```
+
+Public users can download data for each assessment year using the links
+below. Each file should be placed in the `input/` directory prior to
+running the model pipeline.
+
+#### 2021
+
+- [assmntdata.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2021/assmntdata.parquet)
+- [modeldata.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2021/modeldata.parquet)
+
+#### 2022
+
+- [assessment_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2022/assessment_data.parquet)
+- [condo_strata_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2022/condo_strata_data.parquet)
+- [land_nbhd_rate_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2022/land_nbhd_rate_data.parquet)
+- [training_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2022/training_data.parquet)
+
+#### 2023
+
+- [assessment_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2023/assessment_data.parquet)
+- [condo_strata_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2023/condo_strata_data.parquet)
+- [land_nbhd_rate_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2023/land_nbhd_rate_data.parquet)
+- [training_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2023/training_data.parquet)
+
+For other data from the CCAO, please visit the [Cook County Data
+Portal](https://datacatalog.cookcountyil.gov/).
 
 # License
 
