@@ -78,9 +78,9 @@ ccao::vars_dict %>%
     by = c("var_name_model" = "value")
   ) %>%
   filter(
-    stringr::str_starts(var_name_model, "char_", negate = TRUE) | 
-    var_name_model %in% c("char_yrblt", "char_land_sf") |
-    var_model_type == "condo",
+    stringr::str_starts(var_name_model, "char_", negate = TRUE) |
+      var_name_model %in% c("char_yrblt", "char_land_sf") |
+      var_model_type == "condo",
     stringr::str_starts(var_name_model, "ind_", negate = TRUE)
   ) %>%
   distinct(
@@ -107,7 +107,8 @@ ccao::vars_dict %>%
   ) %>%
   mutate(`Unique to Condo Model` = ifelse(
     var_model_type == "condo" |
-    `Feature Name` %in% c("Condominium Building Year Built", "Condominium % Ownership"),
+      `Feature Name` %in%
+        c("Condominium Building Year Built", "Condominium % Ownership"),
     "X", ""
   )) %>%
   arrange(desc(`Unique to Condo Model`), Category) %>%

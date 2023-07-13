@@ -53,7 +53,7 @@ message("Predicting off-market values with trained model")
 lgbm_final_full_fit <- lightsnip::lgbm_load(paths$output$workflow_fit$local)
 lgbm_final_full_recipe <- readRDS(paths$output$workflow_recipe$local)
 
-# Load the data for assessment. This is the universe of condo units 
+# Load the data for assessment. This is the universe of condo units
 # that need values. Use the trained lightgbm model to estimate a single
 # FMV per unit
 assessment_data_pred <- read_parquet(paths$input$assessment$local) %>%
@@ -107,7 +107,7 @@ message("Aggregating to building level")
 # multiply by proration rate/percent ownership to get the final unit value. For
 # example, if you have a 3 unit building, with percentages .25, .25, .5,
 # and the model-predicted values for all 3 units are the same, you want to
-# divide the value of the building proportionally across units. 
+# divide the value of the building proportionally across units.
 # Suppose each unit is valued at $100. The whole building is worth $300.
 # Unit 1 valued at 25% of $300, or $75.
 
@@ -128,10 +128,9 @@ assessment_data_bldg <- assessment_data_nl %>%
       meta_tieback_proration_rate,
       na.rm = TRUE
     ),
-    
     pred_pin_final_fmv = bldg_total_value *
       (meta_tieback_proration_rate / bldg_total_proration_rate),
-    
+
     # For certain units (common areas), we want to have a consistent low value
     # across time (usually $10)
     pred_pin_final_fmv = case_when(
@@ -251,13 +250,13 @@ sales_data_two_most_recent <- sales_data %>%
 sales_data_bldg_change_pct <- sales_data %>%
   filter(
     meta_year == params$assessment$data_year |
-    meta_year == params$ratio_study$far_year
+      meta_year == params$ratio_study$far_year
   ) %>%
   group_by(meta_year, meta_pin10) %>%
   filter(n() >= 5) %>%
   mutate(meta_year = ifelse(
-    meta_year == params$assessment$data_year, "cur", "pri")
-  ) %>%
+    meta_year == params$assessment$data_year, "cur", "pri"
+  )) %>%
   summarize(mean_sale_price = mean(meta_sale_price)) %>%
   pivot_wider(names_from = meta_year, values_from = mean_sale_price) %>%
   mutate(flag_prior_far_yoy_bldg_change_pct = (cur - pri) / pri) %>%
@@ -286,7 +285,7 @@ assessment_data_pin <- assessment_data_merged %>%
     meta_nbhd_code, meta_tax_code, meta_class, meta_tieback_key_pin,
     meta_tieback_proration_rate, meta_cdu, meta_modeling_group,
     meta_pin_num_landlines, char_yrblt,
-    
+
     # Keep overall building square footage
     char_total_bldg_sf = char_building_sf,
     char_unit_sf, char_land_sf,
@@ -303,7 +302,6 @@ assessment_data_pin <- assessment_data_merged %>%
     pred_pin_final_fmv, pred_pin_final_fmv_round, township_code
   ) %>%
   ungroup() %>%
-  
   # Overwrite missing land values (only a few PINs)
   mutate(char_land_sf = replace_na(char_land_sf, 0))
 
@@ -325,7 +323,7 @@ assessment_data_pin_2 <- assessment_data_pin %>%
     pred_pin_final_fmv_land = ceiling(case_when(
       char_land_sf * land_rate_per_sqft * meta_tieback_proration_rate >=
         pred_pin_final_fmv_round * params$pv$land_pct_of_total_cap ~
-      pred_pin_final_fmv_round * params$pv$land_pct_of_total_cap,
+        pred_pin_final_fmv_round * params$pv$land_pct_of_total_cap,
       TRUE ~ char_land_sf * land_rate_per_sqft * meta_tieback_proration_rate
     )),
     pred_pin_uncapped_fmv_land =
@@ -407,7 +405,7 @@ assessment_data_pin_final %>%
   # Reorder columns into groups by prefix
   select(
     starts_with(c("meta_", "loc_")),
-    char_yrblt, char_total_bldg_sf, char_unit_sf, char_land_sf, 
+    char_yrblt, char_total_bldg_sf, char_unit_sf, char_land_sf,
     starts_with(c("land", "prior_far_", "prior_near_")),
     pred_pin_final_fmv, pred_pin_final_fmv_bldg,
     pred_pin_final_fmv_land, pred_pin_final_fmv_round,

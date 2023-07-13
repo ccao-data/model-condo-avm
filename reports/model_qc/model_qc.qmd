@@ -20,7 +20,7 @@ params:
 
 ```{r setup}
 options(knitr.kable.NA = "", scipen = 99, width = 150)
-#options(htmlwidgets.TOJSON_ARGS = list(na = 'string'))
+# options(htmlwidgets.TOJSON_ARGS = list(na = 'string'))
 
 # Load necessary libraries
 library(arrow)
@@ -44,14 +44,14 @@ source(here("R", "helpers.R"))
 
 # TODO: Catch for weird arrow bug with SIGPIPE. Need to permanently fix later
 # https://github.com/apache/arrow/issues/32026
-cpp11::cpp_source(code = '
+cpp11::cpp_source(code = "
 #include <csignal>
 #include <cpp11.hpp>
 
 [[cpp11::register]] void ignore_sigpipes() {
   signal(SIGPIPE, SIG_IGN);
 }
-')
+")
 
 ignore_sigpipes()
 
@@ -92,10 +92,9 @@ if (shap_exists) {
 }
 feat_imp_df <- read_parquet(paths$output$feature_importance$local)
 
-#training_data <- read_parquet(here("input/training_data.parquet")) %>% filter(!sv_is_outlier)
+# training_data <- read_parquet(here("input/training_data.parquet")) %>% filter(!sv_is_outlier)
 assessment_data <- read_parquet(here("input/assessment_data.parquet"))
 strata_data <- read_parquet(here("input/condo_strata_data.parquet"))
-
 ```
 
 ## Strata
@@ -107,21 +106,20 @@ strata_data <- read_parquet(here("input/condo_strata_data.parquet"))
 ## Median Sale Price
 
 ``` {r strata_1}
-
 strata_1 <- training_data %>%
-    mutate(
-      Stratum = as.numeric(meta_strata_1),
-      Township = meta_township_name
-      ) %>%
-    group_by(Township, Stratum) %>%
-    summarise(
-      `Min` = min(meta_sale_price, na.rm = TRUE),
-      `Median` = median(meta_sale_price, na.rm = TRUE),
-      `Max` = max(meta_sale_price, na.rm = TRUE),
-      `SD` = sd(meta_sale_price, na.rm = TRUE),
-      `N` = n()
-      ) %>%
-    filter(!is.na(Stratum), !is.na(Median)) %>%
+  mutate(
+    Stratum = as.numeric(meta_strata_1),
+    Township = meta_township_name
+  ) %>%
+  group_by(Township, Stratum) %>%
+  summarise(
+    `Min` = min(meta_sale_price, na.rm = TRUE),
+    `Median` = median(meta_sale_price, na.rm = TRUE),
+    `Max` = max(meta_sale_price, na.rm = TRUE),
+    `SD` = sd(meta_sale_price, na.rm = TRUE),
+    `N` = n()
+  ) %>%
+  filter(!is.na(Stratum), !is.na(Median)) %>%
   rename("Median Sale Price" = "Median") %>%
   ggplot() +
   geom_line(aes(x = Stratum, y = `Median Sale Price`, color = Township)) +
@@ -134,32 +132,30 @@ strata_1 <- training_data %>%
   )
 
 ggplotly(strata_1)
-
 ```
 
 ## Strata Range
 
 ``` {r strata_2}
-
 training_data %>%
-    mutate(
-      Stratum = as.numeric(meta_strata_1),
-      Township = meta_township_name
-      ) %>%
-    group_by(Township, Stratum) %>%
-    summarise(
-      Range = paste(
-        label_dollar()(min(meta_sale_price, na.rm = TRUE)),
-        label_dollar()(median(meta_sale_price, na.rm = TRUE)),
-       label_dollar()(max(meta_sale_price, na.rm = TRUE))
-        )
-      ) %>%
-    filter(!is.na(Stratum)) %>%
+  mutate(
+    Stratum = as.numeric(meta_strata_1),
+    Township = meta_township_name
+  ) %>%
+  group_by(Township, Stratum) %>%
+  summarise(
+    Range = paste(
+      label_dollar()(min(meta_sale_price, na.rm = TRUE)),
+      label_dollar()(median(meta_sale_price, na.rm = TRUE)),
+      label_dollar()(max(meta_sale_price, na.rm = TRUE))
+    )
+  ) %>%
+  filter(!is.na(Stratum)) %>%
   pivot_wider(
     id_cols = Township,
     names_from = Stratum,
     values_from = Range
-    ) %>%
+  ) %>%
   datatable(
     rownames = FALSE,
     options = list(
@@ -170,8 +166,7 @@ training_data %>%
       )
     )
   ) %>%
-  formatStyle(columns = c(0:10), fontSize = '85%')
-
+  formatStyle(columns = c(0:10), fontSize = "85%")
 ```
 
 :::
@@ -183,13 +178,12 @@ training_data %>%
 ## Training
 
 ``` {r missing}
-
 training_data %>%
   group_by("Missing Strata" = is.na(meta_strata_1)) %>%
   summarise(
     n = n(),
     across(starts_with("char") & where(is.numeric), ~ mean(.x, na.rm = TRUE), .names = "mean_{.col}")
-    ) %>%
+  ) %>%
   mutate(across(!c(`Missing Strata`), ~ round(.x, 1))) %>%
   pivot_longer(cols = c(starts_with("mean_"), n), names_to = "Char", values_to = "Value") %>%
   pivot_wider(names_from = `Missing Strata`, values_from = Value) %>%
@@ -202,19 +196,17 @@ training_data %>%
       )
     )
   )
-
 ```
 
 ## Assessment
 
 ``` {r}
-
 assessment_data %>%
   group_by("Missing Strata" = is.na(meta_strata_1)) %>%
   summarise(
     n = n(),
     across(starts_with("char") & where(is.numeric), ~ mean(.x, na.rm = TRUE), .names = "mean_{.col}")
-    ) %>%
+  ) %>%
   mutate(across(!c(`Missing Strata`), ~ round(.x, 1))) %>%
   pivot_longer(cols = c(starts_with("mean_"), n), names_to = "Char", values_to = "Value") %>%
   pivot_wider(names_from = `Missing Strata`, values_from = Value) %>%
@@ -227,7 +219,6 @@ assessment_data %>%
       )
     )
   )
-
 ```
 
 :::
@@ -239,36 +230,33 @@ assessment_data %>%
 ## 2023/2033 Join
  
 ``` {r}
-
-assessment_data %>% skim() %>%
-  select(variable = skim_variable, n_missing, complete_rate)  %>%
-      datatable(
-        rownames = FALSE,
-        options = list(
-          columnDefs = list(
-            list(className = "dt-center", targets = c(1:2))
-          )
-        )
+assessment_data %>%
+  skim() %>%
+  select(variable = skim_variable, n_missing, complete_rate) %>%
+  datatable(
+    rownames = FALSE,
+    options = list(
+      columnDefs = list(
+        list(className = "dt-center", targets = c(1:2))
       )
-
+    )
+  )
 ```
 
 ## Assessment Pin-Level Output
 
 ``` {r model_assessment_pin}
-
 read_parquet(here("output/assessment_pin/model_assessment_pin.parquet")) %>%
   skim() %>%
-  select(variable = skim_variable, n_missing, complete_rate)  %>%
-      datatable(
-        rownames = FALSE,
-        options = list(
-          columnDefs = list(
-            list(className = "dt-center", targets = c(1:2))
-          )
-        )
+  select(variable = skim_variable, n_missing, complete_rate) %>%
+  datatable(
+    rownames = FALSE,
+    options = list(
+      columnDefs = list(
+        list(className = "dt-center", targets = c(1:2))
       )
-
+    )
+  )
 ```
 
 :::

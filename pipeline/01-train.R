@@ -209,6 +209,7 @@ if (cv_enable) {
   lgbm_params <- lgbm_wflow %>%
     hardhat::extract_parameter_set_dials() %>%
     update(
+      # nolint start
       num_leaves          = lightsnip::num_leaves(lgbm_range$num_leaves),
       add_to_linked_depth = lightsnip::add_to_linked_depth(lgbm_range$add_to_linked_depth),
       feature_fraction    = lightsnip::feature_fraction(lgbm_range$feature_fraction),
@@ -221,6 +222,7 @@ if (cv_enable) {
       lambda_l1           = lightsnip::lambda_l1(lgbm_range$lambda_l1),
       lambda_l2           = lightsnip::lambda_l2(lgbm_range$lambda_l2),
       neighbors           = dials::neighbors(lgbm_range$neighbors)
+      # nolint end
     )
 
   # Use Bayesian tuning to find best performing hyperparameters. This part takes
@@ -264,9 +266,15 @@ if (cv_enable) {
     seed = params$model$seed,
     objective = params$model$objective
   ) %>%
-    bind_cols(select_max_iterations(lgbm_search, metric = params$cv$best_metric)) %>%
-    bind_cols(as_tibble(params$model$parameter) %>% select(-num_iterations)) %>%
-    bind_cols(select_best(lgbm_search, metric = params$cv$best_metric)) %>%
+    bind_cols(
+      select_max_iterations(lgbm_search, metric = params$cv$best_metric)
+    ) %>%
+    bind_cols(
+      as_tibble(params$model$parameter) %>% select(-num_iterations)
+    ) %>%
+    bind_cols(
+      select_best(lgbm_search, metric = params$cv$best_metric)
+    ) %>%
     select(configuration = .config, everything()) %>%
     arrow::write_parquet(paths$output$parameter_final$local)
 } else {
@@ -274,7 +282,8 @@ if (cv_enable) {
   # params.yaml, keeping only the ones used in the model specification
   lgbm_missing_params <- names(params$model$hyperparameter$default)
   lgbm_missing_params <- lgbm_missing_params[
-    !lgbm_missing_params %in% hardhat::extract_parameter_set_dials(lgbm_wflow)$name
+    !lgbm_missing_params %in%
+      hardhat::extract_parameter_set_dials(lgbm_wflow)$name
   ]
   lgbm_final_params <- tibble(
     configuration = "Default",

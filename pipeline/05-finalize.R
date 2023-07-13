@@ -130,7 +130,8 @@ metadata <- tibble::tibble(
   model_predictor_id_name = list(params$model$predictor$id),
   model_predictor_all_count = length(params$model$predictor$all),
   model_predictor_all_name = list(params$model$predictor$all),
-  model_predictor_categorical_count = length(params$model$predictor$categorical),
+  model_predictor_categorical_count =
+    length(params$model$predictor$categorical),
   model_predictor_categorical_name = list(params$model$predictor$categorical),
   model_predictor_knn_count = length(params$model$predictor$knn),
   model_predictor_knn_name = list(params$model$predictor$knn),
@@ -294,7 +295,7 @@ if (params$toggle$upload_to_s3) {
 
   # 4.2. Assess ----------------------------------------------------------------
   message("Uploading final assessment results")
-  
+
   # Upload PIN and card-level values for full runs. These outputs are very
   # large, so to help reduce file size and improve query performance we
   # partition them by year, run ID, and township
@@ -364,7 +365,7 @@ if (params$toggle$upload_to_s3) {
         compression = "snappy"
       )
   }
-  
+
   # Upload feature importance metrics
   if (run_type == "full") {
     message("Uploading feature importance metrics")
@@ -377,7 +378,7 @@ if (params$toggle$upload_to_s3) {
 
   # 4.5. Finalize --------------------------------------------------------------
   message("Uploading run metadata and timings")
-  
+
   # Upload metadata
   aws.s3::put_object(
     paths$output$metadata$local,

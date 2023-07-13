@@ -84,22 +84,23 @@ training_data <- dbGetQuery(
   INNER JOIN default.vw_pin_sale sale
       ON sale.pin = condo.meta_pin
       AND sale.year = condo.meta_year
-  WHERE (condo.meta_year 
-      BETWEEN '{params$input$min_sale_year}' 
+  WHERE (condo.meta_year
+      BETWEEN '{params$input$min_sale_year}'
       AND '{params$input$max_sale_year}')
   AND sale.num_parcels_sale <= 2
   ")
 )
 
 # Heuristic for handling multi-PIN sales. We want to keep sales with a deeded
-# parking spot, but only the sale for the unit, not the parking. Drop other 
+# parking spot, but only the sale for the unit, not the parking. Drop other
 # multi-unit sale types since we don't have a way to disaggregate each
 # unit's value
 training_data <- training_data %>%
   group_by(meta_sale_document_num) %>%
   arrange(meta_tieback_proration_rate) %>%
-  mutate(keep_unit_sale =
-    meta_tieback_proration_rate >= (lag(meta_tieback_proration_rate) * 3) 
+  mutate(
+    keep_unit_sale =
+      meta_tieback_proration_rate >= (lag(meta_tieback_proration_rate) * 3)
   ) %>%
   filter(n() == 1 | (n() == 2 & keep_unit_sale)) %>%
   ungroup() %>%
@@ -163,8 +164,8 @@ assessment_data_shifted <- left_join(
         "meta_pin", "meta_card_num",
         shifted_meta_columns,
         !starts_with("meta")
-        )
-      ),
+      )
+    ),
   by = join_by(meta_pin, meta_card_num)
 ) %>%
   # We can't join on lline due to PINs that were switched from 399s to 299s b/w
@@ -204,9 +205,8 @@ recode_column_type <- function(col, col_name, dict = col_type_dict) {
   col_type <- dict %>%
     filter(var_name == col_name) %>%
     pull(var_type)
-  
-  switch(
-    col_type,
+
+  switch(col_type,
     numeric = as.numeric(col),
     character = as.character(col),
     logical = as.logical(as.numeric(col)),
@@ -224,21 +224,20 @@ val_create_ntiles <- function(x, probs, na.rm = TRUE) {
     is.numeric(probs),
     is.logical(na.rm)
   )
-  
+
   output <- list(c(
     -Inf,
     unique(stats::quantile(x, probs = probs, na.rm = na.rm, names = FALSE)),
     Inf
   ))
   output <- ifelse(all(is.na(x)), list(NA_real_), output)
-  
+
   return(output)
 }
 
 
 # Given a sale price x, assign the sale price to a pre-made strata bin
 val_assign_ntile <- function(x, ntiles) {
-
   output <- as.character(ifelse(
     !is.na(x),
     purrr::pmap(
@@ -247,23 +246,22 @@ val_assign_ntile <- function(x, ntiles) {
     ),
     NA_character_
   ))
-  
+
   return(output)
 }
 
 
 # Given a set of k-means centers and a sale price, find the nearest center
 val_assign_center <- function(x, centers) {
-
   output <- as.character(ifelse(
     !is.na(x) & !is.na(centers),
     purrr::pmap(
-      list(x, centers), 
-      ~ which.min(mapply(function(z, y) sum(z - y) ^ 2, .x, .y))
+      list(x, centers),
+      ~ which.min(mapply(function(z, y) sum(z - y)^2, .x, .y))
     ),
     NA_character_
   ))
-  
+
   return(output)
 }
 
@@ -273,7 +271,7 @@ rescale <- function(x, min = 0, max = 1) {
   output <- (x - min(x, na.rm = TRUE)) /
     (max(x, na.rm = TRUE) - min(x, na.rm = TRUE)) *
     (max - min) + min
-  
+
   return(output)
 }
 
@@ -485,7 +483,6 @@ bldg_5yr_sales_avg <- training_data_clean %>%
 # Use either k-means clustering or simple quantiles to construct a condominium
 # building strata model. This model can be used to assign strata to buildings
 if (params$input$strata$type == "kmeans") {
-  
   # Set seed for k-means reproducibility
   set.seed(params$input$strata$seed)
 
@@ -510,9 +507,7 @@ if (params$input$strata$type == "kmeans") {
       )$centers)
     ) %>%
     ungroup()
-  
 } else if (params$input$strata$type == "ntile") {
-  
   # Construct strata as quantile bins of the average sale price of the building
   bldg_strata_model <- bldg_5yr_sales_avg %>%
     group_by(across(all_of(params$input$strata$group_var))) %>%
@@ -545,13 +540,11 @@ bldg_strata_model %>%
 bldg_strata <- bldg_5yr_sales_avg %>%
   left_join(bldg_strata_model, by = params$input$strata$group_var) %>%
   mutate(
-    meta_strata_1 = switch(
-      params$input$strata$type,
+    meta_strata_1 = switch(params$input$strata$type,
       kmeans = val_assign_center(mean_log10_sale_price, meta_strata_model_1),
       ntile = val_assign_ntile(mean_log10_sale_price, meta_strata_model_1)
     ),
-    meta_strata_2 = switch(
-      params$input$strata$type,
+    meta_strata_2 = switch(params$input$strata$type,
       kmeans = val_assign_center(mean_log10_sale_price, meta_strata_model_2),
       ntile = val_assign_ntile(mean_log10_sale_price, meta_strata_model_2)
     )

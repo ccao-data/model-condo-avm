@@ -100,14 +100,20 @@ land <- dbGetQuery(
 # order for DR sheets
 assessment_pin_prepped <- assessment_pin %>%
   mutate(
-    prior_near_land_rate = round(prior_near_land / (char_land_sf * meta_tieback_proration_rate), 2),
+    prior_near_land_rate = round(
+      prior_near_land / (char_land_sf * meta_tieback_proration_rate),
+      2
+    ),
     prior_near_bldg_rate = round(prior_near_bldg / char_unit_sf, 2),
-    pred_pin_bldg_rate_effective = round(pred_pin_final_fmv_round / char_unit_sf, 2),
+    pred_pin_bldg_rate_effective = round(
+      pred_pin_final_fmv_round / char_unit_sf,
+      2
+    ),
     prior_near_land_pct_total = round(prior_near_land / prior_near_tot, 4),
     property_full_address = paste0(
-      loc_property_address, 
-      ", ", loc_property_city, " ", loc_property_state, 
-      ", ",loc_property_zip
+      loc_property_address,
+      ", ", loc_property_city, " ", loc_property_state,
+      ", ", loc_property_zip
     ),
     meta_pin10 = str_sub(meta_pin, 1, 10),
     flag_common_area = replace_na(
@@ -129,7 +135,7 @@ assessment_pin_prepped <- assessment_pin %>%
     prior_near_yoy_change_nom, prior_near_yoy_change_pct,
     sale_recent_1_date, sale_recent_1_price, sale_recent_1_document_num,
     sale_recent_2_date, sale_recent_2_price, sale_recent_2_document_num,
-    char_yrblt, char_total_bldg_sf, char_type_resd, char_land_sf, 
+    char_yrblt, char_total_bldg_sf, char_type_resd, char_land_sf,
     char_unit_sf, flag_nonlivable_space, flag_pin10_5yr_num_sale,
     flag_common_area, flag_proration_sum_not_1, flag_pin_is_multiland,
     flag_land_value_capped, flag_prior_near_to_pred_unchanged,
@@ -165,7 +171,8 @@ assessment_pin10_prepped <- assessment_pin_prepped %>%
     prior_near_yoy_change_nom_total =
       pred_pin_final_fmv_bldg_total - prior_near_bldg_total,
     prior_near_yoy_change_pct =
-      (pred_pin_final_fmv_bldg_total - prior_near_bldg_total) / prior_near_bldg_total,
+      (pred_pin_final_fmv_bldg_total - prior_near_bldg_total) /
+        prior_near_bldg_total,
     char_yrblt = first(char_yrblt),
     char_total_bldg_sf = first(char_total_bldg_sf)
   ) %>%
@@ -182,15 +189,15 @@ assessment_pin10_prepped <- assessment_pin_prepped %>%
 # Write raw data to sheets for parcel details
 for (town in unique(assessment_pin_prepped$township_code)) {
   message("Now processing: ", town_convert(town))
-  
-  
+
+
   ## 4.1. PIN-Level ------------------------------------------------------------
-  
+
   # Filter overall data to specific township
   assessment_pin_filtered <- assessment_pin_prepped %>%
     filter(township_code == town) %>%
     select(-township_code)
-  
+
   # Generate sheet and column headers
   model_header <- str_to_title(paste(
     params$assessment$year, "Model"
@@ -202,53 +209,58 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     comp_header, "Values vs.", model_header, "Values - Parcel-Level Results",
     .sep = " "
   ))
-  
+
   pin_sheet_name <- "PIN Detail"
   class(assessment_pin_filtered$meta_pin) <- c(
     class(assessment_pin_filtered$meta_pin), "formula"
   )
-  
+
   # Get range of rows in the PIN data + number of header rows
   pin_row_range <- 7:(nrow(assessment_pin_filtered) + 9)
-  
-  # Load the excel workbook template from file 
+
+  # Load the excel workbook template from file
   wb <- loadWorkbook(here("misc", "desk_review_template.xlsx"))
-  
+
   # Create formatting styles
   style_price <- createStyle(numFmt = "$#,##0")
   style_2digit <- createStyle(numFmt = "$#,##0.00")
   style_pct <- createStyle(numFmt = "PERCENTAGE")
   style_comma <- createStyle(numFmt = "COMMA")
-  
+
   # Add styles to PIN sheet
   addStyle(
-    wb, pin_sheet_name, style = style_price,
+    wb, pin_sheet_name,
+    style = style_price,
     rows = pin_row_range, cols = c(9:11, 15:18, 23, 26, 29), gridExpand = TRUE
   )
   addStyle(
-    wb, pin_sheet_name, style = style_2digit,
+    wb, pin_sheet_name,
+    style = style_2digit,
     rows = pin_row_range, cols = c(12:13, 19:21), gridExpand = TRUE
   )
   addStyle(
-    wb, pin_sheet_name, style = style_pct,
+    wb, pin_sheet_name,
+    style = style_pct,
     rows = pin_row_range, cols = c(8, 14, 22, 24), gridExpand = TRUE
   )
   addStyle(
-    wb, pin_sheet_name, style = style_comma,
+    wb, pin_sheet_name,
+    style = style_comma,
     rows = pin_row_range, cols = c(32, 34, 35, 37), gridExpand = TRUE
   )
   addFilter(wb, pin_sheet_name, 6, 1:44)
-  
+
   # Write PIN-level data to workbook
   writeData(
     wb, pin_sheet_name, assessment_pin_filtered,
     startCol = 1, startRow = 7, colNames = FALSE
   )
-  
+
   # Write formulas and headers to workbook
   writeFormula(
     wb, pin_sheet_name,
-    assessment_pin_filtered$meta_pin, startRow = 7
+    assessment_pin_filtered$meta_pin,
+    startRow = 7
   )
   writeData(
     wb, pin_sheet_name, tibble(sheet_header),
@@ -266,41 +278,44 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     wb, pin_sheet_name, tibble(model_header),
     startCol = 15, startRow = 5, colNames = FALSE
   )
-  
-  
+
+
   # 4.2. Building-Level --------------------------------------------------------
-  
+
   # Filter building data to specific township
   assessment_pin10_filtered <- assessment_pin10_prepped %>%
     filter(township_code == town) %>%
     select(-township_code)
-  
+
   bldg_sheet_name <- "Building (PIN10)"
-  
+
   # Get range of rows in the building data + number of header rows
   bldg_row_range <- 5:(nrow(assessment_pin10_filtered) + 6)
-  
+
   # Add styles to bldg sheet
   addStyle(
-    wb, bldg_sheet_name, style = style_price,
+    wb, bldg_sheet_name,
+    style = style_price,
     rows = bldg_row_range, cols = c(8:10), gridExpand = TRUE
   )
   addStyle(
-    wb, bldg_sheet_name, style = style_pct,
+    wb, bldg_sheet_name,
+    style = style_pct,
     rows = bldg_row_range, cols = c(7, 11), gridExpand = TRUE
   )
   addStyle(
-    wb, bldg_sheet_name, style = style_comma,
+    wb, bldg_sheet_name,
+    style = style_comma,
     rows = bldg_row_range, cols = c(5:6, 13), gridExpand = TRUE
   )
   addFilter(wb, bldg_sheet_name, 4, 1:13)
-  
+
   # Write bldg-level data to workbook
   writeData(
     wb, bldg_sheet_name, assessment_pin10_filtered,
     startCol = 1, startRow = 5, colNames = FALSE
   )
-  
+
   # Write formulas and headers to workbook
   writeData(
     wb, bldg_sheet_name, tibble(comp_header),
@@ -310,7 +325,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     wb, bldg_sheet_name, tibble(model_header),
     startCol = 9, startRow = 3, colNames = FALSE
   )
-  
+
   # Save workbook to file based on town name
   saveWorkbook(
     wb,
@@ -342,7 +357,7 @@ upload_data_prepped <- assessment_pin %>%
       select(meta_year, meta_pin, meta_card_num, meta_lline_num),
     by = c("meta_year", "meta_pin")
   ) %>%
-  mutate(meta_pin10 = str_sub(meta_pin, 1, 10)) %>% 
+  mutate(meta_pin10 = str_sub(meta_pin, 1, 10)) %>%
   group_by(meta_pin10, meta_tieback_proration_rate) %>%
   # For PINs missing an individual building value, fill with the average of
   # PINs with the same proration rate in the building. This is super rare,
@@ -358,13 +373,13 @@ upload_data_prepped <- assessment_pin %>%
   mutate(
     # Sum the building value of each PIN to the building total value
     pred_pin10_final_fmv_bldg = sum(pred_pin_final_fmv_bldg, na.rm = TRUE),
-    
+
     # Hotfix for adjusting the total building value such that bldg_total *
     # proration_rate = unit_value. Only applies to buildings where rates don't
     # sum to 100%
     pred_pin10_final_fmv_bldg = round(pred_pin10_final_fmv_bldg *
       (1 / sum(meta_tieback_proration_rate, na.rm = TRUE))),
-    
+
     # For any missing LLINE values, simply fill with 1
     meta_lline_num = replace_na(meta_lline_num, 1)
   ) %>%
@@ -390,11 +405,11 @@ upload_data_prepped <- assessment_pin %>%
 # Write each town to a headerless CSV for mass upload
 for (town in unique(upload_data_prepped$township_code)) {
   message("Now processing: ", town_convert(town))
-  
+
   upload_data_fil <- upload_data_prepped %>%
     filter(township_code == town) %>%
     select(-township_code)
-  
+
   write_csv(
     x = upload_data_fil,
     file = here(
