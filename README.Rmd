@@ -67,27 +67,30 @@ Because our office (mostly) cannot observe individual condo unit characteristics
 library(dplyr)
 library(tidyr)
 library(yaml)
-params <- read_yaml("params.yaml")
+library(httr)
+
+condo_params <- read_yaml("params.yaml")
+condo_preds <- condo_params$model$predictor$all
+
+res_params_text <- GET(
+  "https://raw.githubusercontent.com/ccao-data/model-res-avm/master/params.yaml"
+) %>%
+  content(as = "text")
+res_params <- read_yaml(text = res_params_text)
+res_preds <- res_params$model$predictor$all
+
+condo_unique_preds <- setdiff(condo_preds, res_preds)
+
 ccao::vars_dict %>%
-  filter(
-    var_is_predictor,
-    !var_name_model %in% c("meta_sale_price")
-  ) %>%
   inner_join(
-    as_tibble(params$model$predictor$all),
+    as_tibble(condo_preds),
     by = c("var_name_model" = "value")
   ) %>%
-  filter(
-    stringr::str_starts(var_name_model, "char_", negate = TRUE) |
-      var_name_model %in% c("char_yrblt", "char_land_sf") |
-      var_model_type == "condo",
-    stringr::str_starts(var_name_model, "ind_", negate = TRUE)
-  ) %>%
   distinct(
+    var_name_model,
     `Feature Name` = var_name_pretty,
     Category = var_type,
     Type = var_data_type,
-    var_model_type
   ) %>%
   mutate(
     Category = recode(
@@ -106,13 +109,15 @@ ccao::vars_dict %>%
     )
   ) %>%
   mutate(`Unique to Condo Model` = ifelse(
-    var_model_type == "condo" |
+    var_name_model != "loc_tax_municipality_name" & (
+      var_name_model %in% condo_unique_preds |
       `Feature Name` %in%
-        c("Condominium Building Year Built", "Condominium % Ownership"),
+        c("Condominium Building Year Built", "Condominium % Ownership")
+    ),
     "X", ""
   )) %>%
   arrange(desc(`Unique to Condo Model`), Category) %>%
-  select(-var_model_type) %>%
+  select(-var_name_model) %>%
   knitr::kable(format = "markdown")
 ```
 
