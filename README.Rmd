@@ -67,16 +67,13 @@ Because our office (mostly) cannot observe individual condo unit characteristics
 library(dplyr)
 library(tidyr)
 library(yaml)
-library(httr)
 
 condo_params <- read_yaml("params.yaml")
 condo_preds <- condo_params$model$predictor$all
 
-res_params_text <- GET(
+res_params <- read_yaml(
   "https://raw.githubusercontent.com/ccao-data/model-res-avm/master/params.yaml"
-) %>%
-  content(as = "text")
-res_params <- read_yaml(text = res_params_text)
+)
 res_preds <- res_params$model$predictor$all
 
 condo_unique_preds <- setdiff(condo_preds, res_preds)
