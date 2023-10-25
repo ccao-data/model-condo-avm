@@ -88,6 +88,10 @@ training_data <- dbGetQuery(
       BETWEEN '{params$input$min_sale_year}'
       AND '{params$input$max_sale_year}')
   AND sale.num_parcels_sale <= 2
+  AND NOT sale.sale_filter_is_outlier
+  AND NOT sale.sale_filter_deed_type
+  AND NOT sale.sale_filter_less_than_10k
+  AND NOT sale.sale_filter_same_sale_within_365
   ")
 )
 
