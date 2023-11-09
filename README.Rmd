@@ -1,6 +1,6 @@
 ---
 title: "Table of Contents"
-output: 
+output:
   github_document:
     toc: true
     toc_depth: 3
@@ -46,7 +46,7 @@ The repository itself contains the [code](./pipeline) and [data](./input) for th
 
 ## Differences Compared to the Residential Model
 
-The Cook County Assessor's Office ***does not track characteristic data for condominiums***. Like most assessors nationwide, our office staff cannot enter buildings to observe property characteristics. For condos, this means we cannot observe amenities, quality, or any other interior characteristics. 
+The Cook County Assessor's Office ***does not track characteristic data for condominiums***. Like most assessors nationwide, our office staff cannot enter buildings to observe property characteristics. For condos, this means we cannot observe amenities, quality, or any other interior characteristics.
 
 The only information our office has about individual condominium units is their age, location, sale date/price, and percentage of ownership. This makes modeling condos particularly challenging, as the number of usable features is quite small. Fortunately, condos have two qualities which make modeling a bit easier:
 
@@ -106,7 +106,7 @@ ccao::vars_dict %>%
     )
   ) %>%
   mutate(`Unique to Condo Model` = ifelse(
-    var_name_model != "loc_tax_municipality_name" & (
+    var_name_model != "loc_cook_municipality_name" & (
       var_name_model %in% condo_unique_preds |
         `Feature Name` %in%
           c("Condominium Building Year Built", "Condominium % Ownership")
@@ -124,7 +124,7 @@ For the most part, condos are valued the same way as single- and multi-family re
 
 However, because the CCAO has so [little information about individual units](#differences-compared-to-the-residential-model), we must rely on the [condominium percentage of ownership](#features-used) to differentiate between units in a building. This feature is effectively the proportion of the building's overall value held by a unit. It is created when a condominium declaration is filed with the County (usually by the developer of the building). The critical assumption underlying the condo valuation process is that percentage of ownership correlates with current market value.
 
-Percentage of ownership is used in two ways: 
+Percentage of ownership is used in two ways:
 
 1. It is used directly as a predictor/feature in the regression model to estimate differing unit values within the same building.
 2. It is used to reapportion unit values directly i.e. the value of a unit is ultimately equal to `% of ownership * total building value`.
@@ -186,7 +186,7 @@ The condo model relies on sales within the same building to calculate [strata](#
 
 Fortunately, buildings without any recent sales are relatively rare, as condos have a higher turnover rate than single and multi-family property. Smaller buildings with low turnover are the most likely to not have recent sales.
 
-### Buildings Without Sales 
+### Buildings Without Sales
 
 When no sales have occurred in a building in the 5 years prior to assessment, the building's strata features are imputed. The model will look at nearby buildings that have similar unit counts/age and then try to assign an appropriate strata to the target building.
 
