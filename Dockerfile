@@ -42,4 +42,4 @@ RUN mv renv model-condo-avm/
 # Set the working directory to the app dir
 WORKDIR model-condo-avm/
 
-CMD dvc pull && dvc repro train
+CMD dvc pull && dvc repro
