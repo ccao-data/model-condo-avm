@@ -107,7 +107,7 @@ ccao::vars_dict %>%
   ) %>%
   mutate(`Unique to Condo Model` = ifelse(
     var_name_model %in% condo_unique_preds |
-    `Feature Name` %in%
+      `Feature Name` %in%
         c("Condominium Building Year Built", "Condominium % Ownership"),
     "X", ""
   )) %>%
