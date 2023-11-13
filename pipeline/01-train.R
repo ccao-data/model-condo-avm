@@ -347,7 +347,7 @@ test %>%
   select(
     meta_year, meta_pin, meta_pin10, meta_class, meta_card_num, meta_lline_num,
     meta_triad_code, meta_township_code, meta_nbhd_code,
-    loc_cook_municipality_name, loc_ward_num, loc_census_puma_geoid,
+    loc_tax_municipality_name, loc_ward_num, loc_census_puma_geoid,
     loc_census_tract_geoid, loc_school_elementary_district_geoid,
     loc_school_secondary_district_geoid, loc_school_unified_district_geoid,
     char_unit_sf, char_building_sf, char_full_baths, char_half_baths,

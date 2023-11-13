@@ -152,12 +152,12 @@ the 2023 assessment model.
 | Percent Population Mobility, Moved From Within Same County in Past Year | acs5           | numeric   |                       |
 | Longitude                                                               | loc            | numeric   |                       |
 | Latitude                                                                | loc            | numeric   |                       |
-| Municipality Name                                                       | loc            | character |                       |
 | FEMA Special Flood Hazard Area                                          | loc            | logical   |                       |
 | First Street Factor                                                     | loc            | numeric   |                       |
 | First Street Risk Direction                                             | loc            | numeric   |                       |
 | School Elementary District GEOID                                        | loc            | character |                       |
 | School Secondary District GEOID                                         | loc            | character |                       |
+| Municipality Name                                                       | loc            | character |                       |
 | CMAP Walkability Score (No Transit)                                     | loc            | numeric   |                       |
 | CMAP Walkability Total Score                                            | loc            | numeric   |                       |
 | Airport Noise DNL                                                       | loc            | numeric   |                       |

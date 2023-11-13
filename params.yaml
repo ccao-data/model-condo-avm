@@ -178,7 +178,7 @@ model:
       "char_full_baths",
       "loc_longitude",
       "loc_latitude",
-      "loc_cook_municipality_name",
+      "loc_tax_municipality_name",
       "loc_env_flood_fema_sfha",
       "loc_env_flood_fs_factor",
       "loc_env_flood_fs_risk_direction",
@@ -244,7 +244,7 @@ model:
     categorical: [
       "meta_township_code",
       "meta_nbhd_code",
-      "loc_cook_municipality_name",
+      "loc_tax_municipality_name",
       "loc_school_elementary_district_geoid",
       "loc_school_secondary_district_geoid",
       "time_sale_quarter_of_year",
