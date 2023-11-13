@@ -201,6 +201,7 @@ message("Uploading run artifacts")
 
 # Only upload files if explicitly enabled
 if (params$toggle$upload_to_s3) {
+    message("Uploading is enabled")
   # Initialize a dictionary of paths AND S3 URIs specific to the run ID and year
   paths <- model_file_dict(
     run_id = run_id,
@@ -210,17 +211,29 @@ if (params$toggle$upload_to_s3) {
 
   ## 4.1. Train ----------------------------------------------------------------
 
+  message("Uploading file to S3:")
+  message(paths$output$workflow_fit$local)
+  message(paths$output$workflow_fit$s3)
+
   # Upload lightgbm fit
   aws.s3::put_object(
     paths$output$workflow_fit$local,
     paths$output$workflow_fit$s3
   )
 
+  message("Uploading file to S3:")
+  message(paths$output$workflow_recipe$local)
+  message(paths$output$workflow_recipe$s3)
+
   # Upload Tidymodels recipe
   aws.s3::put_object(
     paths$output$workflow_recipe$local,
     paths$output$workflow_recipe$s3
   )
+
+  message("Uploading file to S3:")
+  message(paths$output$parameter_final$local)
+  message(paths$output$parameter_final$s3)
 
   # Upload finalized run parameters
   read_parquet(paths$output$parameter_final$local) %>%
@@ -238,6 +251,10 @@ if (params$toggle$upload_to_s3) {
       }
     }) %>%
     write_parquet(paths$output$parameter_final$s3)
+
+  message("Uploading file to S3:")
+  message(paths$output$test_card$local)
+  message(paths$output$test_card$s3)
 
   # Upload the test set predictions
   read_parquet(paths$output$test_card$local) %>%
