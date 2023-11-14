@@ -172,6 +172,17 @@
       ],
       "Hash": "89761c5b8e6ce66e7176cbb70a892df8"
     },
+    "aws.ec2metadata": {
+      "Package": "aws.ec2metadata",
+      "Version": "0.2.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "curl",
+        "jsonlite"
+      ],
+      "Hash": "2e630add89f47540d9da2240710e2702"
+    },
     "aws.s3": {
       "Package": "aws.s3",
       "Version": "0.3.21",
