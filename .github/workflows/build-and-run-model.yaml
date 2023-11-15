@@ -34,7 +34,7 @@ jobs:
       gpu: 1
       memory: "16384"
       role-duration-seconds: 14400  # Worst-case time for a full model run
-      backend: fargate
+      backend: foobar
     secrets:
       AWS_IAM_ROLE_TO_ASSUME_ARN: ${{ secrets.AWS_IAM_ROLE_TO_ASSUME_ARN }}
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
