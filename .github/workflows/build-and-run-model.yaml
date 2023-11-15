@@ -30,7 +30,7 @@ jobs:
     uses: ccao-data/actions/.github/workflows/build-and-run-batch-job.yaml@jeancochrane/57-infra-updates-enable-ec2-backend-for-model-batch-jobs
     with:
       ref: jeancochrane/57-infra-updates-enable-ec2-backend-for-model-batch-jobs
-      vcpu: "4.0"
+      vcpu: 4
       memory: "16384"
       role-duration-seconds: 14400  # Worst-case time for a full model run
       backend: ec2
