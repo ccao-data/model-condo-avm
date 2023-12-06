@@ -1,0 +1,7 @@
+Type: Project
+Description: Condo valuation model of the Cook County Assessor's Office
+Config/renv/profiles/reporting/dependencies:
+    quarto,
+    leaflet,
+    plotly,
+    sf
