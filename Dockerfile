@@ -1,45 +1,50 @@
 FROM rocker/r-ver:4.3.1
 
+# Set the working directory to setup. Uses a dedicated directory instead of
+# root since otherwise renv will try to scan every subdirectory
+WORKDIR /setup
+
 # Use PPM for binary installs
 ENV RENV_CONFIG_REPOS_OVERRIDE "https://packagemanager.posit.co/cran/__linux__/jammy/latest"
+ENV RENV_CONFIG_SANDBOX_ENABLED FALSE
 ENV RENV_PATHS_LIBRARY renv/library
+ENV RENV_PATHS_CACHE /setup/cache
 
 # Install system dependencies
-RUN apt-get update && apt-get install --no-install-recommends -y \
-    libcurl4-openssl-dev libssl-dev libxml2-dev libgit2-dev git \
-    libudunits2-dev python3-dev python3-pip libgdal-dev libgeos-dev \
-    libproj-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev pandoc
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y \
+        libcurl4-openssl-dev libssl-dev libxml2-dev libgit2-dev git \
+        libudunits2-dev python3-dev python3-pip libgdal-dev libgeos-dev \
+        libproj-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev pandoc \
+        curl gdebi-core && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install pipenv for Python dependencies
-RUN pip install pipenv
+# Install Quarto
+RUN curl -o quarto-linux-amd64.deb -L \
+    https://github.com/quarto-dev/quarto-cli/releases/download/v1.3.450/quarto-1.3.450-linux-amd64.deb
+RUN gdebi -n quarto-linux-amd64.deb
 
-# Copy pipenv files into the image. The reason this is a separate step from
-# the later step that adds files from the working directory is because we want
-# to avoid having to reinstall dependencies every time a file in the directory
-# changes, as Docker will bust the cache of every layer following a layer that
-# needs to change
-COPY Pipfile .
-COPY Pipfile.lock .
-
-# Install Python dependencies
-RUN pipenv install --system --deploy
+# Install pipeline Python dependencies globally
+RUN pip install --no-cache-dir dvc[s3]
 
 # Copy R bootstrap files into the image
-COPY renv.lock .
-COPY .Rprofile .
+COPY renv.lock .Rprofile DESCRIPTION ./
+COPY renv/profiles/reporting/renv.lock reporting-renv.lock
 COPY renv/ renv/
 
-# Install R dependencies
-RUN Rscript -e 'renv::restore()'
-
-# Copy the directory into the container
-ADD ./ model-condo-avm/
-
-# Copy R dependencies into the app directory
-RUN rm -Rf model-condo-avm/renv
-RUN mv renv model-condo-avm/
+# Install R dependencies. Restoring renv first ensures that it's
+# using the same version as recorded in the lockfile
+RUN Rscript -e 'renv::restore(packages = "renv"); renv::restore()'
+RUN Rscript -e 'renv::restore(lockfile = "reporting-renv.lock")'
 
 # Set the working directory to the app dir
-WORKDIR model-condo-avm/
+WORKDIR /model-condo-avm/
+
+# Copy the directory into the container
+COPY ./ .
+
+# Copy R dependencies into the app directory
+RUN rm -Rf /model-condo-avm/renv && \
+    mv /setup/renv /model-condo-avm/renv
 
 CMD dvc pull && dvc repro
