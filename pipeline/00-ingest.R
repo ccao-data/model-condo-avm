@@ -106,11 +106,12 @@ rm(AWS_ATHENA_CONN_NOCTUA)
 # 3. Define Functions ----------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# Ingest-specific helper functions for data cleaning, spatial lags, etc.
+# Ingest-specific helper functions for data cleaning, etc.
 
 # Create a dictionary of column types, as specified in ccao::vars_dict
 col_type_dict <- ccao::vars_dict %>%
-  distinct(var_name = var_name_model, var_type = var_data_type)
+  distinct(var_name = var_name_model, var_type = var_data_type) %>%
+  drop_na(var_name)
 
 # Mini-function to ensure that columns are the correct type
 recode_column_type <- function(col, col_name, dict = col_type_dict) {
@@ -118,7 +119,8 @@ recode_column_type <- function(col, col_name, dict = col_type_dict) {
     filter(var_name == col_name) %>%
     pull(var_type)
 
-  switch(col_type,
+  switch(
+    col_type,
     numeric = as.numeric(col),
     character = as.character(col),
     logical = as.logical(as.numeric(col)),
@@ -191,11 +193,11 @@ rescale <- function(x, min = 0, max = 1) {
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 5. Add Features and Clean ----------------------------------------------------
+# 4. Add Features and Clean ----------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 message("Adding time features and cleaning")
 
-## 5.1. Training Data ----------------------------------------------------------
+## 4.1. Training Data ----------------------------------------------------------
 
 # Heuristic for handling multi-PIN sales. We want to keep sales with a deeded
 # parking spot, but only the sale for the unit, not the parking. Drop other
@@ -215,7 +217,7 @@ training_data <- training_data %>%
 
 # Clean up the training data. Goal is to get it into a publishable format.
 # Final featurization, missingness, etc. is handled via Tidymodels recipes
-training_data_clean <- training_data_w_sv %>%
+training_data_clean <- training_data %>%
   # Recode factor variables using the definitions stored in ccao::vars_dict
   # This will remove any categories not stored in the dictionary and convert
   # them to NA (useful since there are a lot of misrecorded variables)
@@ -261,7 +263,7 @@ training_data_clean <- training_data_w_sv %>%
   relocate(starts_with("sv_"), .after = everything())
 
 
-## 5.2. Assessment Data --------------------------------------------------------
+## 4.2. Assessment Data --------------------------------------------------------
 
 # Clean the assessment data. This is the target data that the trained model is
 # used on. The cleaning steps are the same as above, with the exception of the
@@ -290,7 +292,7 @@ assessment_data_clean <- assessment_data_shifted %>%
   select(-time_interval)
 
 
-## 5.3. Land Rates -------------------------------------------------------------
+## 4.3. Land Rates -------------------------------------------------------------
 message("Saving land rates")
 
 # Write land data directly to file, since it's already mostly clean
@@ -302,11 +304,11 @@ land_nbhd_rate_data %>%
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 6. Condo Strata --------------------------------------------------------------
+# 5. Condo Strata --------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 message("Calculating condo strata")
 
-## 6.1. Calculate Strata -------------------------------------------------------
+## 5.1. Calculate Strata -------------------------------------------------------
 
 # Condominiums' unit characteristics (such as square footage, # of bedrooms,
 # etc.) are not tracked by the CCAO. As such, e need to rely on other
@@ -405,7 +407,7 @@ bldg_strata_model %>%
   write_parquet(paths$input$condo_strata$local)
 
 
-## 6.2. Assign Strata ----------------------------------------------------------
+## 5.2. Assign Strata ----------------------------------------------------------
 
 # Use strata models to create strata of building-level, previous-5-year sale
 # prices. These strata are used as categorical variables in the model
@@ -443,7 +445,7 @@ assessment_data_w_strata <- assessment_data_clean %>%
   write_parquet(paths$input$assessment$local)
 
 
-## 6.3. Missing Strata ---------------------------------------------------------
+## 5.3. Missing Strata ---------------------------------------------------------
 
 # Condo buildings that don't have any recent sales will be missing strata.
 # We use KNN to assign strata for those buildings based on longitude, latitude,
