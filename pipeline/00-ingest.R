@@ -119,8 +119,7 @@ recode_column_type <- function(col, col_name, dict = col_type_dict) {
     filter(var_name == col_name) %>%
     pull(var_type)
 
-  switch(
-    col_type,
+  switch(col_type,
     numeric = as.numeric(col),
     character = as.character(col),
     logical = as.logical(as.numeric(col)),
