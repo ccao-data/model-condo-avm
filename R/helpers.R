@@ -6,9 +6,10 @@ model_file_dict <- function(run_id = NULL, year = NULL) {
   suppressPackageStartupMessages(library(magrittr))
 
   # Convert flat dictionary file to nested list
-  dict <- readr::read_csv(
+  dict <- read.csv(
     here::here("misc", "file_dict.csv"),
-    col_types = readr::cols()
+    colClasses = c("character", "character", "numeric", rep("character", 9)),
+    na.strings = ""
   ) %>%
     dplyr::mutate(
       s3 = as.character(purrr::map_if(
@@ -28,11 +29,8 @@ model_file_dict <- function(run_id = NULL, year = NULL) {
   return(dict)
 }
 
-
-# Used to delete erroneous, incomplete, or otherwise unwanted runs
-# Use with caution! Deleted models are retained for a period of time before
-# being permanently deleted
-model_delete_run <- function(run_id, year) {
+# Get a vector of S3 paths to the artifacts for a given model run
+model_get_s3_artifacts_for_run <- function(run_id, year) {
   # Get paths of all run objects based on the file dictionary
   paths <- model_file_dict(run_id, year)
   s3_objs <- grep("s3://", unlist(paths), value = TRUE)
@@ -42,7 +40,8 @@ model_delete_run <- function(run_id, year) {
   s3_objs_limited <- grep(
     ".parquet$|.zip$|.rds|.html$", s3_objs,
     value = TRUE
-  )
+  ) %>%
+    unname()
 
   # Next get the prefix of anything partitioned by year and run_id
   s3_objs_dir_path <- file.path(
@@ -56,16 +55,21 @@ model_delete_run <- function(run_id, year) {
   )
   s3_objs_dir_path <- gsub(paste0("s3://", bucket, "/"), "", s3_objs_dir_path)
   s3_objs_dir_path <- gsub("//", "/", s3_objs_dir_path)
-  s3_objs_w_run_id <- unlist(purrr::map(
-    s3_objs_dir_path,
-    ~ aws.s3::get_bucket_df(bucket, .x)$Key
-  ))
+  s3_objs_w_run_id <- s3_objs_dir_path %>%
+    purrr::map(~ aws.s3::get_bucket_df(bucket, .x)$Key) %>%
+    unlist() %>%
+    purrr::map_chr(~ glue::glue("s3://{bucket}/{.x}"))
 
-  # Delete current version of objects
-  purrr::walk(s3_objs_limited, aws.s3::delete_object)
-  purrr::walk(s3_objs_w_run_id, aws.s3::delete_object, bucket = bucket)
+  return(c(s3_objs_limited, s3_objs_w_run_id))
 }
 
+# Used to delete erroneous, incomplete, or otherwise unwanted runs
+# Use with caution! Deleted models are retained for a period of time before
+# being permanently deleted
+model_delete_run <- function(run_id, year) {
+  model_get_s3_artifacts_for_run(run_id, year) %>%
+    purrr::walk(aws.s3::delete_object)
+}
 
 # Used to fetch a run's output from S3 and populate it locally. Useful for
 # running reports and performing local troubleshooting
@@ -209,4 +213,23 @@ var_encode <- function(data,
       }
     })
   )
+}
+
+# Yardstick doesn't currently include MdAPE, so we'll add it here
+mdape_vec <- function(truth, estimate, case_weights = NULL, na_rm = TRUE) {
+  yardstick::check_numeric_metric(truth, estimate, case_weights)
+
+  if (na_rm) {
+    result <- yardstick::yardstick_remove_missing(truth, estimate, case_weights)
+
+    truth <- result$truth
+    estimate <- result$estimate
+  } else if (yardstick::yardstick_any_missing(truth, estimate, case_weights)) {
+    return(NA_real_)
+  }
+
+  errors <- abs((truth - estimate) / truth)
+  out <- median(errors)
+  out <- out * 100
+  out
 }

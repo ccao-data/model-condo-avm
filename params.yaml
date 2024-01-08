@@ -12,13 +12,8 @@
 # Note included with each run. Use this to summarize what changed about the run
 # or add context
 run_note: >
-  Quick fix for buildings whose rates don't sum to 1
-
-# Determines what stages and outputs are produced. See misc/file_dict.csv for
-# details. Note, DVC does not support "conditional" stages, so changing this to
-# anything other than "full" will require you to run each stage manually. See
-# README for details
-run_type: "full"
+  Test run for updated 2024 model pipeline. Uses 2022 data to assess 2023
+  since full 2023 data isn't available yet
 
 toggle:
   # Should the train stage run full cross-validation? Otherwise, the model
@@ -29,22 +24,22 @@ toggle:
   # desirable to save time when testing many models
   shap_enable: FALSE
 
-  # Upload all modeling artifacts and results to S3 in the finalize stage. Set
+  # Upload all modeling artifacts and results to S3 in the upload stage. Set
   # to FALSE if you are not a CCAO employee
-  upload_to_s3: TRUE
+  upload_enable: TRUE
 
 
 # Data/Ingest ------------------------------------------------------------------
 
 # Assessment context and dates
 assessment:
-  # Year of assessment. Used to partition results and pull data
+  # Year of assessment. Used to pull land rates, HIEs, and other information
   year: "2023"
 
-  # The statutorily "sale date" for the purpose of prediction
+  # The statutorily set "sale date" for the purpose of prediction
   date: "2023-01-01"
 
-  # Added context for model artifacts stored in s3. Does not change behavior
+  # Added context for model artifacts stored in S3. Does not change behavior
   triad: "south"
   group: "condo"
 
@@ -52,44 +47,18 @@ assessment:
   # assessment year by 1
   data_year: "2022"
 
-  # Temporary alternative year used to accomadate data issues between
-  # 2023 iasWorld data and CCAO characteristics
-  shift_year: "2023"
+  # Year used to partition data on S3. Working year in this case means the year
+  # the Data Department is currently creating models for
+  working_year: "2024"
 
 # Parameters used to define the input/training data
 input:
-  # The min and max years of sales to use for the training data sample
+  # The min and max year of sales to use for the training data sample
   min_sale_year: "2014"
   max_sale_year: "2022"
 
-  # Time window (in months) used for rolling origin cross-validation and
-  # calculating spatial lags i.e. lags are the average of the nearest K
-  # properties for each N month window
+  # Time window (in months) used for rolling origin cross-validation
   time_split: 15
-
-  # Parameters used to trim the training data (sales) of outliers
-  sale_validation:
-
-    # Summary statistics grouping for detecting outlier sales i.e. an outlier
-    # might be 3 standard deviations from the mean of township and class
-    stat_groups: [
-      "meta_year",
-      "meta_township_code",
-      "meta_class"
-    ]
-
-    # Predictor variables to use in the isolation forest classifier
-    iso_forest: [
-      "meta_sale_price",
-      "sv_days_since_last_transaction",
-      "sv_cgdr",
-      "sv_sale_dup_counts"
-    ]
-
-    # Left and right boundaries (in standard deviations) used to trim the
-    # training sample e.g. any sales more than 3 standard deviations from the
-    # mean will be dropped
-    dev_bounds: [2, 3]
 
   # Parameters used to construct condominium strata features
   strata:
@@ -126,13 +95,13 @@ cv:
 
   # Number of initial iterations to create before tuning. Recommend this number
   # be greater than the number of hyperparameters being tuned
-  initial_set: 20
+  initial_set: 25
 
-  # Maximum number of search iterations
+  # Max number of total search iterations
   max_iterations: 70
 
   # Max number of search iterations without improvement before stopping search
-  no_improve: 20
+  no_improve: 30
 
   # Metric used to select the "best" set of parameters from CV iterations. Must
   # be manually included the metric_set() passed to tune_bayes()
@@ -178,7 +147,6 @@ model:
       "char_full_baths",
       "loc_longitude",
       "loc_latitude",
-      "loc_cook_municipality_name",
       "loc_env_flood_fema_sfha",
       "loc_env_flood_fs_factor",
       "loc_env_flood_fs_risk_direction",
@@ -187,6 +155,7 @@ model:
       "loc_school_secondary_district_geoid",
       "loc_access_cmap_walk_nta_score",
       "loc_access_cmap_walk_total_score",
+      "loc_tax_municipality_name",
       "prox_num_pin_in_half_mile",
       "prox_num_bus_stop_in_half_mile",
       "prox_num_foreclosure_per_1000_pin_past_5_years",
@@ -205,6 +174,7 @@ model:
       "prox_nearest_park_dist_ft",
       "prox_nearest_railroad_dist_ft",
       "prox_nearest_water_dist_ft",
+      "prox_nearest_golf_course_dist_ft",
       "acs5_percent_age_children",
       "acs5_percent_age_senior",
       "acs5_median_age_total",
@@ -226,6 +196,8 @@ model:
       "acs5_percent_household_total_occupied_w_sel_cond",
       "acs5_percent_mobility_moved_in_county",
       "other_tax_bill_rate",
+      "other_school_district_elementary_avg_rating",
+      "other_school_district_secondary_avg_rating",
       "time_sale_year",
       "time_sale_day",
       "time_sale_quarter_of_year",
@@ -244,7 +216,7 @@ model:
     categorical: [
       "meta_township_code",
       "meta_nbhd_code",
-      "loc_cook_municipality_name",
+      "loc_tax_municipality_name",
       "loc_school_elementary_district_geoid",
       "loc_school_secondary_district_geoid",
       "time_sale_quarter_of_year",
@@ -280,8 +252,10 @@ model:
   parameter:
     # Total number of iterations. Usually changed in tandem with learning_rate
     # https://lightgbm.readthedocs.io/en/latest/Parameters.html#num_iterations
-    num_iterations: 1042
-    learning_rate: 0.06
+    # When early stopping is enabled, num_iterations is effectively the MAX
+    # number of iterations
+    num_iterations: 2000
+    learning_rate: 0.025
 
     # For CV only, proportion of the training data to hold out for use in
     # early stopping + the metric to evaluate. See R docs for details:
@@ -357,9 +331,9 @@ pv:
 
   # Rounding settings to apply to initial predictions. Rounding is done to
   # indicate to property owners that model values are estimates, not exact
-  round_break: [1000, 10000]
-  round_to_nearest: [1, 10, 100]
-  round_type: "ceiling"
+  round_break: [1000, 10000, 100000]
+  round_to_nearest: [1, 500, 5000, 10000]
+  round_type: "floor"
 
 
 # Ratio Study ------------------------------------------------------------------
@@ -376,9 +350,27 @@ ratio_study:
   near_stage: "certified"
   near_column: "meta_certified_tot"
 
+  # Min. number of sales to calculate ratio statistics, per CCAO SOPs. Groups
+  # must have greater than or equal to the number of sales specified
+  min_n_sales: 30
+
   # Quantile breakouts to use in the evaluate stage. For example, 3 will split
   # each geography in evaluate into terciles
   num_quantile: [3, 5, 10]
+
+  # Geographies for which to calculate performance statistics in the evaluate
+  # stage. Each geography is also broken out by class
+  geographies: [
+    "meta_township_code",
+    "meta_nbhd_code",
+    "loc_tax_municipality_name",
+    "loc_ward_num",
+    "loc_census_puma_geoid",
+    "loc_census_tract_geoid",
+    "loc_school_elementary_district_geoid",
+    "loc_school_secondary_district_geoid",
+    "loc_school_unified_district_geoid"
+  ]
 
 
 # Export -----------------------------------------------------------------------
