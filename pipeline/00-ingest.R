@@ -225,11 +225,14 @@ training_data_clean <- training_data %>%
   # because the SQL drivers will often coerce types on pull (boolean becomes
   # character)
   mutate(across(
-    !starts_with("sv_"),
+    any_of(col_type_dict$var_name),
     ~ recode_column_type(.x, cur_column())
   )) %>%
-  # Create time/date features using lubridate
-  dplyr::mutate(
+  # Only exclude explicit outliers from training. Sales with missing validation
+  # outcomes will be considered non-outliers
+  mutate(sv_is_outlier = replace_na(sv_is_outlier, FALSE)) %>%
+# Create time/date features using lubridate
+  mutate(
     # Calculate interval periods and time since the start of the sales sample
     time_interval = interval(
       make_date(params$input$min_sale_year, 1, 1),
@@ -269,7 +272,10 @@ training_data_clean <- training_data %>%
 # time variables
 assessment_data_clean <- assessment_data_shifted %>%
   ccao::vars_recode(cols = starts_with("char_"), type = "code") %>%
-  mutate(across(everything(), ~ recode_column_type(.x, cur_column()))) %>%
+  mutate(across(
+    any_of(col_type_dict$var_name),
+    ~ recode_column_type(.x, cur_column())
+  )) %>%
   # Create sale date features BASED ON THE ASSESSMENT DATE. The model predicts
   # the sale price of properties on the date of assessment. Not the date of an
   # actual sale
@@ -287,8 +293,7 @@ assessment_data_clean <- assessment_data_shifted %>%
     time_sale_day_of_month = as.integer(day(meta_sale_date)),
     time_sale_day_of_week = as.integer(wday(meta_sale_date)),
     time_sale_post_covid = meta_sale_date >= make_date(2020, 3, 15)
-  ) %>%
-  select(-time_interval)
+  )
 
 
 ## 4.3. Land Rates -------------------------------------------------------------
