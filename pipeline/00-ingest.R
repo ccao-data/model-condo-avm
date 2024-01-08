@@ -69,8 +69,8 @@ assessment_data <- dbGetQuery(
   SELECT *
   FROM model.vw_pin_condo_input
   WHERE year IN (
-    '{as.numeric(params$assessment$year) - 1}',
-    '{params$assessment$year}'
+    '{as.numeric(params$assessment$data_year) - 1}',
+    '{params$assessment$data_year}'
   )
   ")
 )
@@ -82,7 +82,7 @@ assessment_data %>%
 
 # Save only the assessment year data to use for assessing values
 assessment_data <- assessment_data %>%
-  filter(year == params$assessment$year)
+  filter(year == params$assessment$data_year)
 
 # Pull  neighborhood-level land rates per sqft, as calculated by Valuations
 tictoc::tic("Land rate data pulled")
