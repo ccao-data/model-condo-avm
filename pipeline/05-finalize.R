@@ -2,42 +2,15 @@
 # 1. Setup ---------------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+# NOTE: See DESCRIPTION for library dependencies and R/setup.R for
+# variables used in each pipeline stage
+
 # Start the stage timer and clear logs from prior stage
 tictoc::tic.clearlog()
 tictoc::tic("Finalize")
 
-# Load libraries and scripts
-suppressPackageStartupMessages({
-  library(arrow)
-  library(ccao)
-  library(dplyr)
-  library(here)
-  library(lubridate)
-  library(paws.application.integration)
-  library(purrr)
-  library(tidyr)
-  library(tictoc)
-  library(tune)
-  library(yaml)
-})
-source(here("R", "helpers.R"))
-
-# Initialize a dictionary of file paths. See misc/file_dict.csv for details
-paths <- model_file_dict()
-
-# Load the parameters file containing the run settings
-params <- read_yaml("params.yaml")
-
-# Override CV toggle, SHAP toggle, and run_type, used for CI or limited runs
-cv_enable <- as.logical(
-  Sys.getenv("CV_ENABLE_OVERRIDE", unset = params$toggle$cv_enable)
-)
-shap_enable <- as.logical(
-  Sys.getenv("SHAP_ENABLE_OVERRIDE", unset = params$toggle$shap_enable)
-)
-run_type <- as.character(
-  Sys.getenv("RUN_TYPE_OVERRIDE", unset = params$run_type)
-)
+# Load libraries, helpers, and recipes from files
+purrr::walk(list.files("R/", "\\.R$", full.names = TRUE), source)
 
 
 
@@ -59,13 +32,11 @@ run_end_timestamp <- lubridate::now()
 # Get the commit of the current reference
 git_commit <- git2r::revparse_single(git2r::repository(), "HEAD")
 
-# For full runs, use the run note included in params.yaml, otherwise use the
-# commit message
-if (run_type == "full") {
-  run_note <- params$run_note
-} else {
-  run_note <- gsub("\n", "", git_commit$message)
-}
+# If in a CI context, use the run note passed to the workflow. Otherwise, use
+# the note included in params.yaml
+run_note <- as.character(
+  Sys.getenv("WORKFLOW_RUN_NOTE", unset = params$run_note)
+)
 
 
 ## 2.2. DVC Hashes -------------------------------------------------------------
@@ -85,7 +56,6 @@ dvc_md5_df <- bind_rows(read_yaml("dvc.lock")$stages$ingest$outs) %>%
 metadata <- tibble::tibble(
   run_id = run_id,
   run_end_timestamp = run_end_timestamp,
-  run_type = run_type,
   run_note = run_note,
   git_sha_short = substr(git_commit$sha, 1, 8),
   git_sha_long = git_commit$sha,
@@ -106,6 +76,15 @@ metadata <- tibble::tibble(
   input_strata_k_2 = params$input$strata$k_2,
   input_strata_weight_min = params$input$strata$weight_min,
   input_strata_weight_max = params$input$strata$weight_max,
+  input_sale_validation_stat_groups = list(
+    params$input$sale_validation$stat_groups
+  ),
+  input_sale_validation_iso_forest = list(
+    params$input$sale_validation$iso_forest
+  ),
+  input_sale_validation_dev_bounds = list(
+    params$input$sale_validation$dev_bounds
+  ),
   ratio_study_far_year = params$ratio_study$far_year,
   ratio_study_far_stage = params$ratio_study$far_stage,
   ratio_study_far_column = params$ratio_study$far_column,
@@ -140,7 +119,10 @@ metadata <- tibble::tibble(
   model_predictor_knn_imp_name = list(params$model$predictor$knn_imp)
 ) %>%
   bind_cols(dvc_md5_df) %>%
-  relocate(starts_with("dvc_id_"), .after = "input_strata_weight_max") %>%
+  relocate(
+    starts_with("dvc_id_"),
+    .after = "input_strata_weight_max"
+  ) %>%
   arrow::write_parquet(paths$output$metadata$local)
 
 
@@ -149,6 +131,8 @@ metadata <- tibble::tibble(
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 3. Generate performance report -----------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+## 3.1. Performance Report -----------------------------------------------------
 
 # Wrap this block in an error handler so that the pipeline continues execution
 # even if report generation fails. This is important because the report file is
@@ -161,7 +145,7 @@ tryCatch(
 
     message("Generating performance report")
 
-    here("reports", "performance.qmd") %>%
+    here("reports", "performance", "performance.qmd") %>%
       quarto_render(
         execute_params = list(
           run_id = run_id,
@@ -176,12 +160,47 @@ tryCatch(
     # Save an empty report so that this pipeline step produces the required
     # output even in cases of failure
     message("Saving an empty report file in order to continue execution")
-    sink(here("reports", "performance.html"))
+    sink(paths$output$report_performance$local)
     cat("Encountered error in report generation:\n\n")
     cat(conditionMessage(func))
     sink()
   }
 )
+
+
+## 3.2. PIN Report(s) ----------------------------------------------------------
+
+# Generate an individual Quarto report for requested PINs. If rendering fails
+# a warning is thrown and no output file is created
+purrr::iwalk(report_pins, \(pin, i) {
+  tryCatch(
+    {
+      message(
+        "Generating report for PIN ", i, " / ",
+        length(report_pins), ": ", pin
+      )
+
+      here("reports", "pin", "pin.qmd") %>%
+        quarto_render(
+          execute_params = list(
+            run_id = run_id,
+            year = params$assessment$year,
+            pin = pin
+          )
+        )
+
+      # Name the rendered file after each PIN
+      file.rename(
+        here("reports", "pin", "pin.html"),
+        here("reports", "pin", paste0(pin, ".html"))
+      )
+    },
+    error = function(func) {
+      message("Encountered error during report generation:")
+      message(conditionMessage(func))
+    }
+  )
+})
 
 
 
@@ -199,19 +218,11 @@ bind_rows(tictoc::tic.log(format = FALSE)) %>%
     "model_timing_finalize.parquet"
   )))
 
-# Filter ensure we only get timing files for stages that actually ran
-if (run_type == "full") {
-  timings <- list.files(
-    paste0(paths$intermediate$timing, "/"),
-    full.names = TRUE
-  )
-} else {
-  timings <- list.files(
-    paste0(paths$intermediate$timing, "/"),
-    pattern = "train|evaluate|finalize",
-    full.names = TRUE
-  )
-}
+# Load the intermediate timing logs
+timings <- list.files(
+  paste0(paths$intermediate$timing, "/"),
+  full.names = TRUE
+)
 
 # Convert the intermediate timing logs to a wide data frame, then save to file
 timings_df <- purrr::map_dfr(timings, read_parquet) %>%
@@ -222,8 +233,8 @@ timings_df <- purrr::map_dfr(timings, read_parquet) %>%
     stage = paste0(tolower(stringr::word(msg, 1)), "_sec_elapsed"),
     order = recode(
       msg,
-      "Train" = "01", "Assess" = "02",
-      "Evaluate" = "03", "Interpret" = "04", "Finalize" = "05"
+      "Train" = "01", "Assess" = "02", "Evaluate" = "03",
+      "Interpret" = "04", "Finalize" = "05"
     )
   ) %>%
   arrange(order) %>%
@@ -234,7 +245,7 @@ timings_df <- purrr::map_dfr(timings, read_parquet) %>%
     values_from = elapsed
   ) %>%
   mutate(overall_sec_elapsed = rowSums(across(ends_with("_sec_elapsed")))) %>%
-  mutate(across(ends_with("_sec_elapsed"), ~ round(.x, 2))) %>%
+  mutate(across(ends_with("_sec_elapsed"), function(x) round(x, 2))) %>%
   write_parquet(paths$output$timing$local)
 
 # Clear any remaining logs from tictoc
