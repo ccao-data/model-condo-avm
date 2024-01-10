@@ -270,7 +270,7 @@ training_data_clean <- training_data %>%
 # Clean the assessment data. This is the target data that the trained model is
 # used on. The cleaning steps are the same as above, with the exception of the
 # time variables
-assessment_data_clean <- assessment_data_shifted %>%
+assessment_data_clean <- assessment_data %>%
   ccao::vars_recode(cols = starts_with("char_"), type = "code") %>%
   mutate(across(
     any_of(col_type_dict$var_name),
@@ -279,7 +279,7 @@ assessment_data_clean <- assessment_data_shifted %>%
   # Create sale date features BASED ON THE ASSESSMENT DATE. The model predicts
   # the sale price of properties on the date of assessment. Not the date of an
   # actual sale
-  dplyr::mutate(
+  mutate(
     meta_sale_date = as_date(params$assessment$date),
     time_interval = interval(
       make_date(params$input$min_sale_year, 1, 1),
@@ -301,7 +301,7 @@ message("Saving land rates")
 
 # Write land data directly to file, since it's already mostly clean
 land_nbhd_rate_data %>%
-  select(meta_nbhd = town_nbhd, land_rate_per_sqft) %>%
+  select(meta_nbhd = town_nbhd, meta_class = class, land_rate_per_sqft) %>%
   write_parquet(paths$input$land_nbhd_rate$local)
 
 
