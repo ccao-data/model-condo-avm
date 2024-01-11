@@ -2,34 +2,15 @@
 # 1. Setup ---------------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+# NOTE: See DESCRIPTION for library dependencies and R/setup.R for
+# variables used in each pipeline stage
+
 # Start the stage timer and clear logs from prior stage
 tictoc::tic.clearlog()
 tictoc::tic("Assess")
 
-# Load libraries and scripts
-options(dplyr.summarise.inform = FALSE)
-suppressPackageStartupMessages({
-  library(arrow)
-  library(assessr)
-  library(ccao)
-  library(dplyr)
-  library(here)
-  library(lightsnip)
-  library(purrr)
-  library(recipes)
-  library(tictoc)
-  library(tidyr)
-  library(yaml)
-})
-
-# Load helpers and recipes from files
-walk(list.files("R/", "\\.R$", full.names = TRUE), source)
-
-# Initialize a dictionary of file paths. See misc/file_dict.csv for details
-paths <- model_file_dict()
-
-# Load the parameters file containing the run settings
-params <- read_yaml("params.yaml")
+# Load libraries, helpers, and recipes from files
+purrr::walk(list.files("R/", "\\.R$", full.names = TRUE), source)
 
 # Columns to use for ratio study comparison (by prefix)
 rsf_prefix <- gsub("_tot", "", params$ratio_study$far_column)
@@ -40,6 +21,11 @@ rsn_prefix <- gsub("_tot", "", params$ratio_study$near_column)
 # analysis on the assessment data
 sales_data <- read_parquet(paths$input$training$local) %>%
   filter(!sv_is_outlier)
+
+# Load land rates from file
+land_nbhd_rate <- read_parquet(
+  paths$input$land_nbhd_rate$local
+)
 
 
 
@@ -261,9 +247,6 @@ sales_data_bldg_change_pct <- sales_data %>%
   pivot_wider(names_from = meta_year, values_from = mean_sale_price) %>%
   mutate(flag_prior_far_yoy_bldg_change_pct = (cur - pri) / pri) %>%
   select(meta_pin10, flag_prior_far_yoy_bldg_change_pct)
-
-# Load land rates from file
-land_nbhd_rate <- read_parquet(paths$input$land_nbhd_rate$local)
 
 
 ## 5.2. Keep PIN-Level Data ----------------------------------------------------
