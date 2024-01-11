@@ -2,40 +2,18 @@
 # 1. Setup ---------------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+# NOTE: See DESCRIPTION for library dependencies and R/setup.R for
+# variables used in each pipeline stage
+
 # NOTE: This script requires CCAO employee access. See wiki for S3 credentials
 # setup and multi-factor authentication help
 
-# Load libraries and scripts
-suppressPackageStartupMessages({
-  library(arrow)
-  library(aws.s3)
-  library(aws.ec2metadata)
-  library(ccao)
-  library(dplyr)
-  library(glue)
-  library(here)
-  library(knitr)
-  library(lubridate)
-  library(paws.analytics)
-  library(paws.application.integration)
-  library(tidyr)
-  library(yaml)
-})
+# Load libraries, helpers, and recipes from files
+purrr::walk(list.files("R/", "\\.R$", full.names = TRUE), source)
 
-source(here("R", "helpers.R"))
-
-# Initialize a dictionary of file paths. See misc/file_dict.csv for details
-paths <- model_file_dict()
-
-# Load the parameters file containing the run settings
-params <- read_yaml("params.yaml")
-
-# Load various overridden parameters as defined in the `finalize` step
+# Load various parameters as defined in the `finalize` step
 metadata <- read_parquet(paths$output$metadata$local)
-cv_enable <- metadata$cv_enable
-shap_enable <- metadata$shap_enable
 run_id <- metadata$run_id
-run_type <- metadata$run_type
 
 
 
@@ -46,11 +24,11 @@ run_type <- metadata$run_type
 message("Uploading run artifacts")
 
 # Only upload files if explicitly enabled
-if (params$toggle$upload_to_s3) {
+if (upload_enable) {
   # Initialize a dictionary of paths AND S3 URIs specific to the run ID and year
   paths <- model_file_dict(
     run_id = run_id,
-    year = params$assessment$year
+    year = params$assessment$working_year
   )
 
 
@@ -134,7 +112,7 @@ if (params$toggle$upload_to_s3) {
         tidyr::unnest(cols = .extracts) %>%
         dplyr::select(num_iterations = .extracts)
     ) %>%
-      dplyr::select(-any_of(c("estimator")), -extracts) %>%
+      dplyr::select(-any_of(c("estimator", "trees")), -extracts) %>%
       write_parquet(paths$output$parameter_search$s3)
   }
 
@@ -142,29 +120,28 @@ if (params$toggle$upload_to_s3) {
   # 2.2. Assess ----------------------------------------------------------------
   message("Uploading final assessment results")
 
-  # Upload PIN and card-level values for full runs. These outputs are very
-  # large, so to help reduce file size and improve query performance we
-  # partition them by year, run ID, and township
-  if (run_type == "full") {
-    read_parquet(paths$output$assessment_card$local) %>%
-      mutate(run_id = run_id, year = params$assessment$year) %>%
-      group_by(year, run_id, township_code) %>%
-      arrow::write_dataset(
-        path = paths$output$assessment_card$s3,
-        format = "parquet",
-        hive_style = TRUE,
-        compression = "snappy"
-      )
-    read_parquet(paths$output$assessment_pin$local) %>%
-      mutate(run_id = run_id, year = params$assessment$year) %>%
-      group_by(year, run_id, township_code) %>%
-      arrow::write_dataset(
-        path = paths$output$assessment_pin$s3,
-        format = "parquet",
-        hive_style = TRUE,
-        compression = "snappy"
-      )
-  }
+  # Upload PIN and card-level values. These outputs are very large, so to help
+  # reduce file size and improve query performance we partition them by year,
+  # run ID, and township
+  read_parquet(paths$output$assessment_card$local) %>%
+    mutate(run_id = run_id, year = params$assessment$working_year) %>%
+    group_by(year, run_id, township_code) %>%
+    arrow::write_dataset(
+      path = paths$output$assessment_card$s3,
+      format = "parquet",
+      hive_style = TRUE,
+      compression = "snappy"
+    )
+  read_parquet(paths$output$assessment_pin$local) %>%
+    mutate(run_id = run_id, year = params$assessment$working_year) %>%
+    group_by(year, run_id, township_code) %>%
+    arrow::write_dataset(
+      path = paths$output$assessment_pin$s3,
+      format = "parquet",
+      hive_style = TRUE,
+      compression = "snappy"
+    )
+
 
 
   # 2.3. Evaluate --------------------------------------------------------------
@@ -180,29 +157,37 @@ if (params$toggle$upload_to_s3) {
     relocate(run_id) %>%
     write_parquet(paths$output$performance_quantile_test$s3)
 
-  # Upload assessment set performance if a full run
-  if (run_type == "full") {
-    message("Uploading assessment set evaluation")
-    read_parquet(paths$output$performance_assessment$local) %>%
-      mutate(run_id = run_id) %>%
-      relocate(run_id) %>%
-      write_parquet(paths$output$performance_assessment$s3)
-    read_parquet(paths$output$performance_quantile_assessment$local) %>%
-      mutate(run_id = run_id) %>%
-      relocate(run_id) %>%
-      write_parquet(paths$output$performance_quantile_assessment$s3)
-  }
+  message("Uploading test linear baseline")
+  read_parquet(paths$output$performance_test_linear$local) %>%
+    mutate(run_id = run_id) %>%
+    relocate(run_id) %>%
+    write_parquet(paths$output$performance_test_linear$s3)
+  read_parquet(paths$output$performance_quantile_test_linear$local) %>%
+    mutate(run_id = run_id) %>%
+    relocate(run_id) %>%
+    write_parquet(paths$output$performance_quantile_test_linear$s3)
+
+  # Upload assessment set performance
+  message("Uploading assessment set evaluation")
+  read_parquet(paths$output$performance_assessment$local) %>%
+    mutate(run_id = run_id) %>%
+    relocate(run_id) %>%
+    write_parquet(paths$output$performance_assessment$s3)
+  read_parquet(paths$output$performance_quantile_assessment$local) %>%
+    mutate(run_id = run_id) %>%
+    relocate(run_id) %>%
+    write_parquet(paths$output$performance_quantile_assessment$s3)
 
 
   # 2.4. Interpret -------------------------------------------------------------
 
-  # Upload SHAP values if a full run. SHAP values are one row per card and one
-  # column per feature, so the output is very large. Therefore, we partition
-  # the data by year, run, and township
-  if (run_type == "full" && shap_enable) {
+  # Upload SHAP values. One row per card and on column per feature, so the
+  # output is very large. Therefore, we partition the data by
+  # year, run ID, and township
+  if (shap_enable) {
     message("Uploading SHAP values")
     read_parquet(paths$output$shap$local) %>%
-      mutate(run_id = run_id, year = params$assessment$year) %>%
+      mutate(run_id = run_id, year = params$assessment$working_year) %>%
       group_by(year, run_id, township_code) %>%
       arrow::write_dataset(
         path = paths$output$shap$s3,
@@ -213,17 +198,15 @@ if (params$toggle$upload_to_s3) {
   }
 
   # Upload feature importance metrics
-  if (run_type == "full") {
-    message("Uploading feature importance metrics")
-    read_parquet(paths$output$feature_importance$local) %>%
-      mutate(run_id = run_id) %>%
-      relocate(run_id) %>%
-      write_parquet(paths$output$feature_importance$s3)
-  }
+  message("Uploading feature importance metrics")
+  read_parquet(paths$output$feature_importance$local) %>%
+    mutate(run_id = run_id) %>%
+    relocate(run_id) %>%
+    write_parquet(paths$output$feature_importance$s3)
 
 
   # 2.5. Finalize --------------------------------------------------------------
-  message("Uploading run metadata and timings")
+  message("Uploading run metadata, timings, and reports")
 
   # Upload metadata
   aws.s3::put_object(
@@ -239,9 +222,25 @@ if (params$toggle$upload_to_s3) {
 
   # Upload performance report
   aws.s3::put_object(
-    paths$output$report$local,
-    paths$output$report$s3
+    paths$output$report_performance$local,
+    paths$output$report_performance$s3
   )
+
+  # Upload PIN report(s)
+  pin_report_files <- list.files(
+    paths$output$report_pin$local,
+    pattern = paste0(report_pins, collapse = "|"),
+    full.names = TRUE
+  )
+  pin_report_files <- gsub("(?<!:)/+", "/", pin_report_files, perl = TRUE)
+
+  for (local_path in pin_report_files) {
+    s3_path <- gsub("(?<!:)/+", "/", file.path(
+      paths$output$report_pin$s3,
+      basename(local_path)
+    ), perl = TRUE)
+    aws.s3::put_object(local_path, s3_path)
+  }
 }
 
 
@@ -253,15 +252,12 @@ if (params$toggle$upload_to_s3) {
 
 # This will run a Glue crawler to update schemas and send an email to any SNS
 # subscribers. Only run when actually uploading
-if (params$toggle$upload_to_s3) {
+if (upload_enable) {
   message("Sending run email and running model crawler")
 
-  # If assessments and SHAP values were uploaded, trigger a Glue crawler to find
-  # any new partitions
-  if (run_type == "full") {
-    glue_srv <- paws.analytics::glue()
-    glue_srv$start_crawler("ccao-model-results-crawler")
-  }
+  # If values were uploaded, trigger a Glue crawler to find any new partitions
+  glue_srv <- paws.analytics::glue()
+  glue_srv$start_crawler("ccao-model-results-crawler")
 
   # If SNS ARN is available, notify subscribers via email upon run completion
   if (!is.na(Sys.getenv("AWS_SNS_ARN_MODEL_STATUS", unset = NA))) {
@@ -295,7 +291,10 @@ if (params$toggle$upload_to_s3) {
       paste0(collapse = "\n")
 
     # Get a link to the uploaded Quarto report
-    report_path_parts <- strsplit(paths$output$report$s3[1], "/")[[1]]
+    report_path_parts <- strsplit(
+      paths$output$report_performance$s3[1],
+      "/"
+    )[[1]]
     report_bucket <- report_path_parts[3]
     report_path <- report_path_parts[4:length(report_path_parts)] %>%
       paste(collapse = "/")
