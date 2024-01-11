@@ -298,7 +298,7 @@ assessment_data_pin_2 <- assessment_data_pin %>%
   left_join(
     land_nbhd_rate,
     by = c("meta_nbhd_code" = "meta_nbhd", "meta_class")
-    ) %>%
+  ) %>%
   left_join(sales_data_two_most_recent, by = "meta_pin") %>%
   left_join(sales_data_ratio_study, by = c("meta_year", "meta_pin")) %>%
   left_join(sales_data_bldg_change_pct, by = "meta_pin10") %>%

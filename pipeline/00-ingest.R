@@ -234,7 +234,7 @@ training_data_clean <- training_data %>%
   mutate(
     sv_is_outlier = replace_na(sv_is_outlier, FALSE),
     sv_outlier_type = replace_na(sv_outlier_type, "Not outlier")
-    ) %>%
+  ) %>%
   # Some Athena columns are stored as arrays but are converted to string on
   # ingest. In such cases, take the first element and clean the string
   mutate(
@@ -245,7 +245,7 @@ training_data_clean <- training_data %>%
     ccao_is_corner_lot = replace_na(ccao_is_corner_lot, FALSE),
     across(where(is.character), \(x) na_if(x, ""))
   ) %>%
-# Create time/date features using lubridate
+  # Create time/date features using lubridate
   mutate(
     # Calculate interval periods and time since the start of the sales sample
     time_interval = interval(
