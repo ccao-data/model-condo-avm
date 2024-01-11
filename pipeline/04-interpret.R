@@ -69,12 +69,13 @@ if (shap_enable) {
   # columns, then add run ID and write to file
   shap_values_final <- assessment_data %>%
     select(
-      meta_year, meta_pin, meta_card_num,
+      meta_year, meta_pin, meta_card_num, meta_lline_num,
       township_code = meta_township_code
     ) %>%
     bind_cols(shap_values_tbl) %>%
     select(
-      meta_year, meta_pin, meta_card_num, pred_card_shap_baseline_fmv,
+      meta_year, meta_pin, meta_card_num, meta_lline_num,
+      pred_card_shap_baseline_fmv,
       all_of(params$model$predictor$all), township_code
     ) %>%
     write_parquet(paths$output$shap$local)
