@@ -51,6 +51,14 @@ assessment_data_pin <- read_parquet(paths$output$assessment_pin$local) %>%
     all_of(params$ratio_study$geographies),
     char_total_bldg_sf, char_unit_sf, prior_far_tot, prior_near_tot,
     pred_pin_final_fmv_round, sale_ratio_study_price
+  ) %>%
+  # Some PINs have an assessed value of 0 (common areas). These will distort
+  # summary statistics, so we add a little hack to set all these values to 1
+  mutate(
+    across(
+      c(prior_far_tot, prior_near_tot, pred_pin_final_fmv_round),
+      ~ replace(.x, .x == 0, 1)
+    )
   )
 
 
