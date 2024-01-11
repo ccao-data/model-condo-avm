@@ -215,12 +215,12 @@ sales_data_ratio_study <- sales_data %>%
 # Keep the two most recent sales for each PIN from any year. These are just for
 # review, not for ratio studies
 sales_data_two_most_recent <- sales_data %>%
-  group_by(meta_pin) %>%
-  slice_max(meta_sale_date, n = 2) %>%
   distinct(
     meta_pin, meta_year,
     meta_sale_price, meta_sale_date, meta_sale_document_num
   ) %>%
+  group_by(meta_pin) %>%
+  slice_max(meta_sale_date, n = 2) %>%
   mutate(mr = paste0("sale_recent_", row_number())) %>%
   tidyr::pivot_wider(
     id_cols = meta_pin,
@@ -276,8 +276,8 @@ assessment_data_pin <- assessment_data_merged %>%
     # Keep locations, prior year values, and indicators
     loc_longitude, loc_latitude,
     starts_with(c(
-      "loc_property_", "loc_cook_", "loc_ward_", "loc_chicago_",
-      "loc_census", "loc_school_", "prior_", "ind_"
+      "loc_property_", "loc_ward_", "loc_chicago_",
+      "loc_census", "loc_school_", "loc_tax_", "prior_", "ind_"
     )),
     meta_pin10_5yr_num_sale,
 
@@ -295,7 +295,7 @@ message("Attaching and parsing land values")
 # Attach land and sales data to the PIN-level data, then calculate land and
 # building values for each PIN
 assessment_data_pin_2 <- assessment_data_pin %>%
-  left_join(land_nbhd_rate, by = c("meta_nbhd_code" = "meta_nbhd")) %>%
+  left_join(land_nbhd_rate, by = c("meta_nbhd_code" = "meta_nbhd", "meta_class")) %>%
   left_join(sales_data_two_most_recent, by = "meta_pin") %>%
   left_join(sales_data_ratio_study, by = c("meta_year", "meta_pin")) %>%
   left_join(sales_data_bldg_change_pct, by = "meta_pin10") %>%
