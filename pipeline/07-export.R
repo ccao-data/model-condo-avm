@@ -2,23 +2,17 @@
 # 1. Setup ---------------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# Pre-allocate memory for java JDBC driver
-options(java.parameters = "-Xmx10g")
+# NOTE: See DESCRIPTION for library dependencies and R/setup.R for
+# variables used in each pipeline stage
 
-# Load R libraries
+# Load libraries, helpers, and recipes from files
+purrr::walk(list.files("R/", "\\.R$", full.names = TRUE), source)
+
+# Load additional dev R libraries (see README#managing-r-dependencies)
 suppressPackageStartupMessages({
-  library(aws.s3)
-  library(ccao)
   library(DBI)
-  library(dplyr)
-  library(glue)
-  library(here)
   library(openxlsx)
-  library(readr)
   library(RJDBC)
-  library(stringr)
-  library(tidyr)
-  library(yaml)
 })
 
 # Setup the Athena JDBC driver
@@ -37,15 +31,13 @@ AWS_ATHENA_CONN_JDBC <- dbConnect(
   WorkGroup = "read-only-with-scan-limit"
 )
 
-# Load the parameters file containing the export settings
-params <- read_yaml("params.yaml")
-
 
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 2. Pull Data -----------------------------------------------------------------
+# 2. Pull Model Data -----------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+message("Pulling model data from Athena")
 
 # Pull the PIN-level assessment data, which contains all the fields needed to
 # create the review spreadsheets
@@ -95,6 +87,7 @@ land <- dbGetQuery(
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 3. Prep Desk Review ----------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+message("Preparing data for Desk Review export")
 
 # Prep data with a few additional columns + put everything in the right
 # order for DR sheets
@@ -138,14 +131,16 @@ assessment_pin_prepped <- assessment_pin %>%
     char_yrblt, char_total_bldg_sf, char_type_resd, char_land_sf,
     char_unit_sf, flag_nonlivable_space, flag_pin10_5yr_num_sale,
     flag_common_area, flag_proration_sum_not_1, flag_pin_is_multiland,
-    flag_land_value_capped, flag_prior_near_to_pred_unchanged,
+    flag_land_gte_95_percentile, flag_bldg_gte_95_percentile,
+    flag_land_value_capped,
+    flag_prior_near_to_pred_unchanged, flag_pred_initial_to_final_changed,
     flag_prior_near_yoy_inc_gt_50_pct, flag_prior_near_yoy_dec_gt_5_pct
   ) %>%
   mutate(
     across(starts_with("flag_"), as.numeric),
     across(where(is.numeric), ~ na_if(.x, Inf))
   ) %>%
-  arrange(meta_pin) %>%
+  arrange(township_code, meta_pin) %>%
   mutate(
     meta_pin = glue(
       '=HYPERLINK("https://www.cookcountyassessor.com/pin/{meta_pin}",
