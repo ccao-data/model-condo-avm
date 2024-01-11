@@ -39,7 +39,7 @@ train <- training(split_data)
 # Create a recipe for the training data which removes non-predictor columns and
 # preps categorical data, see R/recipes.R for details
 train_recipe <- model_main_recipe(
-  data = training_data_full %>% select(-time_split),
+  data = training_data_full,
   pred_vars = params$model$predictor$all,
   cat_vars = params$model$predictor$categorical,
   knn_vars = params$model$predictor$knn,
@@ -101,7 +101,7 @@ message("Initializing LightGBM model")
 # model arguments, which are provided by parsnip's boost_tree()
 lgbm_model <- parsnip::boost_tree(
   stop_iter = params$model$parameter$stop_iter,
-  trees = params$model$parameter$num_iterations
+  trees = params$model$hyperparameter$default$num_iterations
 ) %>%
   set_mode("regression") %>%
   set_engine(
@@ -140,7 +140,6 @@ lgbm_model <- parsnip::boost_tree(
     # using floor(log2(num_leaves)) + add_to_linked_depth. Useful since
     # otherwise Bayesian opt spends time exploring irrelevant parameter space
     link_max_depth = params$model$parameter$link_max_depth,
-
 
 
     ### 4.1.2. Tuned Parameters ------------------------------------------------
