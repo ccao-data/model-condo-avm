@@ -181,7 +181,7 @@ if (upload_enable) {
 
   # 2.4. Interpret -------------------------------------------------------------
 
-  # Upload SHAP values. One row per card and on column per feature, so the
+  # Upload SHAP values. One row per PIN and on column per feature, so the
   # output is very large. Therefore, we partition the data by
   # year, run ID, and township
   if (shap_enable) {

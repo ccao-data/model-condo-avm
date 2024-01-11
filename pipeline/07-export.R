@@ -119,8 +119,8 @@ assessment_pin_prepped <- assessment_pin %>%
     char_unit_sf, flag_nonlivable_space, flag_pin10_5yr_num_sale,
     flag_common_area, flag_proration_sum_not_1, flag_pin_is_multiland,
     flag_land_gte_95_percentile, flag_bldg_gte_95_percentile,
-    flag_land_value_capped,
-    flag_prior_near_to_pred_unchanged, flag_pred_initial_to_final_changed,
+    flag_land_value_capped, flag_prior_near_to_pred_unchanged,
+    flag_pred_initial_to_final_changed,
     flag_prior_near_yoy_inc_gt_50_pct, flag_prior_near_yoy_dec_gt_5_pct
   ) %>%
   mutate(
