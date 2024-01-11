@@ -12,7 +12,7 @@ purrr::walk(list.files("R/", "\\.R$", full.names = TRUE), source)
 suppressPackageStartupMessages({
   library(DBI)
   library(openxlsx)
-  library(RJDBC)
+  library(noctua)
 })
 
 # Initialize a dictionary of file paths. See misc/file_dict.csv for details
