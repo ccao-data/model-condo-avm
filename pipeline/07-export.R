@@ -12,24 +12,11 @@ purrr::walk(list.files("R/", "\\.R$", full.names = TRUE), source)
 suppressPackageStartupMessages({
   library(DBI)
   library(openxlsx)
-  library(RJDBC)
+  library(noctua)
 })
 
-# Setup the Athena JDBC driver
-aws_athena_jdbc_driver <- RJDBC::JDBC(
-  driverClass = "com.simba.athena.jdbc.Driver",
-  classPath = list.files("~/drivers", "^Athena.*jar$", full.names = TRUE),
-  identifier.quote = "'"
-)
-
 # Establish Athena connection
-AWS_ATHENA_CONN_JDBC <- dbConnect(
-  aws_athena_jdbc_driver,
-  url = Sys.getenv("AWS_ATHENA_JDBC_URL"),
-  aws_credentials_provider_class = Sys.getenv("AWS_CREDENTIALS_PROVIDER_CLASS"),
-  Schema = "Default",
-  WorkGroup = "read-only-with-scan-limit"
-)
+AWS_ATHENA_CONN_NOCTUA <- dbConnect(noctua::athena())
 
 
 
@@ -42,7 +29,7 @@ message("Pulling model data from Athena")
 # Pull the PIN-level assessment data, which contains all the fields needed to
 # create the review spreadsheets
 assessment_pin <- dbGetQuery(
-  conn = AWS_ATHENA_CONN_JDBC, glue("
+  conn = AWS_ATHENA_CONN_NOCTUA, glue("
   SELECT *
   FROM model.assessment_pin
   WHERE run_id = '{params$export$run_id}'
@@ -53,7 +40,7 @@ assessment_pin <- dbGetQuery(
 # Pull card-level data only for all PINs. Needed for upload, since values are
 # tracked by card, even though they're presented by PIN
 assessment_card <- dbGetQuery(
-  conn = AWS_ATHENA_CONN_JDBC, glue("
+  conn = AWS_ATHENA_CONN_NOCTUA, glue("
   SELECT c.*
   FROM model.assessment_card c
   INNER JOIN (
@@ -70,7 +57,7 @@ assessment_card <- dbGetQuery(
 
 # Pull land for condos with multiple land lines (very rare)
 land <- dbGetQuery(
-  conn = AWS_ATHENA_CONN_JDBC, glue("
+  conn = AWS_ATHENA_CONN_NOCTUA, glue("
   SELECT
       taxyr AS meta_year,
       parid AS meta_pin,
