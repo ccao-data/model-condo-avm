@@ -78,8 +78,8 @@ upload_enable <- as.logical(Sys.getenv(
 ))
 early_stopping_enable <-
   get(params_obj_name)$model$parameter$validation_prop > 0 &&
-  !is.null(get(params_obj_name)$model$parameter$stop_iter) && # nolint
-  get(params_obj_name)$model$parameter$stop_iter > 0 # nolint
+    !is.null(get(params_obj_name)$model$parameter$stop_iter) && # nolint
+    get(params_obj_name)$model$parameter$stop_iter > 0 # nolint
 
 # Load any additional PINs to generate reports for from environment
 report_pins <- unique(c(
