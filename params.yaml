@@ -40,7 +40,7 @@ assessment:
   date: "2023-10-01"
 
   # Added context for model artifacts stored in S3. Does not change behavior
-  triad: "city"
+  triad: "south"
   group: "condo"
 
   # Year from which property characteristics are pulled. Usually lags the

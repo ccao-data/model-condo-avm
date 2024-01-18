@@ -373,7 +373,7 @@ test %>%
   ) %>%
   select(
     meta_year, meta_pin, meta_class, meta_card_num, meta_triad_code,
-    all_of(params$ratio_study$geographies),
+    all_of(params$ratio_study$geographies), char_building_sf, char_unit_sf,
     all_of(c(
       "prior_far_tot" = params$ratio_study$far_column,
       "prior_near_tot" = params$ratio_study$near_column
