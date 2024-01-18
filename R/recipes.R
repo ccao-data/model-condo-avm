@@ -112,12 +112,13 @@ model_lin_recipe <- function(data, pred_vars, cat_vars,
     ) %>%
     # Drop any predictors with near-zero variance, add interactions, and
     # perform transforms
-    step_nzv(all_predictors()) %>%
+
     step_interact(terms = ~ meta_township_code * time_sale_day) %>%
     step_interact(terms = ~ meta_township_code * char_yrblt) %>%
     step_BoxCox(
       acs5_median_income_per_capita_past_year,
-      acs5_median_income_household_past_year
+      acs5_median_income_household_past_year,
+      char_building_sf, char_unit_sf
     ) %>%
     step_normalize(
       acs5_median_household_renter_occupied_gross_rent,
