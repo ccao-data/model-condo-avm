@@ -56,7 +56,9 @@ train_recipe <- model_main_recipe(
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 3. Linear Model --------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-message("Creating and fitting linear baseline model")
+
+## 3.1. Model Initialization ---------------------------------------------------
+message("Initizializing linear baseline model")
 
 # Create a linear model recipe with additional imputation, transformations,
 # and feature interactions
@@ -81,8 +83,96 @@ lin_wflow <- workflow() %>%
     blueprint = hardhat::default_recipe_blueprint(allow_novel_levels = TRUE)
   )
 
+
+# 3.2. Cross-Validation -------------------------------------------------------
+
+# Begin CV tuning if enabled. We use Bayesian tuning as grid search or random
+# search take a very long time to produce good results due to the high number
+# of hyperparameters
+if (cv_enable) {
+  message("Starting cross-validation")
+
+  # Create the cross-validation folds
+  train_folds <- vfold_cv(
+    data = train,
+    v = params$cv$num_folds
+  )
+
+  # Create the parameter search space for hyperparameter optimization
+  # Parameter boundaries are taken from the lightgbm docs and hand-tuned
+  # See: https://lightgbm.readthedocs.io/en/latest/Parameters-Tuning.html
+  lin_params <- lin_wflow %>%
+    hardhat::extract_parameter_set_dials() %>%
+    update(
+      neighbors = dials::neighbors(params$model$hyperparameter$range$neighbors)
+    )
+
+  # Use Bayesian tuning to find best performing hyperparameters. This part takes
+  # quite a long time, depending on the compute resources available
+  lin_search <- tune_bayes(
+    object = lin_wflow,
+    resamples = train_folds,
+    initial = params$cv$initial_set,
+    iter = params$cv$max_iterations,
+    param_info = lin_params,
+    metrics = metric_set(rmse, mape, mae),
+    control = control_bayes(
+      verbose = TRUE,
+      verbose_iter = TRUE,
+      uncertain = params$cv$uncertain,
+      no_improve = params$cv$no_improve,
+      extract = extract_num_iterations,
+      seed = params$model$seed
+    )
+  )
+
+  # Choose the best model (whichever model minimizes the chosen objective,
+  # averaged across CV folds)
+  lin_final_params <- tibble(
+    engine = "lm",
+    objective = params$model$objective
+  ) %>%
+    bind_cols(
+      as_tibble(params$model$parameter) %>%
+        select(-any_of("num_iterations"))
+    ) %>%
+    bind_cols(
+      select_iterations(lin_search, metric = params$cv$best_metric)
+    ) %>%
+    bind_cols(
+      select_best(lin_search, metric = params$cv$best_metric) %>%
+        select(-any_of("trees"))
+    ) %>%
+    select(configuration = .config, everything()) %>%
+    mutate(across(any_of("num_iterations"), as.integer)) %>%
+    arrow::write_parquet(paths$output$parameter_final$local)
+} else {
+  # If CV is disabled, just use the default set of parameters specified in
+  # params.yaml, keeping only the ones used in the model specification
+  lin_missing_params <- "neighbors"
+  lin_missing_params <- lin_missing_params[
+    !lin_missing_params %in%
+      c(hardhat::extract_parameter_set_dials(lin_wflow)$name, "num_iterations")
+  ]
+  lin_final_params <- tibble(
+    configuration = "Default",
+    engine = "lm",
+    objective = params$model$objective
+  ) %>%
+    bind_cols(as_tibble(params$model$parameter)) %>%
+    bind_cols(as_tibble(params$model$hyperparameter$default["neighbors"])) %>%
+    select(-all_of(lin_missing_params)) %>%
+    mutate(across(any_of("num_iterations"), as.integer))
+}
+
+
+## 3.3. Fit Models -------------------------------------------------------------
+message("Fitting linear baseline model")
+
 # Fit the linear model on the training data
 lin_wflow_final_fit <- lin_wflow %>%
+  update_model(lin_model) %>%
+  finalize_workflow(lin_final_params) %>%
   fit(data = train %>% mutate(meta_sale_price = log(meta_sale_price)))
 
 

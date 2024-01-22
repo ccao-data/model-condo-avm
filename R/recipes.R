@@ -34,7 +34,7 @@ model_main_recipe <- function(data, pred_vars, cat_vars,
     # impute missing condo building strata
     step_impute_knn(
       all_of(knn_vars),
-      neighbors = 5, # THIS SHOULD NOT BE STATIC ----
+      neighbors = tune(),
       impute_with = imp_vars(all_of(knn_imp_vars)),
       options = list(
         nthread = parallel::detectCores(logical = FALSE),
@@ -63,6 +63,10 @@ model_main_recipe <- function(data, pred_vars, cat_vars,
 #'   will be the right-hand side of the regression AKA predictors.
 #' @param cat_vars Character vector of categorical column names. These will be
 #'   transformed/encoded using embeddings.
+#' @param knn_vars Character vector of column names. These columns will have
+#'   missing values imputed via KNN.
+#' @param knn_imp_vars Character vector of column names. These columns will be
+#'   used to impute the columns in knn_vars.
 #' @param id_vars Character vector of ID variables. These can be kept in "baked"
 #'   data without being treated as predictors.
 #'
@@ -84,7 +88,7 @@ model_lin_recipe <- function(data, pred_vars, cat_vars,
     # impute missing condo building strata
     step_impute_knn(
       all_of(knn_vars),
-      neighbors = 5, # THIS SHOULD NOT BE STATIC ----
+      neighbors = tune(),
       impute_with = imp_vars(all_of(knn_imp_vars)),
       options = list(
         nthread = parallel::detectCores(logical = FALSE),
