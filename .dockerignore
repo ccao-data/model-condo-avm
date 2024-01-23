@@ -1,0 +1,8 @@
+README.Rmd
+README.md
+renv/profile
+docs/
+input/
+renv/library/
+renv/sandbox/
+renv/staging/

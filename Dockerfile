@@ -1,4 +1,4 @@
-FROM rocker/r-ver:4.3.1
+FROM rocker/r-ver:4.3.2
 
 # Set the working directory to setup. Uses a dedicated directory instead of
 # root since otherwise renv will try to scan every subdirectory
@@ -37,13 +37,13 @@ COPY renv/ renv/
 RUN Rscript -e 'renv::restore(packages = "renv"); renv::restore()'
 RUN Rscript -e 'renv::restore(lockfile = "reporting-renv.lock")'
 
-# Set the working directory to the app dir
+# Set the working directory to the model directory
 WORKDIR /model-condo-avm/
 
 # Copy the directory into the container
 COPY ./ .
 
-# Copy R dependencies into the app directory
+# Copy R dependencies into the model directory
 RUN rm -Rf /model-condo-avm/renv && \
     mv /setup/renv /model-condo-avm/renv
 
