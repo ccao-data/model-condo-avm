@@ -357,9 +357,11 @@ assessment_data_pin_final <- assessment_data_pin_2 %>%
   ) %>%
   # Flags for changes in values
   mutate(
+    # nolint start
     flag_prior_near_to_pred_unchanged =
       prior_near_tot >= pred_pin_final_fmv_round - 100 &
         prior_near_tot <= pred_pin_final_fmv_round + 100,
+    # nolint end
     flag_prior_near_yoy_inc_gt_50_pct = prior_near_yoy_change_pct > 0.5,
     flag_prior_near_yoy_dec_gt_5_pct = prior_near_yoy_change_pct < -0.05,
   ) %>%

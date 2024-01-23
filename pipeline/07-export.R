@@ -152,9 +152,11 @@ assessment_pin10_prepped <- assessment_pin_prepped %>%
     pred_pin_final_fmv_bldg_total = sum(pred_pin_final_fmv_round),
     prior_near_yoy_change_nom_total =
       pred_pin_final_fmv_bldg_total - prior_near_bldg_total,
+    # nolint start
     prior_near_yoy_change_pct =
       (pred_pin_final_fmv_bldg_total - prior_near_bldg_total) /
         prior_near_bldg_total,
+    # nolint end
     char_yrblt = first(char_yrblt),
     char_total_bldg_sf = first(char_total_bldg_sf)
   ) %>%
