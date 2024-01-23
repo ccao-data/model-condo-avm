@@ -359,8 +359,12 @@ upload_data_prepped <- assessment_pin %>%
     # Hotfix for adjusting the total building value such that bldg_total *
     # proration_rate = unit_value. Only applies to buildings where rates don't
     # sum to 100%
-    pred_pin10_final_fmv_bldg = round(pred_pin10_final_fmv_bldg *
-      (1 / sum(meta_tieback_proration_rate, na.rm = TRUE))),
+    pred_pin10_final_fmv_bldg = round(
+      pred_pin10_final_fmv_bldg * (1 / sum(
+        meta_tieback_proration_rate,
+        na.rm = TRUE
+      ))
+    ),
 
     # For any missing LLINE values, simply fill with 1
     meta_lline_num = replace_na(meta_lline_num, 1)
