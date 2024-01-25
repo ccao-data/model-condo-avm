@@ -36,10 +36,10 @@ assessment:
   year: "2024"
 
   # The statutorily set "sale date" for the purpose of prediction
-  date: "2023-10-01"
+  date: "2024-01-01"
 
   # Added context for model artifacts stored in S3. Does not change behavior
-  triad: "south"
+  triad: "city"
   group: "condo"
 
   # Year from which property characteristics are pulled. Usually lags the
