@@ -12,8 +12,7 @@
 # Note included with each run. Use this to summarize what changed about the run
 # or add context
 run_note: >
-  Test run for updated 2024 model pipeline. Uses 2022 data to assess 2023
-  since full 2023 data isn't available yet
+  Test run for updated 2024 model pipeline. No new condo chars.
 
 toggle:
   # Should the train stage run full cross-validation? Otherwise, the model

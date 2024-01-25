@@ -40,7 +40,8 @@ message("Loading evaluation data")
 
 # Load the test results from the end of the train stage. This will be the most
 # recent 10% of sales and already includes predictions.
-test_data_card <- read_parquet(paths$output$test_card$local)
+test_data_card <- read_parquet(paths$output$test_card$local) %>%
+  filter(!is.na(loc_census_puma_geoid))
 
 # Load the assessment results from the previous stage. This will include every
 # residential PIN that needs a value.
@@ -149,7 +150,7 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
 
       # Assessment-specific ratio stats
       rs_lst = rs_fns_list %>%
-        map(., \(f) exec(f, {{ estimate }}, {{ truth }})) %>%
+        map(., \(f) exec(f, pmin({{ estimate }}, 1), {{ truth }})) %>%
         list(),
       median_ratio = median({{ estimate }} / {{ truth }}, na.rm = TRUE),
 
