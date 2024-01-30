@@ -2,34 +2,15 @@
 # 1. Setup ---------------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+# NOTE: See DESCRIPTION for library dependencies and R/setup.R for
+# variables used in each pipeline stage
+
 # Start the stage timer and clear logs from prior stage
 tictoc::tic.clearlog()
 tictoc::tic("Assess")
 
-# Load libraries and scripts
-options(dplyr.summarise.inform = FALSE)
-suppressPackageStartupMessages({
-  library(arrow)
-  library(assessr)
-  library(ccao)
-  library(dplyr)
-  library(here)
-  library(lightsnip)
-  library(purrr)
-  library(recipes)
-  library(tictoc)
-  library(tidyr)
-  library(yaml)
-})
-
-# Load helpers and recipes from files
-walk(list.files("R/", "\\.R$", full.names = TRUE), source)
-
-# Initialize a dictionary of file paths. See misc/file_dict.csv for details
-paths <- model_file_dict()
-
-# Load the parameters file containing the run settings
-params <- read_yaml("params.yaml")
+# Load libraries, helpers, and recipes from files
+purrr::walk(list.files("R/", "\\.R$", full.names = TRUE), source)
 
 # Columns to use for ratio study comparison (by prefix)
 rsf_prefix <- gsub("_tot", "", params$ratio_study$far_column)
@@ -40,6 +21,11 @@ rsn_prefix <- gsub("_tot", "", params$ratio_study$near_column)
 # analysis on the assessment data
 sales_data <- read_parquet(paths$input$training$local) %>%
   filter(!sv_is_outlier)
+
+# Load land rates from file
+land_nbhd_rate <- read_parquet(
+  paths$input$land_nbhd_rate$local
+)
 
 
 
@@ -229,12 +215,12 @@ sales_data_ratio_study <- sales_data %>%
 # Keep the two most recent sales for each PIN from any year. These are just for
 # review, not for ratio studies
 sales_data_two_most_recent <- sales_data %>%
-  group_by(meta_pin) %>%
-  slice_max(meta_sale_date, n = 2) %>%
   distinct(
     meta_pin, meta_year,
     meta_sale_price, meta_sale_date, meta_sale_document_num
   ) %>%
+  group_by(meta_pin) %>%
+  slice_max(meta_sale_date, n = 2) %>%
   mutate(mr = paste0("sale_recent_", row_number())) %>%
   tidyr::pivot_wider(
     id_cols = meta_pin,
@@ -261,9 +247,6 @@ sales_data_bldg_change_pct <- sales_data %>%
   pivot_wider(names_from = meta_year, values_from = mean_sale_price) %>%
   mutate(flag_prior_far_yoy_bldg_change_pct = (cur - pri) / pri) %>%
   select(meta_pin10, flag_prior_far_yoy_bldg_change_pct)
-
-# Load land rates from file
-land_nbhd_rate <- read_parquet(paths$input$land_nbhd_rate$local)
 
 
 ## 5.2. Keep PIN-Level Data ----------------------------------------------------
@@ -293,8 +276,8 @@ assessment_data_pin <- assessment_data_merged %>%
     # Keep locations, prior year values, and indicators
     loc_longitude, loc_latitude,
     starts_with(c(
-      "loc_property_", "loc_cook_", "loc_ward_", "loc_chicago_",
-      "loc_census", "loc_school_", "prior_", "ind_"
+      "loc_property_", "loc_ward_", "loc_chicago_",
+      "loc_census", "loc_school_", "loc_tax_", "prior_", "ind_"
     )),
     meta_pin10_5yr_num_sale,
 
@@ -312,7 +295,10 @@ message("Attaching and parsing land values")
 # Attach land and sales data to the PIN-level data, then calculate land and
 # building values for each PIN
 assessment_data_pin_2 <- assessment_data_pin %>%
-  left_join(land_nbhd_rate, by = c("meta_nbhd_code" = "meta_nbhd")) %>%
+  left_join(
+    land_nbhd_rate,
+    by = c("meta_nbhd_code" = "meta_nbhd", "meta_class")
+  ) %>%
   left_join(sales_data_two_most_recent, by = "meta_pin") %>%
   left_join(sales_data_ratio_study, by = c("meta_year", "meta_pin")) %>%
   left_join(sales_data_bldg_change_pct, by = "meta_pin10") %>%
@@ -371,9 +357,11 @@ assessment_data_pin_final <- assessment_data_pin_2 %>%
   ) %>%
   # Flags for changes in values
   mutate(
+    # nolint start
     flag_prior_near_to_pred_unchanged =
       prior_near_tot >= pred_pin_final_fmv_round - 100 &
         prior_near_tot <= pred_pin_final_fmv_round + 100,
+    # nolint end
     flag_prior_near_yoy_inc_gt_50_pct = prior_near_yoy_change_pct > 0.5,
     flag_prior_near_yoy_dec_gt_5_pct = prior_near_yoy_change_pct < -0.05,
   ) %>%

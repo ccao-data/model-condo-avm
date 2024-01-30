@@ -1,6 +1,0 @@
-README.Rmd
-pipeline/00-ingest.R
-pipeline/06-upload.R
-pipeline/07-export.R
-reports/*
-cache/*

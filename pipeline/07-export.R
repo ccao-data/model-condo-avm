@@ -2,55 +2,34 @@
 # 1. Setup ---------------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# Pre-allocate memory for java JDBC driver
-options(java.parameters = "-Xmx10g")
+# NOTE: See DESCRIPTION for library dependencies and R/setup.R for
+# variables used in each pipeline stage
 
-# Load R libraries
+# Load libraries, helpers, and recipes from files
+purrr::walk(list.files("R/", "\\.R$", full.names = TRUE), source)
+
+# Load additional dev R libraries (see README#managing-r-dependencies)
 suppressPackageStartupMessages({
-  library(aws.s3)
-  library(ccao)
   library(DBI)
-  library(dplyr)
-  library(glue)
-  library(here)
   library(openxlsx)
-  library(readr)
-  library(RJDBC)
-  library(stringr)
-  library(tidyr)
-  library(yaml)
+  library(noctua)
 })
 
-# Setup the Athena JDBC driver
-aws_athena_jdbc_driver <- RJDBC::JDBC(
-  driverClass = "com.simba.athena.jdbc.Driver",
-  classPath = list.files("~/drivers", "^Athena.*jar$", full.names = TRUE),
-  identifier.quote = "'"
-)
-
 # Establish Athena connection
-AWS_ATHENA_CONN_JDBC <- dbConnect(
-  aws_athena_jdbc_driver,
-  url = Sys.getenv("AWS_ATHENA_JDBC_URL"),
-  aws_credentials_provider_class = Sys.getenv("AWS_CREDENTIALS_PROVIDER_CLASS"),
-  Schema = "Default",
-  WorkGroup = "read-only-with-scan-limit"
-)
-
-# Load the parameters file containing the export settings
-params <- read_yaml("params.yaml")
+AWS_ATHENA_CONN_NOCTUA <- dbConnect(noctua::athena())
 
 
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 2. Pull Data -----------------------------------------------------------------
+# 2. Pull Model Data -----------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+message("Pulling model data from Athena")
 
 # Pull the PIN-level assessment data, which contains all the fields needed to
 # create the review spreadsheets
 assessment_pin <- dbGetQuery(
-  conn = AWS_ATHENA_CONN_JDBC, glue("
+  conn = AWS_ATHENA_CONN_NOCTUA, glue("
   SELECT *
   FROM model.assessment_pin
   WHERE run_id = '{params$export$run_id}'
@@ -61,7 +40,7 @@ assessment_pin <- dbGetQuery(
 # Pull card-level data only for all PINs. Needed for upload, since values are
 # tracked by card, even though they're presented by PIN
 assessment_card <- dbGetQuery(
-  conn = AWS_ATHENA_CONN_JDBC, glue("
+  conn = AWS_ATHENA_CONN_NOCTUA, glue("
   SELECT c.*
   FROM model.assessment_card c
   INNER JOIN (
@@ -78,7 +57,7 @@ assessment_card <- dbGetQuery(
 
 # Pull land for condos with multiple land lines (very rare)
 land <- dbGetQuery(
-  conn = AWS_ATHENA_CONN_JDBC, glue("
+  conn = AWS_ATHENA_CONN_NOCTUA, glue("
   SELECT
       taxyr AS meta_year,
       parid AS meta_pin,
@@ -95,6 +74,7 @@ land <- dbGetQuery(
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 3. Prep Desk Review ----------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+message("Preparing data for Desk Review export")
 
 # Prep data with a few additional columns + put everything in the right
 # order for DR sheets
@@ -138,14 +118,16 @@ assessment_pin_prepped <- assessment_pin %>%
     char_yrblt, char_total_bldg_sf, char_type_resd, char_land_sf,
     char_unit_sf, flag_nonlivable_space, flag_pin10_5yr_num_sale,
     flag_common_area, flag_proration_sum_not_1, flag_pin_is_multiland,
+    flag_land_gte_95_percentile, flag_bldg_gte_95_percentile,
     flag_land_value_capped, flag_prior_near_to_pred_unchanged,
+    flag_pred_initial_to_final_changed,
     flag_prior_near_yoy_inc_gt_50_pct, flag_prior_near_yoy_dec_gt_5_pct
   ) %>%
   mutate(
     across(starts_with("flag_"), as.numeric),
     across(where(is.numeric), ~ na_if(.x, Inf))
   ) %>%
-  arrange(meta_pin) %>%
+  arrange(township_code, meta_pin) %>%
   mutate(
     meta_pin = glue(
       '=HYPERLINK("https://www.cookcountyassessor.com/pin/{meta_pin}",
@@ -170,9 +152,11 @@ assessment_pin10_prepped <- assessment_pin_prepped %>%
     pred_pin_final_fmv_bldg_total = sum(pred_pin_final_fmv_round),
     prior_near_yoy_change_nom_total =
       pred_pin_final_fmv_bldg_total - prior_near_bldg_total,
+    # nolint start
     prior_near_yoy_change_pct =
       (pred_pin_final_fmv_bldg_total - prior_near_bldg_total) /
         prior_near_bldg_total,
+    # nolint end
     char_yrblt = first(char_yrblt),
     char_total_bldg_sf = first(char_total_bldg_sf)
   ) %>%
@@ -377,8 +361,12 @@ upload_data_prepped <- assessment_pin %>%
     # Hotfix for adjusting the total building value such that bldg_total *
     # proration_rate = unit_value. Only applies to buildings where rates don't
     # sum to 100%
-    pred_pin10_final_fmv_bldg = round(pred_pin10_final_fmv_bldg *
-      (1 / sum(meta_tieback_proration_rate, na.rm = TRUE))),
+    pred_pin10_final_fmv_bldg = round(
+      pred_pin10_final_fmv_bldg * (1 / sum(
+        meta_tieback_proration_rate,
+        na.rm = TRUE
+      ))
+    ),
 
     # For any missing LLINE values, simply fill with 1
     meta_lline_num = replace_na(meta_lline_num, 1)

@@ -2,61 +2,25 @@
 # 1. Setup ---------------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+# NOTE: See DESCRIPTION for library dependencies and R/setup.R for
+# variables used in each pipeline stage
+
 # Start the stage timer
 tictoc::tic.clearlog()
 tictoc::tic("Ingest")
 
-# Pre-allocate memory for java JDBC driver
-options(java.parameters = "-Xmx10g")
+# Load libraries, helpers, and recipes from files
+purrr::walk(list.files("R/", "\\.R$", full.names = TRUE), source)
 
-# Load R libraries
+# Load additional dev R libraries (see README#managing-r-dependencies)
 suppressPackageStartupMessages({
-  library(arrow)
-  library(ccao)
   library(DBI)
-  library(data.table)
-  library(dplyr)
-  library(glue)
-  library(here)
   library(igraph)
-  library(lubridate)
-  library(purrr)
-  library(reticulate)
-  library(RJDBC)
-  library(s2)
-  library(sf)
-  library(tictoc)
-  library(tidyr)
-  library(yaml)
+  library(noctua)
 })
-source(here("R", "helpers.R"))
-
-# Load Python packages and functions with reticulate
-use_virtualenv("pipenv/")
-source_python("py/flagging.py")
-
-# Initialize a dictionary of file paths. See misc/file_dict.csv for details
-paths <- model_file_dict()
-
-# Load the parameters file containing the run settings
-params <- read_yaml("params.yaml")
-
-# Setup the Athena JDBC driver
-aws_athena_jdbc_driver <- RJDBC::JDBC(
-  driverClass = "com.simba.athena.jdbc.Driver",
-  classPath = list.files("~/drivers", "^Athena.*jar$", full.names = TRUE),
-  identifier.quote = "'"
-)
 
 # Establish Athena connection
-AWS_ATHENA_CONN_JDBC <- dbConnect(
-  aws_athena_jdbc_driver,
-  url = Sys.getenv("AWS_ATHENA_JDBC_URL"),
-  aws_credentials_provider_class = Sys.getenv("AWS_CREDENTIALS_PROVIDER_CLASS"),
-  Schema = "Default",
-  WorkGroup = "read-only-with-scan-limit"
-)
-
+AWS_ATHENA_CONN_NOCTUA <- dbConnect(noctua::athena())
 
 
 
@@ -70,7 +34,7 @@ message("Pulling data from Athena")
 # parcels only for sales that sell with deeded parking spots
 tictoc::tic("Training data pulled")
 training_data <- dbGetQuery(
-  conn = AWS_ATHENA_CONN_JDBC, glue("
+  conn = AWS_ATHENA_CONN_NOCTUA, glue("
   SELECT
       sale.sale_price AS meta_sale_price,
       sale.sale_date AS meta_sale_date,
@@ -78,104 +42,53 @@ training_data <- dbGetQuery(
       sale.deed_type AS meta_sale_deed_type,
       sale.seller_name AS meta_sale_seller_name,
       sale.buyer_name AS meta_sale_buyer_name,
-      sale.sale_filter_is_outlier AS sv_is_ptax203_outlier,
+      sale.sv_is_outlier,
+      sale.sv_outlier_type,
       condo.*
   FROM model.vw_pin_condo_input condo
   INNER JOIN default.vw_pin_sale sale
       ON sale.pin = condo.meta_pin
-      AND sale.year = condo.meta_year
-  WHERE (condo.meta_year
+      AND sale.year = condo.year
+  WHERE condo.year
       BETWEEN '{params$input$min_sale_year}'
-      AND '{params$input$max_sale_year}')
+      AND '{params$input$max_sale_year}'
+  AND NOT sale.sale_filter_same_sale_within_365
+  AND NOT sale.sale_filter_less_than_10k
+  AND NOT sale.sale_filter_deed_type
+  AND Year(sale.sale_date) >= {params$input$min_sale_year}
   AND sale.num_parcels_sale <= 2
   ")
 )
-
-# Heuristic for handling multi-PIN sales. We want to keep sales with a deeded
-# parking spot, but only the sale for the unit, not the parking. Drop other
-# multi-unit sale types since we don't have a way to disaggregate each
-# unit's value
-training_data <- training_data %>%
-  group_by(meta_sale_document_num) %>%
-  arrange(meta_tieback_proration_rate) %>%
-  mutate(
-    keep_unit_sale =
-      meta_tieback_proration_rate >= (lag(meta_tieback_proration_rate) * 3)
-  ) %>%
-  filter(n() == 1 | (n() == 2 & keep_unit_sale)) %>%
-  ungroup() %>%
-  filter(!as.logical(as.numeric(ind_pin_is_multilline))) %>%
-  select(-keep_unit_sale)
-
 tictoc::toc()
 
-# Pull all condo input data for the assessment year. This will be the
-# data we actually run the model on
+# Pull all condo PIN input data for the assessment and prior year. We will only
+# use the assessment year to run the model, but the prior year can be used for
+# report generation
 tictoc::tic("Assessment data pulled")
-
-# 2022/2023 data is currently desynchronized between office collected
-# characteristics and the newest data available in the system of record.
-# Here we attach all of the data department's 2022 non-iasWorld data to
-# iasWorld's 2023 universe of condos and their associated iasWorld data to make
-# sure all condo data is as up-to-date as possible, and the assessment universe
-# is complete. THIS STEP SHOULD BE TEMPORARY AND ADDRESSED WITH A PERMANENT
-# SOLUTION ASAP.
 assessment_data <- dbGetQuery(
-  conn = AWS_ATHENA_CONN_JDBC, glue("
+  conn = AWS_ATHENA_CONN_NOCTUA, glue("
   SELECT *
   FROM model.vw_pin_condo_input
-  WHERE meta_year IN (
-    '{params$assessment$data_year}',
-    '{params$assessment$shift_year}'
+  WHERE year IN (
+    '{as.numeric(params$assessment$data_year) - 1}',
+    '{params$assessment$data_year}'
   )
   ")
 )
 tictoc::toc()
 
-# These meta columns need to be brought forward one year along with other
-# data department-sourced columns.
-shifted_meta_columns <- c(
-  "meta_year",
-  "meta_mailed_bldg",
-  "meta_mailed_land",
-  "meta_mailed_tot",
-  "meta_certified_bldg",
-  "meta_certified_land",
-  "meta_certified_tot",
-  "meta_board_bldg",
-  "meta_board_land",
-  "meta_board_tot",
-  "meta_1yr_pri_board_bldg",
-  "meta_1yr_pri_board_land",
-  "meta_1yr_pri_board_tot",
-  "meta_2yr_pri_board_bldg",
-  "meta_2yr_pri_board_land",
-  "meta_2yr_pri_board_tot"
-)
+# Save both years for report generation using the characteristics
+assessment_data %>%
+  write_parquet(paths$input$char$local)
 
-assessment_data_shifted <- left_join(
-  assessment_data %>%
-    filter(meta_year == params$assessment$shift_year) %>%
-    select(starts_with("meta") & !shifted_meta_columns),
-  assessment_data %>%
-    filter(meta_year == params$assessment$data_year) %>%
-    select(
-      c(
-        "meta_pin", "meta_card_num",
-        shifted_meta_columns,
-        !starts_with("meta")
-      )
-    ),
-  by = join_by(meta_pin, meta_card_num)
-) %>%
-  # We can't join on lline due to PINs that were switched from 399s to 299s b/w
-  # 2022 and 2023, which means we need to remove some duplicates.
-  distinct()
+# Save only the assessment year data to use for assessing values
+assessment_data <- assessment_data %>%
+  filter(year == params$assessment$data_year)
 
 # Pull  neighborhood-level land rates per sqft, as calculated by Valuations
 tictoc::tic("Land rate data pulled")
 land_nbhd_rate_data <- dbGetQuery(
-  conn = AWS_ATHENA_CONN_JDBC, glue("
+  conn = AWS_ATHENA_CONN_NOCTUA, glue("
   SELECT *
   FROM ccao.land_nbhd_rate
   WHERE year = '{params$assessment$year}'
@@ -184,8 +97,8 @@ land_nbhd_rate_data <- dbGetQuery(
 tictoc::toc()
 
 # Close connection to Athena
-dbDisconnect(AWS_ATHENA_CONN_JDBC)
-rm(AWS_ATHENA_CONN_JDBC, aws_athena_jdbc_driver)
+dbDisconnect(AWS_ATHENA_CONN_NOCTUA)
+rm(AWS_ATHENA_CONN_NOCTUA)
 
 
 
@@ -194,11 +107,12 @@ rm(AWS_ATHENA_CONN_JDBC, aws_athena_jdbc_driver)
 # 3. Define Functions ----------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# Ingest-specific helper functions for data cleaning, spatial lags, etc.
+# Ingest-specific helper functions for data cleaning, etc.
 
 # Create a dictionary of column types, as specified in ccao::vars_dict
 col_type_dict <- ccao::vars_dict %>%
-  distinct(var_name = var_name_model, var_type = var_data_type)
+  distinct(var_name = var_name_model, var_type = var_data_type) %>%
+  drop_na(var_name)
 
 # Mini-function to ensure that columns are the correct type
 recode_column_type <- function(col, col_name, dict = col_type_dict) {
@@ -279,71 +193,31 @@ rescale <- function(x, min = 0, max = 1) {
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 4. Validate Sales ------------------------------------------------------------
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-message("Validating training data sales")
-
-# Create an outlier sale flag using a variety of heuristics. See flagging.py for
-# the full list. Also exclude any sales that have a flag on Q10 of the PTAX-203
-# form AND are large statistical outliers
-training_data_w_sv <- training_data %>%
-  mutate(
-    meta_sale_price = as.numeric(meta_sale_price),
-    sv_is_ptax203_outlier = as.logical(as.numeric(sv_is_ptax203_outlier))
-  ) %>%
-  # Run Python-based automatic sales validation to identify outliers
-  create_stats(as.list(params$input$sale_validation$stat_groups)) %>%
-  string_processing() %>%
-  iso_forest(
-    as.list(params$input$sale_validation$stat_groups),
-    params$input$sale_validation$iso_forest
-  ) %>%
-  outlier_taxonomy(
-    as.list(params$input$sale_validation$dev_bounds),
-    as.list(params$input$sale_validation$stat_groups)
-  ) %>%
-  # Combine outliers identified via PTAX-203 with the heuristic-based outliers
-  rename(sv_is_autoval_outlier = sv_is_outlier) %>%
-  mutate(
-    sv_is_autoval_outlier = sv_is_autoval_outlier == "Outlier",
-    sv_is_autoval_outlier = replace_na(sv_is_autoval_outlier, FALSE),
-    sv_is_outlier = sv_is_autoval_outlier | sv_is_ptax203_outlier,
-    sv_outlier_type = ifelse(
-      sv_outlier_type == "Not outlier" & sv_is_ptax203_outlier,
-      "PTAX-203 flag",
-      sv_outlier_type
-    ),
-    sv_outlier_type = replace_na(sv_outlier_type, "Not outlier"),
-    sv_is_outlier = sv_outlier_type != "Not outlier"
-  ) %>%
-  select(
-    meta_pin, meta_sale_date, meta_sale_document_num,
-    sv_is_ptax203_outlier, sv_is_autoval_outlier, sv_is_outlier, sv_outlier_type
-  ) %>%
-  # Rejoin validation output to the original training data. CAUTION: converting
-  # data to pandas and back WILL alter certain R data types. For example,
-  # missing character values are replaced with "NA"
-  right_join(
-    training_data %>% select(-sv_is_ptax203_outlier),
-    by = c(
-      "meta_pin",
-      "meta_sale_date", "meta_sale_document_num"
-    )
-  )
-
-
-
-
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 5. Add Features and Clean ----------------------------------------------------
+# 4. Add Features and Clean ----------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 message("Adding time features and cleaning")
 
-## 5.1. Training Data ----------------------------------------------------------
+## 4.1. Training Data ----------------------------------------------------------
+
+# Heuristic for handling multi-PIN sales. We want to keep sales with a deeded
+# parking spot, but only the sale for the unit, not the parking. Drop other
+# multi-unit sale types since we don't have a way to disaggregate each
+# unit's value
+training_data <- training_data %>%
+  group_by(meta_sale_document_num) %>%
+  arrange(meta_tieback_proration_rate) %>%
+  mutate(
+    keep_unit_sale =
+      meta_tieback_proration_rate >= (lag(meta_tieback_proration_rate) * 3)
+  ) %>%
+  filter(n() == 1 | (n() == 2 & keep_unit_sale)) %>%
+  ungroup() %>%
+  filter(!as.logical(as.numeric(ind_pin_is_multilline))) %>%
+  select(-keep_unit_sale)
 
 # Clean up the training data. Goal is to get it into a publishable format.
 # Final featurization, missingness, etc. is handled via Tidymodels recipes
-training_data_clean <- training_data_w_sv %>%
+training_data_clean <- training_data %>%
   # Recode factor variables using the definitions stored in ccao::vars_dict
   # This will remove any categories not stored in the dictionary and convert
   # them to NA (useful since there are a lot of misrecorded variables)
@@ -352,11 +226,27 @@ training_data_clean <- training_data_w_sv %>%
   # because the SQL drivers will often coerce types on pull (boolean becomes
   # character)
   mutate(across(
-    !starts_with("sv_"),
+    any_of(col_type_dict$var_name),
     ~ recode_column_type(.x, cur_column())
   )) %>%
+  # Only exclude explicit outliers from training. Sales with missing validation
+  # outcomes will be considered non-outliers
+  mutate(
+    sv_is_outlier = replace_na(sv_is_outlier, FALSE),
+    sv_outlier_type = replace_na(sv_outlier_type, "Not outlier")
+  ) %>%
+  # Some Athena columns are stored as arrays but are converted to string on
+  # ingest. In such cases, take the first element and clean the string
+  mutate(
+    across(starts_with("loc_tax_"), \(x) str_replace_all(x, "\\[|\\]", "")),
+    across(starts_with("loc_tax_"), \(x) str_trim(str_split_i(x, ",", 1))),
+    across(starts_with("loc_tax_"), \(x) na_if(x, "")),
+    # Miscellanous column-level cleanup
+    ccao_is_corner_lot = replace_na(ccao_is_corner_lot, FALSE),
+    across(where(is.character), \(x) na_if(x, ""))
+  ) %>%
   # Create time/date features using lubridate
-  dplyr::mutate(
+  mutate(
     # Calculate interval periods and time since the start of the sales sample
     time_interval = interval(
       make_date(params$input$min_sale_year, 1, 1),
@@ -370,37 +260,36 @@ training_data_clean <- training_data_w_sv %>%
     time_sale_day_of_year = as.integer(yday(meta_sale_date)),
     time_sale_day_of_month = as.integer(day(meta_sale_date)),
     time_sale_day_of_week = as.integer(wday(meta_sale_date)),
-    time_sale_post_covid = meta_sale_date >= make_date(2020, 3, 15),
-    # Time window to use for cross-validation during training. The last X% of
-    # each window is held out as a validation set
-    time_split = time_interval %/% months(params$input$time_split),
-    # Collapse the last 2 splits into their earlier neighbor. This is done
-    # because part of the final time window will be held out for the test set,
-    # which will shrink the last split to the point of being too small for CV
-    time_split = ifelse(
-      time_split > max(time_split) - 2,
-      max(time_split) - 2,
-      time_split
-    ),
-    time_split = as.character(time_split + 1),
-    time_split = factor(time_split, levels = sort(unique(time_split)))
+    time_sale_post_covid = meta_sale_date >= make_date(2020, 3, 15)
   ) %>%
   select(-time_interval) %>%
-  relocate(starts_with("sv_"), .after = everything())
+  relocate(starts_with("sv_"), .after = everything()) %>%
+  as_tibble()
 
 
-## 5.2. Assessment Data --------------------------------------------------------
+## 4.2. Assessment Data --------------------------------------------------------
 
 # Clean the assessment data. This is the target data that the trained model is
 # used on. The cleaning steps are the same as above, with the exception of the
 # time variables
-assessment_data_clean <- assessment_data_shifted %>%
+assessment_data_clean <- assessment_data %>%
   ccao::vars_recode(cols = starts_with("char_"), type = "code") %>%
-  mutate(across(everything(), ~ recode_column_type(.x, cur_column()))) %>%
+  mutate(across(
+    any_of(col_type_dict$var_name),
+    ~ recode_column_type(.x, cur_column())
+  )) %>%
+  # Same Athena string cleaning and feature cleanup as the training data
+  mutate(
+    across(starts_with("loc_tax_"), \(x) str_replace_all(x, "\\[|\\]", "")),
+    across(starts_with("loc_tax_"), \(x) str_trim(str_split_i(x, ",", 1))),
+    across(starts_with("loc_tax_"), \(x) na_if(x, "")),
+    ccao_is_corner_lot = replace_na(ccao_is_corner_lot, FALSE),
+    across(where(is.character), \(x) na_if(x, ""))
+  ) %>%
   # Create sale date features BASED ON THE ASSESSMENT DATE. The model predicts
   # the sale price of properties on the date of assessment. Not the date of an
   # actual sale
-  dplyr::mutate(
+  mutate(
     meta_sale_date = as_date(params$assessment$date),
     time_interval = interval(
       make_date(params$input$min_sale_year, 1, 1),
@@ -415,26 +304,26 @@ assessment_data_clean <- assessment_data_shifted %>%
     time_sale_day_of_week = as.integer(wday(meta_sale_date)),
     time_sale_post_covid = meta_sale_date >= make_date(2020, 3, 15)
   ) %>%
-  select(-time_interval)
+  as_tibble()
 
 
-## 5.3. Land Rates -------------------------------------------------------------
+## 4.3. Land Rates -------------------------------------------------------------
 message("Saving land rates")
 
 # Write land data directly to file, since it's already mostly clean
 land_nbhd_rate_data %>%
-  select(meta_nbhd = town_nbhd, land_rate_per_sqft) %>%
+  select(meta_nbhd = town_nbhd, meta_class = class, land_rate_per_sqft) %>%
   write_parquet(paths$input$land_nbhd_rate$local)
 
 
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 6. Condo Strata --------------------------------------------------------------
+# 5. Condo Strata --------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 message("Calculating condo strata")
 
-## 6.1. Calculate Strata -------------------------------------------------------
+## 5.1. Calculate Strata -------------------------------------------------------
 
 # Condominiums' unit characteristics (such as square footage, # of bedrooms,
 # etc.) are not tracked by the CCAO. As such, e need to rely on other
@@ -533,7 +422,7 @@ bldg_strata_model %>%
   write_parquet(paths$input$condo_strata$local)
 
 
-## 6.2. Assign Strata ----------------------------------------------------------
+## 5.2. Assign Strata ----------------------------------------------------------
 
 # Use strata models to create strata of building-level, previous-5-year sale
 # prices. These strata are used as categorical variables in the model
@@ -571,7 +460,7 @@ assessment_data_w_strata <- assessment_data_clean %>%
   write_parquet(paths$input$assessment$local)
 
 
-## 6.3. Missing Strata ---------------------------------------------------------
+## 5.3. Missing Strata ---------------------------------------------------------
 
 # Condo buildings that don't have any recent sales will be missing strata.
 # We use KNN to assign strata for those buildings based on longitude, latitude,
@@ -581,7 +470,7 @@ assessment_data_w_strata <- assessment_data_clean %>%
 
 # Reminder to upload to DVC store
 message(
-  "Be sure to add updated input data to DVC and finalized data to git LFS!\n",
+  "Be sure to add updated input data to DVC and finalized data to S3\n",
   "See https://dvc.org/doc/start/data-management/data-versioning ",
   "for more information"
 )

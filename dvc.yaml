@@ -8,11 +8,12 @@ stages:
     - input
     outs:
     - input/assessment_data.parquet
+    - input/char_data.parquet
     - input/condo_strata_data.parquet
     - input/land_nbhd_rate_data.parquet
     - input/training_data.parquet
-
     frozen: true
+
   train:
     cmd: Rscript pipeline/01-train.R
     desc: >
@@ -22,7 +23,6 @@ stages:
     - input/training_data.parquet
     params:
     - cv
-    - input.time_split
     - model.engine
     - model.hyperparameter
     - model.objective
@@ -87,22 +87,23 @@ stages:
     params:
     - assessment.data_year
     - ratio_study
-    - run_type
     outs:
-    - output/intermediate/timing/model_timing_evaluate.parquet:
-        cache: false
-    - output/performance/model_performance_assessment.parquet:
-        cache: false
     - output/performance/model_performance_test.parquet:
-        cache: false
-    - output/performance_quantile/model_performance_quantile_assessment.parquet:
         cache: false
     - output/performance_quantile/model_performance_quantile_test.parquet:
         cache: false
+    - output/performance/model_performance_assessment.parquet:
+        cache: false
+    - output/performance_quantile/model_performance_quantile_assessment.parquet:
+        cache: false
+    - output/intermediate/timing/model_timing_evaluate.parquet:
+        cache: false
+
   interpret:
     cmd: Rscript pipeline/04-interpret.R
     desc: >
-      Generate SHAP values for each card and feature in the assessment data
+      Generate SHAP values for each card and feature as well as feature
+      importance metrics for each feature
     deps:
     - input/assessment_data.parquet
     - output/workflow/fit/model_workflow_fit.zip
@@ -111,6 +112,8 @@ stages:
     - model.predictor.all
     outs:
     - output/shap/model_shap.parquet:
+        cache: false
+    - output/feature_importance/model_feature_importance.parquet:
         cache: false
     - output/intermediate/timing/model_timing_interpret.parquet:
         cache: false
@@ -127,7 +130,6 @@ stages:
     - output/intermediate/timing/model_timing_interpret.parquet
     params:
     - run_note
-    - run_type
     - toggle
     - input
     - cv
@@ -141,7 +143,7 @@ stages:
         cache: false
     - output/metadata/model_metadata.parquet:
         cache: false
-    - reports/performance.html:
+    - reports/performance/performance.html:
         cache: false
 
   upload:
@@ -165,9 +167,10 @@ stages:
     - output/performance/model_performance_assessment.parquet
     - output/performance_quantile/model_performance_quantile_assessment.parquet
     - output/shap/model_shap.parquet
+    - output/feature_importance/model_feature_importance.parquet
     - output/metadata/model_metadata.parquet
     - output/timing/model_timing.parquet
-    - reports/performance.html
+    - reports/performance/performance.html
 
   export:
     cmd: Rscript pipeline/07-export.R
@@ -176,7 +179,9 @@ stages:
       run. NOT automatically run since it is typically only run once. Manually
       run once a model is selected
     params:
-    - assessment
+    - assessment.year
+    - input.min_sale_year
+    - input.max_sale_year
     - ratio_study
     - export
     frozen: true
