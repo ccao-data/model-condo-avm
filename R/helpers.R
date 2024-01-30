@@ -63,14 +63,6 @@ model_get_s3_artifacts_for_run <- function(run_id, year) {
   return(c(s3_objs_limited, s3_objs_w_run_id))
 }
 
-# Used to delete erroneous, incomplete, or otherwise unwanted runs
-# Use with caution! Deleted models are retained for a period of time before
-# being permanently deleted
-model_delete_run <- function(run_id, year) {
-  model_get_s3_artifacts_for_run(run_id, year) %>%
-    purrr::walk(aws.s3::delete_object)
-}
-
 # Used to fetch a run's output from S3 and populate it locally. Useful for
 # running reports and performing local troubleshooting
 model_fetch_run <- function(run_id, year) {
