@@ -12,12 +12,12 @@
 # Note included with each run. Use this to summarize what changed about the run
 # or add context
 run_note: >
-  Test run for updated 2024 model pipeline. No new condo chars.
+  Test run for updated 2024 model pipeline. City tri, new condo chars.
 
 toggle:
   # Should the train stage run full cross-validation? Otherwise, the model
   # will be trained with the default hyperparameters specified below
-  cv_enable: FALSE
+  cv_enable: TRUE
 
   # Should SHAP values be calculated for this run in the interpret stage? Can be
   # desirable to save time when testing many models
