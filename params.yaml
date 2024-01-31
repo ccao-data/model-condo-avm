@@ -149,6 +149,7 @@ model:
       - "char_building_units"
       - "char_building_non_units"
       - "char_bldg_is_mixed_use"
+      - "char_building_sf"
       - "loc_longitude"
       - "loc_latitude"
       - "loc_env_flood_fema_sfha"
