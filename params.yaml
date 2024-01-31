@@ -12,8 +12,8 @@
 # Note included with each run. Use this to summarize what changed about the run
 # or add context
 run_note: >
-  Test run for updated 2024 model pipeline. Remove nonlivable spaces from ratio
-  study.
+  Test run for updated 2024 model pipeline. Remove CCAO collected
+  characteristics.
 
 toggle:
   # Should the train stage run full cross-validation? Otherwise, the model
@@ -149,11 +149,6 @@ model:
       - "char_building_units"
       - "char_building_non_units"
       - "char_bldg_is_mixed_use"
-      - "char_building_sf"
-      - "char_unit_sf"
-      - "char_bedrooms"
-      - "char_half_baths"
-      - "char_full_baths"
       - "loc_longitude"
       - "loc_latitude"
       - "loc_env_flood_fema_sfha"
