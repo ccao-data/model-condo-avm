@@ -55,6 +55,7 @@ training_data <- dbGetQuery(
   AND NOT sale.sale_filter_same_sale_within_365
   AND NOT sale.sale_filter_less_than_10k
   AND NOT sale.sale_filter_deed_type
+  AND NOT sale.is_multisale
   AND Year(sale.sale_date) >= {params$input$min_sale_year}
   AND sale.num_parcels_sale <= 2
   ")
