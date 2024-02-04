@@ -59,7 +59,10 @@ training_data <- dbGetQuery(
   AND Year(sale.sale_date) >= {params$input$min_sale_year}
   AND sale.num_parcels_sale <= 2
   ")
-)
+) %>%
+  mutate(bins = ntile(meta_sale_price, 20)) %>%
+  filter(!(bins %in% c(1, 20))) %>%
+  select(-bins)
 tictoc::toc()
 
 # Pull all condo PIN input data for the assessment and prior year. We will only

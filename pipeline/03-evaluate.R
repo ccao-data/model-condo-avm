@@ -43,7 +43,7 @@ message("Loading evaluation data")
 test_data_card <- read_parquet(paths$output$test_card$local) %>%
   filter(
     !is.na(loc_census_puma_geoid),
-    !flag_nonlivable_space
+    meta_modeling_group == "CONDO"
   )
 
 # Load the assessment results from the previous stage. This will include every
