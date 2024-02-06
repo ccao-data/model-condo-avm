@@ -97,7 +97,7 @@ model_lin_recipe <- function(data, pred_vars, cat_vars,
     ) %>%
     # Transforms and imputations
     step_mutate(
-      char_building_sf = ifelse(char_building_sf == 0, 1, char_building_sf)
+      #char_building_sf = ifelse(char_building_sf == 0, 1, char_building_sf)
     ) %>%
     step_mutate_at(
       starts_with("ind_"),
