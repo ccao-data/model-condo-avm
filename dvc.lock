@@ -5,15 +5,15 @@ stages:
     params:
       params.yaml:
         assessment:
-          year: '2024'
-          date: '2024-01-01'
+          year: '2023'
+          date: '2023-01-01'
           triad: city
           group: condo
-          data_year: '2023'
-          working_year: '2024'
+          data_year: '2022'
+          working_year: '2023'
         input:
-          min_sale_year: '2015'
-          max_sale_year: '2023'
+          min_sale_year: '2014'
+          max_sale_year: '2022'
           strata:
             seed: 123
             group_var:
@@ -26,24 +26,24 @@ stages:
     outs:
     - path: input/assessment_data.parquet
       hash: md5
-      md5: 9f1a4cb2c2b1533e568b936404913d44
-      size: 84715114
+      md5: fd46761937980c17d1786a492d6ae779
+      size: 89841947
     - path: input/char_data.parquet
       hash: md5
-      md5: f41f4dacb0e7c6fca57e4cacb3bb0218
-      size: 161460676
+      md5: ed7f8e84de7efb869d5b9af2341694f1
+      size: 169965867
     - path: input/condo_strata_data.parquet
       hash: md5
-      md5: 68c07b633902d6de2b7f564ad2e5e304
-      size: 40750
+      md5: 052e17bc9e83a9cb4bdf35f45dce3bfd
+      size: 40768
     - path: input/land_nbhd_rate_data.parquet
       hash: md5
-      md5: e508daf5790982c303d6503fe1cb8e2b
-      size: 4413
+      md5: 9068415d8a360a708f6b0866d2a8338c
+      size: 6313
     - path: input/training_data.parquet
       hash: md5
-      md5: 97b6ced3adb788e20fb2fc3758cd38a2
-      size: 53281136
+      md5: 4de8a7d52796203e4cc831bd035c8d48
+      size: 54461138
   train:
     cmd: Rscript pipeline/01-train.R
     deps:
@@ -55,7 +55,6 @@ stages:
       params.yaml:
         cv:
           split_prop: 0.9
-          num_folds: 7
           fold_overlap: 9
           initial_set: 20
           max_iterations: 50
@@ -261,8 +260,8 @@ stages:
     outs:
     - path: output/intermediate/timing/model_timing_train.parquet
       hash: md5
-      md5: e22f95686a46af81d2e34a095918fc71
-      size: 2872
+      md5: 2a1bd76cefa0e890a0c44d4c1957b728
+      size: 2865
     - path: output/parameter_final/model_parameter_final.parquet
       hash: md5
       md5: e8bee777cc37b928818f58e5f10c30ef
@@ -277,16 +276,16 @@ stages:
       size: 501
     - path: output/test_card/model_test_card.parquet
       hash: md5
-      md5: 24926b71b790514446d9dd77389ce425
-      size: 1085768
+      md5: 0c39e69ea32a78d6ffadf87fc9eab1e0
+      size: 1085792
     - path: output/workflow/fit/model_workflow_fit.zip
       hash: md5
-      md5: c36d17ccdd39253bfa9c4fa64c3054b5
-      size: 11606790
+      md5: d7223e5a080f2bbaaca75ab8eeddfb2b
+      size: 11610240
     - path: output/workflow/recipe/model_workflow_recipe.rds
       hash: md5
-      md5: 769c1f6b5ec69276dd895caf29d48a32
-      size: 3391340
+      md5: bef3c1299229b126404c8ac251ad981e
+      size: 3391336
   assess:
     cmd: Rscript pipeline/02-assess.R
     deps:
@@ -308,12 +307,12 @@ stages:
       size: 53281136
     - path: output/workflow/fit/model_workflow_fit.zip
       hash: md5
-      md5: c36d17ccdd39253bfa9c4fa64c3054b5
-      size: 11606790
+      md5: d7223e5a080f2bbaaca75ab8eeddfb2b
+      size: 11610240
     - path: output/workflow/recipe/model_workflow_recipe.rds
       hash: md5
-      md5: 769c1f6b5ec69276dd895caf29d48a32
-      size: 3391340
+      md5: bef3c1299229b126404c8ac251ad981e
+      size: 3391336
     params:
       params.yaml:
         assessment:
@@ -437,16 +436,16 @@ stages:
     outs:
     - path: output/assessment_card/model_assessment_card.parquet
       hash: md5
-      md5: 506ec2ac83b82c29e698d94daf262a52
-      size: 46536724
+      md5: 32956ff98cb61bf379d91876075d856a
+      size: 46538183
     - path: output/assessment_pin/model_assessment_pin.parquet
       hash: md5
-      md5: c205edeea9b8cd7d954546ce0d4ee99b
-      size: 43620940
+      md5: e4b201478916e76c05281e80239a1715
+      size: 43587426
     - path: output/intermediate/timing/model_timing_assess.parquet
       hash: md5
-      md5: 3fa79313c195ca8ff35b07620bd2ceda
-      size: 2886
+      md5: e5aa33e79f26f4c243126e3874f8df2c
+      size: 2879
   evaluate:
     cmd: Rscript pipeline/03-evaluate.R
     deps:
