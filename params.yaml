@@ -301,7 +301,7 @@ model:
       cat_l2: 0.11
       lambda_l1: 0.016
       lambda_l2: 2.413
-      neighbors: 5
+      neighbors: 7
 
     # Range of possible hyperparameter values for tuning to explore
     range:
