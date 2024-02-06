@@ -72,7 +72,7 @@ input:
     type: "ntile"
 
     # Number of quantiles of centers to use when constructing strata
-    k_1: 10
+    k_1: 20
     k_2: 100
 
     # Max and min weights for mean sale price weighted by sale date i.e. the
@@ -301,7 +301,7 @@ model:
       cat_l2: 0.11
       lambda_l1: 0.016
       lambda_l2: 2.413
-      neighbors: 7
+      neighbors: 5
 
     # Range of possible hyperparameter values for tuning to explore
     range:
