@@ -13,6 +13,7 @@
 # or add context
 run_note: >
   Test run for updated 2024 model pipeline.
+  Revert time window.
 
 toggle:
   # Should the train stage run full cross-validation? Otherwise, the model
