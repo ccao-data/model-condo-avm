@@ -122,7 +122,7 @@ model_lin_recipe <- function(data, pred_vars, cat_vars,
     step_BoxCox(
       acs5_median_income_per_capita_past_year,
       acs5_median_income_household_past_year,
-      char_building_sf
+      #char_building_sf
     ) %>%
     step_normalize(
       acs5_median_household_renter_occupied_gross_rent,
