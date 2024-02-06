@@ -72,7 +72,7 @@ input:
     type: "ntile"
 
     # Number of quantiles of centers to use when constructing strata
-    k_1: 20
+    k_1: 10
     k_2: 100
 
     # Max and min weights for mean sale price weighted by sale date i.e. the
@@ -92,7 +92,6 @@ cv:
   # Number of folds to use for cross-validation. For v-fold CV, the data will be
   # randomly split. For rolling-origin, the data will be split into V chunks by
   # time, with each chunk/period calculated automatically
-  num_folds: 7
 
   # The number of months time-based folds should overlap each other. Only
   # applicable to rolling-origin CV. See https://www.tmwr.org/resampling#rolling
