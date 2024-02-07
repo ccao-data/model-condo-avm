@@ -397,45 +397,25 @@ upload_data_prepped <- assessment_pin %>%
       select(meta_year, meta_pin, meta_card_num, meta_lline_num),
     by = c("meta_year", "meta_pin")
   ) %>%
-  mutate(meta_pin10 = str_sub(meta_pin, 1, 10)) %>%
-  group_by(meta_pin10, meta_tieback_proration_rate) %>%
-  # For PINs missing an individual building value, fill with the average of
-  # PINs with the same proration rate in the building. This is super rare,
-  # maybe 1 PIN out of every 100K. It happens mostly because of mis-coded nbhds
   mutate(
+    # For PINs missing an individual building value, fill with the average of
+    # PINs with the same proration rate in the building. This is super rare,
+    # maybe 1 PIN out of every 100K. It happens mostly because of mis-coded
+    # nbhds
     pred_pin_final_fmv_bldg = ifelse(
       is.na(pred_pin_final_fmv_bldg),
       mean(pred_pin_final_fmv_bldg, na.rm = TRUE),
       pred_pin_final_fmv_bldg
-    )
-  ) %>%
-  group_by(meta_pin10) %>%
-  mutate(
-    # Sum the building value of each PIN to the building total value
-    pred_pin10_final_fmv_bldg = sum(pred_pin_final_fmv_bldg, na.rm = TRUE),
-
-    # Hotfix for adjusting the total building value such that bldg_total *
-    # proration_rate = unit_value. Only applies to buildings where rates don't
-    # sum to 100%
-    pred_pin10_final_fmv_bldg = round(
-      pred_pin10_final_fmv_bldg * (1 / sum(
-        meta_tieback_proration_rate,
-        na.rm = TRUE
-      ))
     ),
-
     # For any missing LLINE values, simply fill with 1
     meta_lline_num = replace_na(meta_lline_num, 1)
   ) %>%
-  ungroup() %>%
   select(
     township_code = meta_township_code,
     PARID = meta_pin,
     CARD = meta_card_num,
     LLINE = meta_lline_num,
-    USER18 = pred_pin10_final_fmv_bldg,
-    USER20 = meta_tieback_proration_rate,
-    OVRRCNLD = pred_pin_final_fmv_bldg
+    MV = pred_pin_final_fmv_bldg
   ) %>%
   arrange(township_code, PARID)
 
