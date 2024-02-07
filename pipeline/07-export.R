@@ -280,6 +280,15 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   )
   addFilter(wb, pin_sheet_name, 6, 1:47)
 
+  # Format YoY % change column with a range of colors from low to high
+  conditionalFormatting(
+    wb, pin_sheet_name,
+    cols = c(24),
+    rows = pin_row_range,
+    style = c("#F8696B", "#FFFFFF", "#00B0F0"),
+    rule = c(-1, 0, 1),
+    type = "colourScale"
+  )
   # Format sale columns such that they are red if the sale has an outlier flag
   conditionalFormatting(
     wb, pin_sheet_name,
