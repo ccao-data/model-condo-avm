@@ -105,7 +105,7 @@ assessment_pin_prepped <- assessment_pin %>%
   ) %>%
   select(
     township_code, meta_pin, meta_class, meta_nbhd_code,
-    property_full_address, loc_cook_municipality_name, meta_pin10,
+    property_full_address, loc_tax_municipality_name, meta_pin10,
     meta_tieback_key_pin, meta_tieback_proration_rate,
     prior_near_land, prior_near_bldg, prior_near_tot,
     prior_near_land_rate, prior_near_bldg_rate, prior_near_land_pct_total,
@@ -120,9 +120,8 @@ assessment_pin_prepped <- assessment_pin %>%
     char_yrblt, char_total_bldg_sf, char_type_resd, char_land_sf,
     char_unit_sf, flag_nonlivable_space, flag_pin10_5yr_num_sale,
     flag_common_area, flag_proration_sum_not_1, flag_pin_is_multiland,
-    flag_land_gte_95_percentile, flag_bldg_gte_95_percentile,
+    flag_land_gte_95_percentile,
     flag_land_value_capped, flag_prior_near_to_pred_unchanged,
-    flag_pred_initial_to_final_changed,
     flag_prior_near_yoy_inc_gt_50_pct, flag_prior_near_yoy_dec_gt_5_pct
   ) %>%
   mutate(
@@ -146,7 +145,7 @@ assessment_pin10_prepped <- assessment_pin_prepped %>%
   group_by(township_code, meta_pin10, meta_nbhd_code) %>%
   summarize(
     property_full_address = first(property_full_address),
-    loc_cook_municipality_name = first(loc_cook_municipality_name),
+    loc_tax_municipality_name = first(loc_tax_municipality_name),
     num_pin_livable = sum(!flag_nonlivable_space),
     num_pin_nonlivable = sum(flag_nonlivable_space),
     total_tieback_proration_rate = sum(meta_tieback_proration_rate),
@@ -279,12 +278,12 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     style = style_link,
     rows = pin_row_range, cols = c(6), gridExpand = TRUE
   )
-  addFilter(wb, pin_sheet_name, 6, 1:49)
+  addFilter(wb, pin_sheet_name, 6, 1:47)
 
   # Format sale columns such that they are red if the sale has an outlier flag
   conditionalFormatting(
     wb, pin_sheet_name,
-    cols = 25:27,
+    cols = 25:28,
     rows = pin_row_range,
     style = createStyle(bgFill = "#FF9999"),
     rule = '$AA7!=""',
@@ -295,7 +294,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   # to apply it to the second range of columns
   conditionalFormatting(
     wb, pin_sheet_name,
-    cols = 29:31,
+    cols = 29:32,
     rows = pin_row_range,
     style = createStyle(bgFill = "#FF9999"),
     rule = '$AE7!=""',
