@@ -44,7 +44,10 @@ test_data_card <- read_parquet(paths$output$test_card$local) %>%
   filter(
     !is.na(loc_census_puma_geoid),
     meta_modeling_group == "CONDO"
-  )
+  ) %>%
+  mutate(bin = ntile(pred_card_initial_fmv / meta_sale_price, 20)) %>%
+  filter(!(bin %in% c(1, 20))) %>%
+  select(-bin)
 
 # Load the assessment results from the previous stage. This will include every
 # residential PIN that needs a value.
@@ -53,6 +56,8 @@ assessment_data_pin <- read_parquet(paths$output$assessment_pin$local) %>%
     meta_triad_code == run_triad_code,
     !flag_nonlivable_space
   ) %>%
+  mutate(bin = ntile(pred_pin_final_fmv_round / sale_ratio_study_price, 20)) %>%
+  filter(!(bin %in% c(1, 20))) %>%
   select(
     meta_pin, meta_class, meta_triad_code,
     all_of(params$ratio_study$geographies),

@@ -12,8 +12,8 @@
 # Note included with each run. Use this to summarize what changed about the run
 # or add context
 run_note: >
-  Test run for updated 2024 model pipeline. Remove CCAO collected
-  characteristics.
+  Test run for updated 2024 model pipeline. Trim off top and bottom 5% of ratios
+  before evaluation
 
 toggle:
   # Should the train stage run full cross-validation? Otherwise, the model
