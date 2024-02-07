@@ -113,8 +113,10 @@ assessment_pin_prepped <- assessment_pin %>%
     pred_pin_final_fmv_round, land_rate_per_sqft, pred_pin_land_rate_effective,
     pred_pin_bldg_rate_effective, pred_pin_land_pct_total,
     prior_near_yoy_change_nom, prior_near_yoy_change_pct,
-    sale_recent_1_date, sale_recent_1_price, sale_recent_1_document_num,
-    sale_recent_2_date, sale_recent_2_price, sale_recent_2_document_num,
+    sale_recent_1_date, sale_recent_1_price,
+    sale_recent_1_outlier_type, sale_recent_1_document_num,
+    sale_recent_2_date, sale_recent_2_price,
+    sale_recent_2_outlier_type, sale_recent_2_document_num,
     char_yrblt, char_total_bldg_sf, char_type_resd, char_land_sf,
     char_unit_sf, flag_nonlivable_space, flag_pin10_5yr_num_sale,
     flag_common_area, flag_proration_sum_not_1, flag_pin_is_multiland,
@@ -174,13 +176,50 @@ assessment_pin10_prepped <- assessment_pin_prepped %>%
 for (town in unique(assessment_pin_prepped$township_code)) {
   message("Now processing: ", town_convert(town))
 
+  workbook_name <- glue(
+    params$assessment$year,
+    str_replace(town_convert(town), " ", "_"),
+    "Initial_Model_Values_Condo.xlsx",
+    .sep = "_"
+  )
 
   ## 4.1. PIN-Level ------------------------------------------------------------
+
+  # Filter building data to specific township
+  assessment_pin10_filtered <- assessment_pin10_prepped %>%
+    filter(township_code == town) %>%
+    select(-township_code)
+
+  building_coords <- assessment_pin10_filtered %>%
+    tibble::rowid_to_column("building_coord") %>%
+    select(meta_pin10, building_coord)
+
+  pin_sheet_name <- "PIN Detail"
+  bldg_sheet_name <- "Buildings"
 
   # Filter overall data to specific township
   assessment_pin_filtered <- assessment_pin_prepped %>%
     filter(township_code == town) %>%
-    select(-township_code)
+    select(-township_code) %>%
+    left_join(building_coords, by = "meta_pin10") %>%
+    mutate(
+      building_coord = ifelse(
+        is.na(building_coord),
+        NA,
+        getCellRefs(data.frame(row = building_coord + 4, column = 1))
+      )
+    ) %>%
+    mutate(
+      meta_pin10 = ifelse(
+        is.na(building_coord),
+        NA,
+        glue::glue(
+          '=HYPERLINK("[{workbook_name}]{bldg_sheet_name}!',
+          '{building_coord}","{meta_pin10}")'
+        )
+      )
+    ) %>%
+    select(-building_coord)
 
   # Generate sheet and column headers
   model_header <- str_to_title(paste(
@@ -194,7 +233,9 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     .sep = " "
   ))
 
-  pin_sheet_name <- "PIN Detail"
+  class(assessment_pin_filtered$meta_pin10) <- c(
+    class(assessment_pin_filtered$meta_pin10), "formula"
+  )
   class(assessment_pin_filtered$meta_pin) <- c(
     class(assessment_pin_filtered$meta_pin), "formula"
   )
@@ -210,12 +251,13 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   style_2digit <- createStyle(numFmt = "$#,##0.00")
   style_pct <- createStyle(numFmt = "PERCENTAGE")
   style_comma <- createStyle(numFmt = "COMMA")
+  style_link <- createStyle(fontColour = "blue", textDecoration = "underline")
 
   # Add styles to PIN sheet
   addStyle(
     wb, pin_sheet_name,
     style = style_price,
-    rows = pin_row_range, cols = c(9:11, 15:18, 23, 26, 29), gridExpand = TRUE
+    rows = pin_row_range, cols = c(9:11, 15:18, 23, 26, 30), gridExpand = TRUE
   )
   addStyle(
     wb, pin_sheet_name,
@@ -230,9 +272,35 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   addStyle(
     wb, pin_sheet_name,
     style = style_comma,
-    rows = pin_row_range, cols = c(32, 34, 35, 37), gridExpand = TRUE
+    rows = pin_row_range, cols = c(34, 36, 37, 39), gridExpand = TRUE
   )
-  addFilter(wb, pin_sheet_name, 6, 1:44)
+  addStyle(
+    wb, pin_sheet_name,
+    style = style_link,
+    rows = pin_row_range, cols = c(6), gridExpand = TRUE
+  )
+  addFilter(wb, pin_sheet_name, 6, 1:49)
+
+  # Format sale columns such that they are red if the sale has an outlier flag
+  conditionalFormatting(
+    wb, pin_sheet_name,
+    cols = 25:27,
+    rows = pin_row_range,
+    style = createStyle(bgFill = "#FF9999"),
+    rule = '$AA7!=""',
+    type = "expression"
+  )
+  # For some reason vector cols don't work with expressions, so we have
+  # to duplicate the conditional formatting for the sale outlier flag above
+  # to apply it to the second range of columns
+  conditionalFormatting(
+    wb, pin_sheet_name,
+    cols = 29:31,
+    rows = pin_row_range,
+    style = createStyle(bgFill = "#FF9999"),
+    rule = '$AE7!=""',
+    type = "expression"
+  )
 
   # Write PIN-level data to workbook
   writeData(
@@ -244,6 +312,11 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   writeFormula(
     wb, pin_sheet_name,
     assessment_pin_filtered$meta_pin,
+    startRow = 7
+  )
+  writeFormula(
+    wb, pin_sheet_name,
+    assessment_pin_filtered$meta_pin10,
     startRow = 7
   )
   writeData(
@@ -265,13 +338,6 @@ for (town in unique(assessment_pin_prepped$township_code)) {
 
 
   # 4.2. Building-Level --------------------------------------------------------
-
-  # Filter building data to specific township
-  assessment_pin10_filtered <- assessment_pin10_prepped %>%
-    filter(township_code == town) %>%
-    select(-township_code)
-
-  bldg_sheet_name <- "Building (PIN10)"
 
   # Get range of rows in the building data + number of header rows
   bldg_row_range <- 5:(nrow(assessment_pin10_filtered) + 6)
@@ -312,16 +378,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
 
   # Save workbook to file based on town name
   saveWorkbook(
-    wb,
-    here(
-      "output", "desk_review",
-      glue(
-        params$assessment$year,
-        str_replace(town_convert(town), " ", "_"),
-        "Initial_Model_Values_Condo.xlsx",
-        .sep = "_"
-      )
-    ),
+    wb, here("output", "desk_review", workbook_name),
     overwrite = TRUE
   )
   rm(wb)
