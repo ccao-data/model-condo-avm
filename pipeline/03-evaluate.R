@@ -44,13 +44,7 @@ test_data_card <- read_parquet(paths$output$test_card$local) %>%
   filter(
     !is.na(loc_census_puma_geoid),
     meta_modeling_group == "CONDO"
-  ) %>%
-  mutate(ratio = pred_card_initial_fmv / meta_sale_price) %>%
-  filter(
-    between(ratio, quantile(ratio, 0.05), quantile(ratio, 0.95)),
-    .by = meta_township_code
-  ) %>%
-  select(-ratio)
+  )
 
 # Load the assessment results from the previous stage. This will include every
 # residential PIN that needs a value.
@@ -58,15 +52,6 @@ assessment_data_pin <- read_parquet(paths$output$assessment_pin$local) %>%
   filter(
     meta_triad_code == run_triad_code,
     !flag_nonlivable_space
-  ) %>%
-  mutate(ratio = pred_pin_final_fmv_round / sale_ratio_study_price) %>%
-  filter(
-    between(
-      ratio,
-      quantile(ratio, 0.05, na.rm = TRUE),
-      quantile(ratio, 0.95, na.rm = TRUE)
-    ),
-    .by = meta_township_code
   ) %>%
   select(
     meta_pin, meta_class, meta_triad_code,
@@ -171,7 +156,7 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
 
       # Assessment-specific ratio stats
       rs_lst = rs_fns_list %>%
-        map(., \(f) exec(f, pmin({{ estimate }}, 1), {{ truth }})) %>%
+        map(., \(f) exec(f, pmax({{ estimate }}, 1), {{ truth }})) %>%
         list(),
       median_ratio = median({{ estimate }} / {{ truth }}, na.rm = TRUE),
 
