@@ -9,7 +9,6 @@ Depends:
     ccao,
     conflicted,
     dplyr,
-    embed,
     furrr,
     git2r,
     glue,
@@ -81,5 +80,4 @@ Config/renv/profiles/reporting/dependencies:
     svglite,
     tableone,
     tools,
-    xfun,
     xgboost
