@@ -19,8 +19,7 @@ rsn_prefix <- gsub("_tot", "", params$ratio_study$near_column)
 # Load the training data to use as a source of sales. These will be attached to
 # PIN-level output (for comparison) and used as the basis for a sales ratio
 # analysis on the assessment data
-sales_data <- read_parquet(paths$input$training$local) %>%
-  filter(!sv_is_outlier)
+sales_data <- read_parquet(paths$input$training$local)
 
 # Load land rates from file
 land_nbhd_rate <- read_parquet(
@@ -177,6 +176,9 @@ assessment_data_merged %>%
     meta_modeling_group, ends_with("_num_sale"), pred_card_initial_fmv,
     all_of(params$model$predictor$all), township_code
   ) %>%
+  mutate(
+    ccao_n_years_exe_homeowner = as.integer(ccao_n_years_exe_homeowner)
+  ) %>%
   ccao::vars_recode(
     starts_with("char_"),
     type = "long",
@@ -201,6 +203,8 @@ message("Attaching recent sales to PIN-level data")
 # These are the sales that will be used for ratio studies in the evaluate stage.
 # We want our assessed value to be as close as possible to this sale
 sales_data_ratio_study <- sales_data %>%
+  # For ratio studies, we don't want to include outliers
+  filter(!sv_is_outlier) %>%
   filter(meta_year == params$assessment$data_year) %>%
   group_by(meta_pin) %>%
   filter(meta_sale_date == max(meta_sale_date)) %>%
@@ -219,13 +223,26 @@ sales_data_two_most_recent <- sales_data %>%
     meta_pin, meta_year,
     meta_sale_price, meta_sale_date, meta_sale_document_num
   ) %>%
+  # Include outliers, since these data are used for desk review and
+  # not for modeling
+  rename(meta_sale_outlier_type = sv_outlier_type) %>%
+  mutate(
+    meta_sale_outlier_type = ifelse(
+      meta_sale_outlier_type == "Not outlier", NA, meta_sale_outlier_type
+    )
+  ) %>%
   group_by(meta_pin) %>%
   slice_max(meta_sale_date, n = 2) %>%
   mutate(mr = paste0("sale_recent_", row_number())) %>%
   tidyr::pivot_wider(
     id_cols = meta_pin,
     names_from = mr,
-    values_from = c(meta_sale_date, meta_sale_price, meta_sale_document_num),
+    values_from = c(
+      meta_sale_date,
+      meta_sale_price,
+      meta_sale_document_num,
+      meta_sale_outlier_type
+    ),
     names_glue = "{mr}_{gsub('meta_sale_', '', .value)}"
   ) %>%
   select(meta_pin, contains("1"), contains("2")) %>%
@@ -234,6 +251,7 @@ sales_data_two_most_recent <- sales_data %>%
 # Get the % change in the average sale price within building between the last
 # assessment year and this year
 sales_data_bldg_change_pct <- sales_data %>%
+  filter(!sv_is_outlier) %>%
   filter(
     meta_year == params$assessment$data_year |
       meta_year == params$ratio_study$far_year
