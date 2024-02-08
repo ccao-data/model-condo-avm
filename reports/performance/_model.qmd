@@ -1,0 +1,1257 @@
+{{< include ../_setup.qmd >}}
+
+# Model
+
+The following document describes performance for ```r metadata$run_id```, a ```r model_parameter_final$engine``` model built to re-assess the ```r metadata$assessment_triad``` triad in ```r metadata$assessment_year```. The document uses four sets of data to measure performance:
+
+- **Test Set**: A holdout set of data that the model didn't see during training. Per industry best practices, this set is used for model comparison and selection. For this run, the test set:
+  - Spanned from ```r m_test_min_date``` to ```r m_test_max_date```
+  - Contained ```r m_test_n_sales``` total sales, of which ```r m_test_n_sales_triad``` (```r m_test_n_sales_prop```) were in the ```r metadata$assessment_triad``` triad
+  - Had a median sale price of ```r m_test_med_sp```
+  - Included the last ```r m_test_split_prop``` of all training data sales
+- **Training Set**: Full data used to train to model for final prediction (prediction on the assessment set, not the test set). This _includes_ the test set, which is removed during model cross-validation and tuning. For this run, the training set:
+  - Spanned from ```r m_train_min_date``` to ```r m_train_max_date```
+  - Contained ```r m_train_n_sales``` total sales, of which ```r m_train_n_sales_triad``` (```r m_train_n_sales_prop```) were in the ```r metadata$assessment_triad``` triad
+  - Had a median sale price of ```r m_train_med_sp```
+  - Contained ```r m_train_n_outliers``` outliers (```r m_train_n_outliers_prop``` of the total sales)
+  - Used ```r metadata$model_predictor_all_count``` predictors, ```r metadata$model_predictor_categorical_count``` of which were categoricals
+- **Assessment Set**: This is the main model output for Valuations. It includes predictions on both seen (recently sold) and unseen (no recent sales) data. Sales are included for study if they're in the year prior to the assessment year i.e. 2023 assessments reference 2022 sales. This is the assessor standard way of measuring performance. This set should only be used to understand preliminary sales ratio outcomes. For this run, the assessment set:
+  - Contained sales from ```r m_assess_min_date``` to ```r m_assess_max_date``` for comparison
+  - Contained ```r m_assess_n_sales``` total sales for comparison
+  - Had a median sale price of ```r m_assess_med_sp```
+  - Had a lien/assessment date of ```r metadata$assessment_date```
+  - Used characteristics data from ```r metadata$assessment_data_year```
+  - Used ```r m_assess_stage_far``` and ```r m_assess_stage_near``` values for percentage change calculations
+- **Linear Baseline**: Test set results using a separate simple linear model. This is used as a baseline for comparison against the more complicated main model.
+
+```{r _model_setup}
+training_data_pred <- training_data %>%
+  mutate(
+    pred_card_initial_fmv = predict(
+      model_fit,
+      new_data = bake(model_recipe, new_data = ., all_predictors())
+    )$.pred
+  )
+
+model_performance_test_merged <- model_performance_test %>%
+  mutate(stage = "Main Model") %>%
+  bind_rows(
+    model_performance_test_linear %>%
+      mutate(stage = "Linear Baseline")
+  ) %>%
+  mutate(stage = factor(stage, levels = c("Main Model", "Linear Baseline")))
+
+model_performance_test_quantile_merged <- model_performance_quantile_test %>%
+  mutate(stage = "Main Model") %>%
+  bind_rows(
+    model_performance_quantile_test_linear %>%
+      mutate(stage = "Linear Baseline")
+  ) %>%
+  mutate(stage = factor(stage, levels = c("Main Model", "Linear Baseline")))
+
+# Collect townships to iterate over
+model_townships_list <- ccao::town_dict %>%
+  filter(triad_name == run_triad) %>%
+  pull(township_name)
+```
+
+```{r _model_township_stats_setup}
+model_township_stats_df <- model_performance_test_merged %>%
+  filter(
+    geography_type == "township_code",
+    triad_code == run_triad_code,
+    !by_class
+  ) %>%
+  mutate(township_name = ccao::town_convert(geography_id)) %>%
+  select(
+    stage,
+    township_name,
+    cod, prd, prb, mki,
+    median_ratio,
+    rmse, mdape, r_squared,
+    cod_met, prd_met, prb_met, mki_met
+  ) %>%
+  mutate(
+    ratio_met = between(median_ratio, 0.95, 1.05),
+    across(c(ends_with("_fmv_median"), rmse), scales::dollar),
+    mdape = scales::percent(mdape / 100, 0.01)
+  )
+
+# Create interactive tables of the test set results by township and model type
+generate_model_township_stats <- function(df) {
+  headers <- htmltools::withTags(table(
+    class = "display",
+    thead(
+      tr(
+        th("Township"),
+        th("COD"),
+        th("PRD"),
+        th("PRB"),
+        th("MKI"),
+        th("Med. Ratio"),
+        th("RMSE"),
+        th("MdAPE"),
+        th("R2")
+      )
+    )
+  ))
+
+  df %>%
+    select(-any_of("stage")) %>%
+    datatable(
+      rownames = FALSE,
+      filter = "none",
+      selection = "none",
+      container = headers,
+      escape = FALSE,
+      options = list(
+        autoWidth = TRUE,
+        paging = FALSE,
+        searching = FALSE,
+        info = FALSE,
+        columnDefs = list(
+          list(
+            visible = FALSE,
+            targets = c("cod_met", "prd_met", "prb_met", "mki_met", "ratio_met")
+          ),
+          list(
+            className = "dt-right",
+            targets = c("rmse", "mdape")
+          )
+        )
+      )
+    ) %>%
+    formatRound(
+      c("cod", "prd", "prb", "mki", "median_ratio", "r_squared"),
+      digits = 2
+    ) %>%
+    formatStyle(
+      columns = c("cod", "prd", "prb", "mki", "median_ratio"),
+      valueColumns = c("cod_met", "prd_met", "prb_met", "mki_met", "ratio_met"),
+      backgroundColor = styleEqual(
+        c(0, 1),
+        c("transparent", plot_colors$met)
+      )
+    )
+}
+```
+
+## Topline Statistics
+
+IAAO and machine learning standard performance statistics for townships within the ```r metadata$assessment_triad``` triad.
+Statistics highlighted in <span style="background-color:#d3f2c2">green</span> meet the IAAO standard. Note that median absolute percentage error (`MdAPE`) is how most private sector AVMs measure performance.
+
+::: {.panel-tabset}
+
+### Test Set
+
+```{r _model_township_stats_table_test}
+model_township_stats_df %>%
+  filter(stage == "Main Model") %>%
+  generate_model_township_stats()
+```
+
+### Linear Baseline
+
+```{r _model_township_stats_table_test_linear}
+model_township_stats_df %>%
+  filter(stage == "Linear Baseline") %>%
+  generate_model_township_stats()
+```
+
+### Assessment Set
+
+```{r _model_township_stats_table_assessment}
+model_township_stats_assessment_df <- model_performance_assessment %>%
+  filter(
+    geography_type == "township_code",
+    triad_code == run_triad_code,
+    !by_class
+  ) %>%
+  mutate(township_name = ccao::town_convert(geography_id)) %>%
+  select(
+    township_name, cod, prd, prb, mki, median_ratio,
+    rmse, mdape, r_squared,
+    cod_met, prd_met, prb_met, mki_met
+  ) %>%
+  mutate(
+    ratio_met = between(median_ratio, 0.95, 1.05),
+    across(c(ends_with("_fmv_median"), rmse), scales::dollar),
+    mdape = scales::percent(mdape / 100, 0.01)
+  )
+
+model_township_stats_assessment_df %>%
+  generate_model_township_stats()
+```
+
+:::
+
+Prior year values (latest stage available for each year) compared to target year sales and estimates.
+The median percent change is comparing the nearest assessed value to the estimated value.
+PIN and sale counts include residential, regression-class properties only.
+
+```{r _model_township_outcomes}
+generate_model_township_outcomes <- function(df) {
+  headers <- htmltools::withTags(table(
+    class = "display",
+    thead(
+      tr(
+        th("Township"),
+        th(paste("Med.", tools::toTitleCase(m_assess_stage_far), "Value")),
+        th(paste("Med.", tools::toTitleCase(m_assess_stage_near), "Value")),
+        th("Median Sale Price"),
+        th("Median Estimate"),
+        th("Median Percent Change"),
+        th("Number of Sales"),
+        th("Number of PINs"),
+        th("Percent Sold")
+      )
+    )
+  ))
+
+  df %>%
+    select(-any_of("stage")) %>%
+    datatable(
+      rownames = FALSE,
+      filter = "none",
+      selection = "none",
+      container = headers,
+      escape = FALSE,
+      options = list(
+        autoWidth = TRUE,
+        paging = FALSE,
+        searching = FALSE,
+        info = FALSE,
+        columnDefs = list(
+          list(
+            className = "dt-right",
+            targets = c(1:8)
+          )
+        )
+      )
+    )
+}
+
+model_performance_assessment %>%
+  filter(
+    geography_type == "township_code",
+    triad_code == run_triad_code,
+    !by_class
+  ) %>%
+  mutate(township_name = ccao::town_convert(geography_id)) %>%
+  select(
+    township_name,
+    prior_far_fmv_median,
+    prior_near_fmv_median,
+    sale_fmv_median,
+    estimate_fmv_median,
+    prior_near_yoy_pct_chg_median,
+    num_sale, num_pin, pct_of_pin_sold
+  ) %>%
+  mutate(
+    across(ends_with("_fmv_median"), ~ scales::dollar(.x, accuracy = 1)),
+    across(contains("pct"), ~ scales::percent(.x, accuracy = 0.01)),
+    across(starts_with("num_"), ~ scales::comma(.x))
+  ) %>%
+  generate_model_township_outcomes()
+```
+
+## Ratio Curves
+
+Ratio curves for the ```r metadata$assessment_triad``` triad created using the **test set**. Each dot is a median ratio at a given decile of sale price. Generally the goal is to make these curves as flat (close to 1) as possible. Curves sloping up and to the left indicate regressivity. The <span style="background-color:#d3f2c2">green</span> shaded area represents the IAAO target median ratio of 0.95 to 1.05.
+
+::: {.panel-tabset}
+
+```{r _model_ratio_curve_triad, results='asis'}
+model_ratio_distribution_df <- model_performance_test_quantile_merged %>%
+  filter(
+    geography_type == "triad_code",
+    triad_code == run_triad_code,
+    num_quantile == "10",
+    !by_class
+  ) %>%
+  mutate(
+    lower_bound_short = sapply(lower_bound, shorten_number),
+    upper_bound_short = sapply(upper_bound, shorten_number),
+    custom_label = paste0(
+      quantile,
+      "\n[", lower_bound_short, "-\n", upper_bound_short, "]"
+    )
+  )
+
+model_ratio_distribution_labels <- model_ratio_distribution_df %>%
+  filter(stage == "Main Model") %>%
+  pull(custom_label)
+
+# Manually set axes to highest and lowest contained in the data
+model_ratio_distribution_lims <- model_performance_test_quantile_merged %>%
+  filter(
+    geography_type %in% c("township_code", "triad_code"),
+    triad_code == run_triad_code,
+    num_quantile == "10",
+    !by_class
+  ) %>%
+  summarise(
+    min_value = min(median_ratio),
+    max_value = max(median_ratio)
+  )
+
+model_ratio_distribution_triad_plot <- ggplot(
+  data = model_ratio_distribution_df,
+  mapping = aes(x = quantile, y = median_ratio)
+) +
+  geom_rect(
+    mapping = aes(xmin = -Inf, xmax = Inf, ymin = 0.95, ymax = 1.05),
+    fill = plot_colors$met,
+    alpha = 0.1
+  ) +
+  geom_line(
+    mapping = aes(group = stage, color = stage),
+    color = plot_colors$bg_line
+  ) +
+  geom_point(aes(color = stage), size = 3) +
+  geom_text_repel(
+    mapping = aes(label = round(median_ratio, 2), color = stage),
+    size = 3.9
+  ) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "darkgray") +
+  labs(x = "Decile", y = "Median Ratio", color = "Model Type") +
+  scale_x_continuous(breaks = 1:10, labels = model_ratio_distribution_labels) +
+  scale_color_manual(
+    values = c(
+      "Main Model" = plot_colors$main,
+      "Linear Baseline" = plot_colors$linear
+    )
+  ) +
+  # 0.08 is appended to the y_axis value so that the
+  # highest value label for the point isn't cut off
+  coord_cartesian(ylim = c(
+    model_ratio_distribution_lims$min_value,
+    model_ratio_distribution_lims$max_value + 0.08
+  )) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 10),
+    legend.position = "bottom"
+  )
+
+cat("### Triad\n")
+print(model_ratio_distribution_triad_plot)
+cat("\n\n")
+```
+
+```{r _model_ratio_curve_by_township, results='asis'}
+# Make graph function to iterate through for tabset
+generate_model_ratio_township_graph <- function(data, township, lims) {
+  data_to_plot <- data %>%
+    filter(
+      geography_type == "township_code",
+      triad_code == run_triad_code,
+      num_quantile == "10",
+      township_name == township,
+      !by_class
+    ) %>%
+    select(
+      stage, township_name, quantile,
+      median_ratio, lower_bound, upper_bound
+    ) %>%
+    mutate(
+      lower_bound_short = sapply(lower_bound, shorten_number),
+      upper_bound_short = sapply(upper_bound, shorten_number),
+      custom_label = paste0(
+        quantile,
+        "\n[", lower_bound_short, "-\n", upper_bound_short, "]"
+      )
+    )
+
+  data_to_plot_labels <- data_to_plot %>%
+    filter(stage == "Main Model") %>%
+    pull(custom_label)
+
+  ggplot(
+    data = data_to_plot,
+    mapping = aes(x = quantile, y = median_ratio)
+  ) +
+    geom_rect(
+      mapping = aes(xmin = -Inf, xmax = Inf, ymin = 0.95, ymax = 1.05),
+      fill = plot_colors$met,
+      alpha = 0.1
+    ) +
+    geom_line(
+      mapping = aes(group = stage),
+      color = plot_colors$bg_line
+    ) +
+    geom_point(
+      mapping = aes(color = stage),
+      size = 3
+    ) +
+    geom_text_repel(
+      mapping = aes(label = round(median_ratio, 2), color = stage),
+      size = 3.9
+    ) +
+    geom_hline(yintercept = 1, linetype = "dashed", color = "darkgray") +
+    theme_minimal() +
+    labs(x = "Decile", y = "Median Ratio", color = "Model Type") +
+    # 0.08 is appended to the y_axis value so that the
+    # highest value label for the point isn't cut off
+    coord_cartesian(ylim = c(
+      lims$min_value,
+      lims$max_value + 0.08
+    )) +
+    scale_x_continuous(breaks = 1:10, labels = data_to_plot_labels) +
+    scale_color_manual(
+      values = c(
+        "Main Model" = plot_colors$main,
+        "Linear Baseline" = plot_colors$linear
+      )
+    ) +
+    theme(
+      axis.text.x = element_text(size = 10),
+      legend.position = "bottom"
+    )
+}
+
+# Dynamically produce tabset
+for (township in model_townships_list) {
+  cat("###", township, "\n")
+  model_performance_test_quantile_merged %>%
+    mutate(township_name = ccao::town_convert(geography_id)) %>%
+    generate_model_ratio_township_graph(
+      township,
+      model_ratio_distribution_lims
+    ) %>%
+    print()
+  cat("\n\n")
+}
+```
+
+:::
+
+## Estimate vs Actual (Distributions)
+
+**Test set** distributions of actual fair market value (sales) compared to estimated fair market value from the model.
+The goal is for these distributions look extremely similar. The number under each y-axis label is the
+number of sales in that group.
+
+### By Township
+
+```{r _model_est_v_actual_township, fig.width=8, fig.height=14}
+model_test_est_v_actual <- model_performance_test_merged %>%
+  filter(
+    triad_code == run_triad_code,
+    geography_type == "township_code",
+    !by_class
+  ) %>%
+  mutate(township_name = ccao::town_convert(geography_id)) %>%
+  select(
+    township_name, geography_type, geography_id, class, num_sale, stage,
+    sale_fmv_q25, sale_fmv_median, sale_fmv_q75,
+    estimate_fmv_q25, estimate_fmv_median, estimate_fmv_q75
+  )
+
+model_test_est_v_actual_wide <- model_test_est_v_actual %>%
+  select(-class) %>%
+  pivot_longer(
+    cols = -c(geography_type, geography_id, township_name, num_sale, stage),
+    names_to = "type",
+    values_to = "value"
+  ) %>%
+  mutate(
+    category = case_when(
+      str_detect(type, "sale") ~ "Actual (Sales)",
+      str_detect(type, "estimate") &
+        stage == "Linear Baseline" ~ "Estimate (Linear Baseline)",
+      str_detect(type, "estimate") ~ "Estimate (Main Model)"
+    )
+  ) %>%
+  select(township_name, category, value, num_sale) %>%
+  mutate(
+    type_factor = factor(
+      category,
+      levels = c(
+        "Estimate (Linear Baseline)",
+        "Estimate (Main Model)",
+        "Actual (Sales)"
+      )
+    ),
+    township = paste0(township_name, "\n(", num_sale, ")")
+  )
+
+model_test_est_v_actual_segment <- model_test_est_v_actual_wide %>%
+  group_by(township, type_factor) %>%
+  arrange(township, type_factor, value) %>%
+  mutate(xend = lead(value)) %>%
+  filter(!is.na(xend))
+
+ggplot() +
+  geom_segment(
+    data = model_test_est_v_actual_segment,
+    aes(
+      x = value,
+      xend = xend,
+      y = type_factor,
+      yend = type_factor,
+      color = type_factor
+    ),
+    linewidth = 1
+  ) +
+  geom_point(
+    data = model_test_est_v_actual_wide,
+    aes(
+      x = value,
+      y = type_factor,
+      group = type_factor,
+      color = type_factor
+    ),
+    size = 2.2,
+    fill = "white"
+  ) +
+  facet_grid(township ~ ., scales = "free_x", space = "free", switch = "y") +
+  labs(
+    x = "Price",
+    y = "Township",
+    color = "Type",
+    title = "25th percentile, median, 75th percentile"
+  ) +
+  coord_cartesian(clip = "off") +
+  scale_color_manual(
+    values = c(
+      "Estimate (Linear Baseline)" = plot_colors$linear,
+      "Estimate (Main Model)" = plot_colors$main,
+      "Actual (Sales)" = plot_colors$sales
+    )
+  ) +
+  scale_x_continuous(
+    labels = label_dollar(scale = 1 / 1000, suffix = "K"),
+    n.breaks = 10,
+    expand = expansion(add = c(2.5e4, 5e4))
+  ) +
+  scale_y_discrete(
+    labels = function(x) rep("", length(x)),
+    expand = expansion(add = c(1.5, 1.5)),
+  ) +
+  guides(color = guide_legend(reverse = TRUE)) +
+  theme_minimal() +
+  theme(
+    strip.text.y.left = element_text(angle = 0, hjust = 1),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.ticks.x = element_line(color = "grey65"),
+    legend.position = "bottom",
+    panel.spacing.y = unit(0, "lines"),
+    panel.grid.major.y = element_blank(),
+    panel.border = element_rect(fill = NA, color = "grey75"),
+    axis.title.y = element_blank(),
+    axis.text.y = element_blank()
+  )
+```
+
+### By Township and Class
+
+::: {.panel-tabset}
+
+```{r _model_est_v_actual_township_by_class, results='asis', fig.width=8, fig.height=10}
+# Make class breakout function with facet
+model_sale_vs_estimate_by_class <- function(data, township) {
+  est_vs_actual <- data %>%
+    filter(
+      triad_code == run_triad_code,
+      geography_type == "township_code",
+      by_class
+    ) %>%
+    select(
+      geography_type, geography_id, class, num_sale, stage,
+      sale_fmv_q25, sale_fmv_median, sale_fmv_q75,
+      estimate_fmv_q25, estimate_fmv_median, estimate_fmv_q75
+    )
+
+  reshaped_data <- est_vs_actual %>%
+    mutate(township_name = ccao::town_convert(geography_id)) %>%
+    dplyr::filter(township_name == township) %>%
+    pivot_longer(
+      cols = -c(
+        geography_type, geography_id, township_name,
+        class, num_sale, stage
+      ),
+      names_to = "type",
+      values_to = "value"
+    ) %>%
+    mutate(
+      category = case_when(
+        str_detect(type, "sale") ~ "Actual (Sales)",
+        str_detect(type, "estimate") &
+          stage == "Linear Baseline" ~ "Estimate (Linear Baseline)",
+        str_detect(type, "estimate") ~ "Estimate (Main Model)"
+      )
+    ) %>%
+    select(township_name, class, category, value, num_sale) %>%
+    mutate(
+      type_factor = factor(
+        category,
+        levels = c(
+          "Estimate (Linear Baseline)",
+          "Estimate (Main Model)",
+          "Actual (Sales)"
+        )
+      ),
+      class = paste0(class, "\n(", num_sale, ")")
+    )
+
+  segment_data <- reshaped_data %>%
+    group_by(class, type_factor) %>%
+    arrange(class, type_factor, value) %>%
+    mutate(xend = lead(value)) %>%
+    filter(!is.na(xend))
+
+  ggplot() +
+    geom_segment(
+      data = segment_data,
+      aes(
+        x = value,
+        xend = xend,
+        y = type_factor,
+        yend = type_factor,
+        color = type_factor
+      ),
+      linewidth = 1
+    ) +
+    geom_point(
+      data = reshaped_data,
+      aes(
+        x = value,
+        y = type_factor,
+        group = type_factor,
+        color = type_factor
+      ),
+      size = 2.2,
+      fill = "white"
+    ) +
+    facet_grid(class ~ ., scales = "free_x", space = "free", switch = "y") +
+    labs(
+      x = "Price",
+      y = "Class",
+      color = "Type",
+      title = "25th percentile, median, 75th percentile"
+    ) +
+    coord_cartesian(clip = "off") +
+    scale_color_manual(
+      values = c(
+        "Estimate (Linear Baseline)" = plot_colors$linear,
+        "Estimate (Main Model)" = plot_colors$main,
+        "Actual (Sales)" = plot_colors$sales
+      )
+    ) +
+    scale_x_continuous(
+      labels = label_dollar(scale = 1 / 1000, suffix = "K"),
+      n.breaks = 10,
+      expand = expansion(add = c(2.5e4, 5e4))
+    ) +
+    scale_y_discrete(
+      labels = function(x) rep("", length(x)),
+      expand = expansion(add = c(1.5, 1.5))
+    ) +
+    guides(color = guide_legend(reverse = TRUE)) +
+    theme_minimal() +
+    theme(
+      strip.text.y.left = element_text(angle = 0, hjust = 1),
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      axis.ticks.x = element_line(color = "grey65"),
+      legend.position = "bottom",
+      panel.spacing.y = unit(0, "lines"),
+      panel.grid.major.y = element_blank(),
+      panel.border = element_rect(fill = NA, color = "grey75"),
+      axis.title.y = element_blank(),
+      axis.text.y = element_blank()
+    )
+}
+
+for (township in model_townships_list) {
+  cat("###", township, "\n")
+  model_performance_test_merged %>%
+    model_sale_vs_estimate_by_class(township) %>%
+    print()
+  cat("\n\n")
+}
+```
+
+:::
+
+## Estimate vs Actual (Individual Obs.)
+
+Scatterplot of predicted vs actual sale price for each PIN in the **test set**. The goal is for all points to be close to the 45-degree line; the farther away from the line, the worse the model is at predicting that PIN.
+
+_NOTE: Click any of the dots on the plot below to open the Assessor's website for that PIN._
+
+### By Township
+
+::: panel-tabset
+
+#### Main Model
+
+```{r _model_est_v_actual_town_indiv_main}
+est_v_actual_plotly_town <- function(data, x) {
+  pred_v_actual_plot_df <- data %>%
+    filter(meta_triad_code == run_triad_code) %>%
+    mutate(Township = ccao::town_convert(meta_township_code)) %>%
+    rename(
+      PIN = meta_pin,
+      `Sale Price` = meta_sale_price,
+      `Predicted FMV` = {{ x }}
+    )
+
+  pred_v_actual_plot <- ggplot(pred_v_actual_plot_df) +
+    geom_point(aes(
+      group = PIN,
+      y = `Predicted FMV`,
+      x = `Sale Price`,
+      color = Township,
+      text = paste0(
+        "Township: ", Township, "<br>",
+        "PIN: ", PIN, "<br>",
+        "Sale Price: ", scales::dollar(`Sale Price`, accuracy = 1), "<br>",
+        "Estimate FMV: ", scales::dollar(`Predicted FMV`, accuracy = 1)
+      )
+    )) +
+    geom_abline(slope = 1, intercept = 0) +
+    scale_y_continuous(
+      name = "Estimated FMV",
+      labels = scales::label_dollar(
+        accuracy = 1,
+        scale = 1 / 1000,
+        suffix = "K"
+      ),
+      n.breaks = 5,
+      limits = c(1e4, 3e6)
+    ) +
+    scale_x_continuous(
+      name = "Actual FMV (Sale Price)",
+      labels = scales::label_dollar(
+        accuracy = 1,
+        scale = 1 / 1000,
+        suffix = "K"
+      ),
+      n.breaks = 5,
+      limits = c(1e4, 3e6)
+    ) +
+    theme_minimal()
+
+  gplt <- ggplotly(pred_v_actual_plot, tooltip = "text")
+
+  click_handler_javascript <- HTML(paste0("
+    var gplt = document.getElementsByClassName('js-plotly-plot')[0];
+    gplt.on('plotly_click', function(data){
+      const re = /PIN\\: ([0-9]{14})/;
+      var pin = re.exec(data.points[0].text)[1];
+      var url = 'https://www.cookcountyassessor.com/pin/' + pin;
+      window.open(url,'_blank');
+    });"))
+
+  prependContent(gplt, onStaticRenderComplete(click_handler_javascript))
+}
+
+est_v_actual_plotly_town(test_card, pred_card_initial_fmv)
+```
+
+#### Linear Baseline
+
+```{r _model_est_v_actual_town_indiv_lin}
+est_v_actual_plotly_town(test_card, pred_card_initial_fmv_lin)
+```
+
+:::
+
+### By Class
+
+::: panel-tabset
+
+#### Main Model
+
+```{r _model_est_v_actual_class_indiv_main}
+est_v_actual_plotly_class <- function(data, x) {
+  pred_v_actual_plot_df <- data %>%
+    filter(meta_triad_code == run_triad_code) %>%
+    mutate(Township = ccao::town_convert(meta_township_code)) %>%
+    rename(
+      PIN = meta_pin,
+      Class = meta_class,
+      `Sale Price` = meta_sale_price,
+      `Predicted FMV` = {{ x }}
+    )
+
+  pred_v_actual_plot <- ggplot(pred_v_actual_plot_df) +
+    geom_point(aes(
+      group = PIN,
+      y = `Predicted FMV`,
+      x = `Sale Price`,
+      color = Class,
+      text = paste0(
+        "Class: ", Class, "<br>",
+        "PIN: ", PIN, "<br>",
+        "Sale Price: ", scales::dollar(`Sale Price`, accuracy = 1), "<br>",
+        "Estimated FMV: ", scales::dollar(`Predicted FMV`, accuracy = 1)
+      )
+    )) +
+    geom_abline(slope = 1, intercept = 0) +
+    scale_y_continuous(
+      name = "Estimated FMV",
+      labels = scales::label_dollar(
+        accuracy = 1,
+        scale = 1 / 1000,
+        suffix = "K"
+      ),
+      n.breaks = 5,
+      limits = c(1e4, 3e6)
+    ) +
+    scale_x_continuous(
+      name = "Actual FMV (Sale Price)",
+      labels = scales::label_dollar(
+        accuracy = 1,
+        scale = 1 / 1000,
+        suffix = "K"
+      ),
+      n.breaks = 5,
+      limits = c(1e4, 3e6)
+    ) +
+    theme_minimal()
+
+  gplt <- ggplotly(pred_v_actual_plot, tooltip = "text")
+
+  click_handler_javascript <- HTML(paste0("
+    var gplt = document.getElementsByClassName('js-plotly-plot')[0];
+    gplt.on('plotly_click', function(data){
+      const re = /PIN\\: ([0-9]{14})/;
+      var pin = re.exec(data.points[0].text)[1];
+      var url = 'https://www.cookcountyassessor.com/pin/' + pin;
+      window.open(url,'_blank');
+    });"))
+
+  prependContent(gplt, onStaticRenderComplete(click_handler_javascript))
+}
+
+est_v_actual_plotly_class(test_card, pred_card_initial_fmv)
+```
+
+#### Linear Baseline
+
+```{r _model_est_v_actual_class_indiv_lin}
+est_v_actual_plotly_class(test_card, pred_card_initial_fmv_lin)
+```
+
+:::
+
+## Feature Importance
+
+- **Gain** is the relative contribution of the corresponding feature to the model calculated by taking each feature's contribution for each tree in the model. A higher value of this metric when compared to another feature implies it is more important for generating a prediction.
+- **Cover** is the relative number of observations related to this feature. For example, if you have 100 observations, 4 features and 3 trees, and suppose `feature1` is used to decide the leaf node for 10, 5, and 2 observations in `tree1`, `tree2` and `tree3` respectively; then the metric will count cover for this feature as `10 + 5 + 2 = 17` observations. This will be calculated for all the 4 features and the cover will be 17 expressed as a percentage for all features' cover metrics.
+- **Frequency** is the percentage representing the relative number of times a particular feature occurs in the trees of the model. In the above example, if `feature1` occurred in 2 splits, 1 split and 3 splits in each of `tree1`, `tree2` and `tree3`; then the weight for `feature1` will be `2 + 1 + 3 = 6`. The frequency for `feature1` is calculated as its percentage weight over weights of all features.
+
+_NOTE: These metrics apply to ALL triads, not just the triad being re-assessed._
+
+***CRITICAL NOTE: Feature importance metrics for categorical features do not always align with reality/intuition when mixed with numeric predictors. Use the SHAP feature importance metrics below if available. See [here](https://www.kaggle.com/code/mlisovyi/beware-of-categorical-features-in-lgbm) for a minimal example of this behavior.***
+
+```{r _model_feature_importance_function}
+# Feature importance bar chart function
+model_plot_feature_importance <- function(data, gain_column, color, nudge) {
+  # Clean up name of column for ggplot
+  name_labs <- strsplit(gain_column, "_")[[1]][1] %>% str_to_title()
+
+  data <- data %>%
+    mutate(
+      model_predictor_all_name_wrapped =
+        gsub("(.{20})", "\\1\n", model_predictor_all_name, perl = TRUE)
+    )
+
+  ggplot(
+    data = data,
+    mapping = aes(
+      x = reorder(
+        model_predictor_all_name_wrapped,
+        !!sym(gain_column)
+      ),
+      y = .data[[gain_column]]
+    )
+  ) +
+    geom_bar(
+      stat = "identity",
+      position = position_dodge(),
+      fill = color
+    ) +
+    geom_text(
+      mapping = aes(
+        y = .data[[gain_column]],
+        label = round(.data[[gain_column]], 3)
+      ),
+      hjust = 0,
+      nudge_y = nudge
+    ) +
+    coord_flip() +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.075))) +
+    theme_minimal() +
+    labs(
+      y = paste(name_labs, "Score"),
+      x = "Predictor"
+    ) +
+    theme(
+      axis.text.y = element_text(size = 8),
+      panel.grid.major.y = element_blank()
+    )
+}
+```
+
+::: {.panel-tabset}
+
+### Gain
+
+```{r _model_gain_score, fig.width=8, fig.height=30, fig.align='center'}
+model_plot_feature_importance(
+  feat_imp_df,
+  "gain_value",
+  color = "darkseagreen",
+  max(feat_imp_df$gain_value) / 100
+)
+```
+
+### Cover
+
+```{r _model_cover_score, fig.width=8, fig.height=30, fig.align='center'}
+model_plot_feature_importance(
+  feat_imp_df,
+  "cover_value",
+  "darkslategray",
+  max(feat_imp_df$cover_value) / 100
+)
+```
+
+### Frequency
+
+```{r _model_frequency_score, fig.width=8, fig.height=30, fig.align='center'}
+model_plot_feature_importance(
+  feat_imp_df,
+  "frequency_value",
+  "chocolate3",
+  max(feat_imp_df$frequency_value) / 100
+)
+```
+
+:::
+
+## Time Tracking
+
+Plots to show how well the model picks up on time trends. The **test set** plot shows the model's ability to forecast slightly into the future. The **training set** plot shows time tracking for data the model has already seen (i.e. no forecasting). The number next to each township name is the number of sales for the period shown.
+
+::: panel-tabset
+
+### Test Set (Unseen)
+
+```{r _model_time_trends_unseen, fig.height=8, fig.width=7}
+test_card %>%
+  filter(meta_triad_code == run_triad_code) %>%
+  mutate(
+    time_sale_month = floor_date(meta_sale_date, "month"),
+    meta_township_name = ccao::town_convert(meta_township_code)
+  ) %>%
+  group_by(meta_township_name, time_sale_month) %>%
+  summarize(
+    `Median Estimate` = median(pred_card_initial_fmv),
+    `Median Sale Price` = median(meta_sale_price),
+    count_sales = n()
+  ) %>%
+  tidyr::pivot_longer(cols = starts_with("Median")) %>%
+  group_by(meta_township_name) %>%
+  mutate(
+    name = factor(name, levels = c("Median Sale Price", "Median Estimate")),
+    total_sales = sum(count_sales) / 2, # rows are doubled after pivoting
+    meta_township_name = paste0(meta_township_name, " (", total_sales, ")")
+  ) %>%
+  ggplot() +
+  geom_line(aes(x = time_sale_month, y = value, color = name)) +
+  scale_color_manual(
+    name = "",
+    values = c(
+      "Median Estimate" = plot_colors$main,
+      "Median Sale Price" = plot_colors$sales
+    )
+  ) +
+  scale_y_continuous(
+    labels = scales::label_dollar(scale = 1e-3, suffix = "K")
+  ) +
+  facet_wrap(vars(meta_township_name), scales = "free_y", ncol = 3) +
+  labs(x = "Date") +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    axis.title.y = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+### Training Set (Seen)
+
+```{r _model_time_trends_seen, fig.height=8, fig.width=7}
+training_data_pred %>%
+  filter(
+    !sv_is_outlier,
+    meta_triad_name == run_triad,
+    !ind_pin_is_multicard
+  ) %>%
+  mutate(
+    time_sale_month = floor_date(meta_sale_date, "month"),
+    meta_township_name = ccao::town_convert(meta_township_code)
+  ) %>%
+  group_by(meta_township_name, time_sale_month) %>%
+  summarize(
+    `Median Estimate` = median(pred_card_initial_fmv),
+    `Median Sale Price` = median(meta_sale_price),
+    count_sales = n()
+  ) %>%
+  tidyr::pivot_longer(cols = starts_with("Median")) %>%
+  group_by(meta_township_name) %>%
+  mutate(
+    name = factor(name, levels = c("Median Sale Price", "Median Estimate")),
+    total_sales = sum(count_sales) / 2, # rows are doubled after pivoting
+    meta_township_name = paste0(meta_township_name, " (", total_sales, ")")
+  ) %>%
+  ggplot() +
+  geom_line(aes(x = time_sale_month, y = value, color = name)) +
+  scale_color_manual(
+    name = "",
+    values = c(
+      "Median Estimate" = plot_colors$main,
+      "Median Sale Price" = plot_colors$sales
+    )
+  ) +
+  scale_y_continuous(
+    labels = scales::label_dollar(scale = 1e-3, suffix = "K")
+  ) +
+  facet_wrap(vars(meta_township_name), scales = "free_y", ncol = 3) +
+  labs(x = "Date") +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    axis.title.y = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+:::
+
+## Lorenz Curves
+
+Lorenz curves are a way to visualize the distribution of the model's estimates compared to actual sales. In the ideal case, the curves would overlap, indicating perfectly accurate estimates. In cases where the estimate curve is above the sale curve, estimates are considered regressive. In cases where the estimate curve is below the sale curve, estimates are considered progressive.
+
+See the [assessr package documentation](https://ccao-data.github.io/assessr/articles/example-ratio-study.html#lorenz-curves) for more information on how to interpret these plots.
+
+::: {.panel-tabset}
+
+```{r _model_lorenz_curve, results = 'asis'}
+model_lorenz_curve_df <- test_card %>%
+  select(
+    pred_card_initial_fmv,
+    meta_sale_price,
+    meta_township_code
+  ) %>%
+  arrange(meta_sale_price) %>%
+  left_join(ccao::town_dict, by = c("meta_township_code" = "township_code")) %>%
+  filter(triad_code == run_triad_code)
+
+generate_lorenz_curve_function <- function(data, township_name) {
+  sale_price <- data$meta_sale_price
+  estimate <- data$pred_card_initial_fmv
+
+  lorenz_data_price <- data.frame(
+    pct = c(0, cumsum(sale_price) / sum(sale_price)),
+    cum_pct = c(0, seq_along(sale_price)) / length(sale_price)
+  )
+
+  lorenz_data_estimate <- data.frame(
+    pct = c(0, cumsum(estimate) / sum(estimate)),
+    cum_pct = c(0, seq_along(estimate)) / length(estimate)
+  )
+
+  calculate_gini <- function(lorenz_data) {
+    sum_area <-
+      sum(with(
+        lorenz_data,
+        base::diff(cum_pct) * (pct[-length(pct)] + pct[-1]) / 2
+      ))
+    gini_coefficient <- 1 - 2 * sum_area
+    return(gini_coefficient)
+  }
+
+  gini_price <- calculate_gini(lorenz_data_price)
+  gini_assessed <- calculate_gini(lorenz_data_estimate)
+
+  ggplot() +
+    geom_line(
+      data = lorenz_data_estimate,
+      aes(x = cum_pct, y = pct, color = "Estimate (Main Model)")
+    ) +
+    geom_line(
+      data = lorenz_data_price,
+      aes(x = cum_pct, y = pct, color = "Actual (Sales)")
+    ) +
+    geom_abline(
+      intercept = 0,
+      slope = 1,
+      linetype = "dashed",
+      color = "green"
+    ) +
+    scale_color_manual(values = c(
+      "Estimate (Main Model)" = plot_colors$main,
+      "Actual (Sales)" = plot_colors$sales
+    )) +
+    scale_x_continuous(labels = scales::label_percent()) +
+    scale_y_continuous(labels = scales::label_percent()) +
+    labs(
+      subtitle = paste(
+        "Sale GINI:",
+        round(gini_price, 3),
+        "and Estimate GINI:",
+        round(gini_assessed, 3)
+      ),
+      x = "Percent of Properties",
+      y = "Percent of Value",
+      color = "Inequality of:"
+    ) +
+    guides(color = guide_legend(reverse = FALSE)) +
+    theme_minimal() +
+    theme(legend.position = "bottom")
+}
+
+model_lorenz_curve_plots <- model_lorenz_curve_df %>%
+  group_by(township_name) %>%
+  group_nest() %>%
+  mutate(plot = map2(data, township_name, generate_lorenz_curve_function)) %>%
+  pull(plot)
+
+iwalk(model_lorenz_curve_plots, ~ {
+  cat("## ", model_townships_list[.y], "\n\n")
+  print(.x)
+  cat("\n\n")
+})
+```
+
+:::
+
+## Big Misses
+
+Tables of the largest misses (in absolute terms) from the both the **test set** and **assessment set**. They show the four sales (one per quartile of sale price) from each township where the model's estimate was furthest from the actual sale price.
+
+::: {.panel-tabset}
+
+### Test Set
+
+```{r _model_big_misses_test}
+model_big_misses_test <- test_card %>%
+  mutate(township_name = ccao::town_convert(meta_township_code)) %>%
+  filter(meta_triad_code == run_triad_code) %>%
+  select(
+    Town = township_name, PIN = meta_pin, Class = meta_class,
+    NBHD = meta_nbhd_code, `Bldg Sqft` = char_bldg_sf,
+    `Sale Date` = meta_sale_date, `Sale Price` = meta_sale_price,
+    `Est. FMV` = pred_card_initial_fmv
+  ) %>%
+  mutate(
+    Difference = abs(`Sale Price` - `Est. FMV`),
+    `Qnt.` = cut(
+      `Sale Price`,
+      breaks = quantile(`Sale Price`, probs = c(0, 0.25, 0.5, 0.75, 1)),
+      labels = c("Q1", "Q2", "Q3", "Q4"),
+      include.lowest = TRUE
+    ),
+    .by = Town
+  ) %>%
+  group_by(Town, `Qnt.`) %>%
+  slice_max(Difference, n = 1) %>%
+  arrange(-Difference) %>%
+  relocate(`Qnt.`, .after = "Town") %>%
+  mutate(
+    across(
+      c(ends_with("Price"), ends_with("FMV"), Difference),
+      ~ scales::dollar(.x, prefix = "$")
+    ),
+    `Bldg Sqft` = scales::comma(`Bldg Sqft`)
+  ) %>%
+  arrange(Town, `Qnt.`)
+
+model_big_misses_test %>%
+  datatable(
+    rownames = FALSE,
+    options = list(
+      columnDefs = list(
+        list(
+          className = "dt-right",
+          targets = c("Bldg Sqft", "Sale Price", "Est. FMV", "Difference")
+        ),
+        list(
+          className = "dt-nowrap",
+          targets = c("Sale Date")
+        )
+      )
+    )
+  )
+```
+
+### Assessment Set
+
+```{r _model_big_misses_assessment}
+model_big_misses_assessment <- assessment_pin %>%
+  mutate(township_name = ccao::town_convert(meta_township_code)) %>%
+  filter(
+    meta_triad_code == run_triad_code,
+    !is.na(sale_recent_1_price),
+    !is.na(pred_pin_final_fmv_round),
+    year(sale_recent_1_date) == max(year(sale_recent_1_date), na.rm = TRUE)
+  ) %>%
+  select(
+    Town = township_name, PIN = meta_pin, Class = meta_class,
+    NBHD = meta_nbhd_code, `Bldg Sqft` = char_total_bldg_sf, Yrblt = char_yrblt,
+    `Sale 2 Date` = sale_recent_2_date, `Sale 2 Price` = sale_recent_2_price,
+    `Sale 1 Date` = sale_recent_1_date, `Sale 1 Price` = sale_recent_1_price,
+    `Est. FMV` = pred_pin_final_fmv_round
+  ) %>%
+  mutate(
+    Difference = abs(`Sale 1 Price` - `Est. FMV`),
+    `Qnt.` = cut(
+      `Sale 1 Price`,
+      breaks = quantile(`Sale 1 Price`, probs = c(0, 0.25, 0.5, 0.75, 1)),
+      labels = c("Q1", "Q2", "Q3", "Q4"),
+      include.lowest = TRUE
+    ),
+    .by = Town
+  ) %>%
+  group_by(Town, `Qnt.`) %>%
+  slice_max(Difference, n = 1) %>%
+  arrange(-Difference) %>%
+  relocate(`Qnt.`, .after = "Town") %>%
+  mutate(
+    across(
+      c(ends_with("Price"), ends_with("FMV"), Difference),
+      ~ scales::dollar(.x, prefix = "$")
+    ),
+    `Bldg Sqft` = scales::comma(`Bldg Sqft`)
+  ) %>%
+  arrange(Town, `Qnt.`)
+
+model_big_misses_assessment %>%
+  datatable(
+    rownames = FALSE,
+    options = list(
+      columnDefs = list(
+        list(
+          className = "dt-right",
+          targets = c(
+            "Bldg Sqft", "Sale 1 Price", "Sale 1 Date",
+            "Sale 2 Price", "Sale 2 Date",
+            "Est. FMV", "Difference"
+          )
+        ),
+        list(
+          className = "dt-nowrap",
+          targets = c("Sale 1 Date", "Sale 2 Date")
+        )
+      )
+    )
+  )
+```
+
+:::

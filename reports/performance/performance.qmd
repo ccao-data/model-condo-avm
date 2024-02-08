@@ -24,11 +24,21 @@ params:
   year: "2024"
 ---
 
-This document is a stub.
+{{< include ../_setup.qmd >}}
 
-```{r setup}
-library(plotly)
-library(leaflet)
-library(sf)
-print("All packages loaded!")
+{{< include _model.qmd >}}
+
+{{< include _outcomes.qmd >}}
+
+{{< include _sales.qmd >}}
+
+{{< include _outliers.qmd >}}
+
+```{r, results='asis'}
+# Dynamically render shap code based on whether they are enabled for model run
+# https://www.harveyl888.com/post/2022-05-12-knit_child_quarto/
+if (shap_exists) {
+  shap_qmd <- knitr::knit_child("_shap.qmd", quiet = TRUE)
+  cat(shap_qmd, sep = "\n")
+}
 ```
