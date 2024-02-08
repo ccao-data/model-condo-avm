@@ -9,6 +9,10 @@
 
 # Run Control ------------------------------------------------------------------
 
+# Model tag used to identify the purpose of the run. Must be one of:
+# "junk", "rejected", "test", "baseline", "candidate", or "final"
+run_type: "test"
+
 # Note included with each run. Use this to summarize what changed about the run
 # or add context
 run_note: >
@@ -64,9 +68,8 @@ input:
 
     # Grouping variables used in the construction of condo strata. Each group
     # will have its own independent strata of size K 1 and K 2 (see below)
-    group_var: [
-      "meta_township_code"
-    ]
+    group_var:
+      - "meta_township_code"
 
     # We can use either quantiles or k-means clustering to build condo strata
     type: "ntile"
@@ -92,6 +95,7 @@ cv:
   # Number of folds to use for cross-validation. For v-fold CV, the data will be
   # randomly split. For rolling-origin, the data will be split into V chunks by
   # time, with each chunk/period calculated automatically
+  num_folds: 10
 
   # The number of months time-based folds should overlap each other. Only
   # applicable to rolling-origin CV. See https://www.tmwr.org/resampling#rolling
@@ -375,17 +379,16 @@ ratio_study:
 
   # Geographies for which to calculate performance statistics in the evaluate
   # stage. Each geography is also broken out by class
-  geographies: [
-    "meta_township_code",
-    "meta_nbhd_code",
-    "loc_tax_municipality_name",
-    "loc_ward_num",
-    "loc_census_puma_geoid",
-    "loc_census_tract_geoid",
-    "loc_school_elementary_district_geoid",
-    "loc_school_secondary_district_geoid",
-    "loc_school_unified_district_geoid"
-  ]
+  geographies:
+    - "meta_township_code"
+    - "meta_nbhd_code"
+    - "loc_tax_municipality_name"
+    - "loc_ward_num"
+    - "loc_census_puma_geoid"
+    - "loc_census_tract_geoid"
+    - "loc_school_elementary_district_geoid"
+    - "loc_school_secondary_district_geoid"
+    - "loc_school_unified_district_geoid"
 
 
 # Export -----------------------------------------------------------------------
