@@ -17,7 +17,7 @@ outcomes_map_big_changes <- assessment_pin %>%
   group_by(meta_nbhd_code) %>%
   left_join(ccao::nbhd_shp, by = c("meta_nbhd_code" = "town_nbhd")) %>%
   distinct(meta_pin, .keep_all = TRUE) %>%
-  filter(!is.na(prior_near_yoy_change_pct)) %>%
+  filter(!is.na(prior_near_yoy_change_pct), !is.na(loc_latitude)) %>%
   mutate(
     prior_near_yoy_change_pct = prior_near_yoy_change_pct * 100,
     neighborhood_median_change = median(prior_near_yoy_change_pct)
@@ -93,10 +93,6 @@ outcomes_map_big_changes %>%
   group_by(meta_township_code) %>%
   slice_max(order_by = prior_near_yoy_change_nom, n = 5) %>%
   ungroup() %>%
-  left_join(
-    select(chars_data, meta_pin, char_beds, char_rooms, char_fbath, meta_year),
-    by = c("meta_pin", "meta_year")
-  ) %>%
   distinct(meta_pin, .keep_all = TRUE) %>%
   mutate(
     Pin = meta_pin,
@@ -112,12 +108,7 @@ outcomes_map_big_changes %>%
     ),
     "Recent Sale Date" = sale_recent_1_date,
     "Recent Sale Price" = scales::dollar(sale_recent_1_price),
-    "Missing Critical Value" = flag_char_missing_critical_value,
     "Year Built" = char_yrblt,
-    "Total Building SF" = scales::comma(char_total_bldg_sf),
-    Bedrooms = char_beds,
-    Rooms = char_rooms,
-    "Full Bathrooms" = char_fbath,
     "Median Neighborhood Change" = scales::percent(
       round(neighborhood_median_change, 2) / 100
     )
@@ -134,12 +125,7 @@ outcomes_map_big_changes %>%
     `Percent Change`,
     `Recent Sale Date`,
     `Recent Sale Price`,
-    `Missing Critical Value`,
     `Year Built`,
-    `Total Building SF`,
-    `Bedrooms`,
-    `Rooms`,
-    `Full Bathrooms`,
     `Median Neighborhood Change`
   ) %>%
   datatable(
@@ -317,62 +303,86 @@ leaflet(data = outcomes_map_township_delta_sf) %>%
 
 :::
 
-## Multi-Family Changes
+## Change In and Out-of-Sample
 
-This table tries to answer the question: _where_ are 211s and 212s increasing?
-It tabulates the number of 211s and 212s by township that have a change (from
-their ```r m_assess_stage_near``` value) of greater than 50%.
+If the training sample is representative of the housing stock at large we should
+see similar changes in AVs between the previous year and predictions regardless
+of whether a home has sold recently. This table compares the median change in AV
+(dollar and percentage) for homes which have sold in the three years prior to
+the assessment year those which did not sell.
 
-```{r _outcomes_211_and_212_yoy_changes}
-outcomes_multifamily_change <- assessment_pin %>%
+```{r _model_in_v_out_of_sample_delta}
+stats_median_yoy_delta <- assessment_pin %>%
+  filter(meta_triad_code == run_triad_code) %>%
+  mutate(
+    Township = ccao::town_convert(meta_township_code),
+    prior_far_yoy_change_pct = as.numeric(prior_far_yoy_change_pct),
+    prior_near_yoy_change_nom = as.numeric(prior_near_yoy_change_nom),
+    is_recent_sale = case_when(
+      lubridate::year(sale_recent_1_date) >=
+        as.numeric(metadata$input_max_sale_year) - 3 ~ TRUE,
+      TRUE ~ FALSE
+    )
+  ) %>%
   filter(
-    meta_class %in% c("211", "212"),
-    meta_triad_code == run_triad_code
+    !is.na(prior_near_yoy_change_pct),
+    !is.na(prior_near_yoy_change_nom)
+  ) %>%
+  summarize(
+    yoy_change_percent = median(prior_near_yoy_change_pct, na.rm = TRUE),
+    yoy_change_dollars = median(prior_near_yoy_change_nom, na.rm = TRUE),
+    .by = c(Township, is_recent_sale)
+  ) %>%
+  pivot_wider(
+    id_cols = Township,
+    names_from = is_recent_sale,
+    values_from = c(yoy_change_percent, yoy_change_dollars)
   ) %>%
   mutate(
-    yoy_near = abs((pred_pin_final_fmv - prior_near_tot) / pred_pin_final_fmv),
-    big_swing_near = yoy_near > 0.5,
-    nom_change = pred_pin_final_fmv - prior_near_tot
-  ) %>%
-  summarise(
-    count = n(),
-    big_swings_near = sum(as.numeric(big_swing_near), na.rm = TRUE),
-    big_swings_near_pct = big_swings_near / n(),
-    med_nom_change_of_swing = median(
-      ifelse(big_swing_near, nom_change, NA),
-      na.rm = TRUE
-    ),
-    .by = c(meta_township_code, meta_class)
-  ) %>%
-  arrange(desc(big_swings_near_pct)) %>%
-  left_join(
-    ccao::town_dict %>%
-      select(meta_township_code = township_code, township_name)
-  ) %>%
-  mutate(
-    big_swings_near_pct = scales::percent(big_swings_near_pct),
-    across(c(count, big_swings_near), scales::comma),
-    med_nom_change_of_swing = scales::dollar(med_nom_change_of_swing)
+    change_percent_ratio =
+      round(yoy_change_percent_TRUE / yoy_change_percent_FALSE, 2),
+    change_dollars_ratio =
+      round(yoy_change_dollars_TRUE / yoy_change_dollars_FALSE, 2),
+    yoy_change_percent_TRUE =
+      scales::percent(yoy_change_percent_TRUE, accuracy = 2),
+    yoy_change_percent_FALSE =
+      scales::percent(yoy_change_percent_FALSE, accuracy = 2),
+    yoy_change_dollars_TRUE = scales::dollar(yoy_change_dollars_TRUE),
+    yoy_change_dollars_FALSE = scales::dollar(yoy_change_dollars_FALSE)
   ) %>%
   select(
-    `Township` = township_name,
-    `Class` = meta_class,
-    `Raw Count` = count,
-    `Number w/ Change > 50%` = big_swings_near,
-    `Percent w/ Change > 50%` = big_swings_near_pct,
-    `Med. $ Change When Change > 50%` = med_nom_change_of_swing
+    Township,
+    change_percent_ratio, yoy_change_percent_TRUE, yoy_change_percent_FALSE,
+    change_dollars_ratio, yoy_change_dollars_TRUE, yoy_change_dollars_FALSE,
   )
 
-outcomes_multifamily_change %>%
-  datatable(
-    rownames = FALSE,
-    options = list(
-      columnDefs = list(
-        list(
-          className = "dt-right",
-          targets = c(2:5)
-        )
-      )
+stats_median_yoy_delta %>%
+  mutate(
+    change_percent_ratio = cell_spec(
+      change_percent_ratio,
+      color = ifelse(between(change_percent_ratio, 0.95, 1.05), "green", "red")
+    ),
+    change_dollars_ratio = cell_spec(
+      change_dollars_ratio,
+      color = ifelse(between(change_dollars_ratio, 0.95, 1.05), "green", "red")
     )
+  ) %>%
+  kable(
+    "html",
+    escape = F, col.names = rep("", 7), align = c("l", rep("c", 6))
+  ) %>%
+  kable_styling(full_width = F) %>%
+  add_header_above(c(
+    "Township" = 1,
+    "Ratio" = 1,
+    "Sold" = 1,
+    "Unsold" = 1,
+    "Ratio" = 1,
+    "Sold" = 1,
+    "Unsold" = 1
+  )) %>%
+  add_header_above(c(" " = 1, "Percentage Change" = 3, "Dollar Change" = 3)) %>%
+  add_header_above(
+    c("Comparison of YOY Change in AV for Sold and Unsold Houses" = 7)
   )
 ```
