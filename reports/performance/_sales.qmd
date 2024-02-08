@@ -378,7 +378,7 @@ sales_price_index_class <- training_data %>%
     title = paste0(
       "Price / Price of ", sales_price_index_nearest_year, ", Outliers Excluded"
     ),
-    color = "Township"
+    color = "Class"
   ) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
