@@ -82,6 +82,22 @@ upload_enable <- as.logical(Sys.getenv(
 run_note <- as.character(
   Sys.getenv("WORKFLOW_RUN_NOTE", unset = get(params_obj_name)$run_note)
 )
+run_type <- as.character(
+  Sys.getenv("WORKFLOW_RUN_TYPE", unset = get(params_obj_name)$run_type)
+)
+
+# Must be one of the dedicated run types
+possible_run_types <- c(
+  "junk", "rejected", "test",
+  "baseline", "candidate", "final"
+)
+if (!run_type %in% possible_run_types) {
+  stop(
+    "Invalid run type '", run_type, "'. Must be one of: ",
+    paste0(possible_run_types, collapse = ", ")
+  )
+}
+rm(possible_run_types)
 
 # Check to see if LightGBM early stopping is enabled based on engine parameters
 early_stopping_enable <-
@@ -91,7 +107,7 @@ early_stopping_enable <-
 
 # Load any additional PINs to generate reports for from environment
 report_pins <- unique(c(
-  params$ratio_study$pins,
+  get(params_obj_name)$ratio_study$pins,
   Sys.getenv("REPORT_ADDITIONAL_PINS", unset = "") %>%
     str_split(" ") %>%
     unlist() %>%
