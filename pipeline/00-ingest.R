@@ -24,6 +24,7 @@ AWS_ATHENA_CONN_NOCTUA <- dbConnect(noctua::athena())
 
 
 
+
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 2. Pull Data -----------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -52,6 +53,7 @@ training_data <- dbGetQuery(
   WHERE condo.year
       BETWEEN '{params$input$min_sale_year}'
       AND '{params$input$max_sale_year}'
+  AND sale.deed_type IN ('01', '02', '05')
   AND NOT sale.sale_filter_same_sale_within_365
   AND NOT sale.sale_filter_less_than_10k
   AND NOT sale.sale_filter_deed_type
@@ -244,7 +246,10 @@ training_data_clean <- training_data %>%
     across(starts_with("loc_tax_"), \(x) na_if(x, "")),
     # Miscellanous column-level cleanup
     ccao_is_corner_lot = replace_na(ccao_is_corner_lot, FALSE),
-    across(where(is.character), \(x) na_if(x, ""))
+    ccao_is_active_exe_homeowner = replace_na(ccao_is_active_exe_homeowner, 0L),
+    ccao_n_years_exe_homeowner = replace_na(ccao_n_years_exe_homeowner, 0L),
+    across(where(is.character), \(x) na_if(x, "")),
+    across(where(bit64::is.integer64), \(x) as.numeric(x))
   ) %>%
   # Create time/date features using lubridate
   mutate(
@@ -263,8 +268,16 @@ training_data_clean <- training_data %>%
     time_sale_day_of_week = as.integer(wday(meta_sale_date)),
     time_sale_post_covid = meta_sale_date >= make_date(2020, 3, 15)
   ) %>%
-  select(-time_interval) %>%
+  select(-any_of(c("time_interval"))) %>%
   relocate(starts_with("sv_"), .after = everything()) %>%
+  relocate("year", .after = everything()) %>%
+  filter(
+    between(
+      meta_sale_date,
+      make_date(params$input$min_sale_year, 1, 1),
+      make_date(params$input$max_sale_year, 12, 31)
+    )
+  ) %>%
   as_tibble()
 
 
@@ -284,8 +297,10 @@ assessment_data_clean <- assessment_data %>%
     across(starts_with("loc_tax_"), \(x) str_replace_all(x, "\\[|\\]", "")),
     across(starts_with("loc_tax_"), \(x) str_trim(str_split_i(x, ",", 1))),
     across(starts_with("loc_tax_"), \(x) na_if(x, "")),
-    ccao_is_corner_lot = replace_na(ccao_is_corner_lot, FALSE),
-    across(where(is.character), \(x) na_if(x, ""))
+    ccao_is_active_exe_homeowner = replace_na(ccao_is_active_exe_homeowner, 0L),
+    ccao_n_years_exe_homeowner = replace_na(ccao_n_years_exe_homeowner, 0L),
+    across(where(is.character), \(x) na_if(x, "")),
+    across(where(bit64::is.integer64), \(x) as.numeric(x))
   ) %>%
   # Create sale date features BASED ON THE ASSESSMENT DATE. The model predicts
   # the sale price of properties on the date of assessment. Not the date of an
@@ -305,6 +320,10 @@ assessment_data_clean <- assessment_data %>%
     time_sale_day_of_week = as.integer(wday(meta_sale_date)),
     time_sale_post_covid = meta_sale_date >= make_date(2020, 3, 15)
   ) %>%
+  select(-any_of(c("time_interval"))) %>%
+  relocate(starts_with("sv_"), .after = everything()) %>%
+  relocate("year", .after = everything()) %>%
+  relocate(starts_with("meta_sale_"), .after = hie_num_expired) %>%
   as_tibble()
 
 
