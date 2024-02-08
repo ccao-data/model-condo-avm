@@ -45,9 +45,12 @@ test_data_card <- read_parquet(paths$output$test_card$local) %>%
     !is.na(loc_census_puma_geoid),
     meta_modeling_group == "CONDO"
   ) %>%
-  mutate(bin = ntile(pred_card_initial_fmv / meta_sale_price, 20)) %>%
-  filter(!(bin %in% c(1, 20))) %>%
-  select(-bin)
+  mutate(ratio = pred_card_initial_fmv / meta_sale_price) %>%
+  filter(
+    between(ratio, quantile(ratio, 0.05), quantile(ratio, 0.95)),
+    .by = meta_township_code
+    ) %>%
+  select(-ratio)
 
 # Load the assessment results from the previous stage. This will include every
 # residential PIN that needs a value.
@@ -56,8 +59,15 @@ assessment_data_pin <- read_parquet(paths$output$assessment_pin$local) %>%
     meta_triad_code == run_triad_code,
     !flag_nonlivable_space
   ) %>%
-  mutate(bin = ntile(pred_pin_final_fmv_round / sale_ratio_study_price, 20)) %>%
-  filter(!(bin %in% c(1, 20))) %>%
+  mutate(ratio = pred_pin_final_fmv_round / sale_ratio_study_price) %>%
+  filter(
+    between(
+      ratio,
+      quantile(ratio, 0.05, na.rm = TRUE),
+      quantile(ratio, 0.95, na.rm = TRUE)
+      ),
+    .by = meta_township_code
+  ) %>%
   select(
     meta_pin, meta_class, meta_triad_code,
     all_of(params$ratio_study$geographies),
@@ -373,7 +383,8 @@ pwalk(
     ) %>%
       purrr::list_rbind() %>%
       write_parquet(path)
-  }
+  },
+  .progress = TRUE
 )
 
 # Same as above, but calculate stats per quantile of sale price
@@ -408,7 +419,8 @@ pwalk(
     ) %>%
       purrr::list_rbind() %>%
       write_parquet(path)
-  }
+  },
+  .progress = TRUE
 )
 
 
