@@ -433,8 +433,6 @@ for (township in model_townships_list) {
 The goal is for these distributions look extremely similar. The number under each y-axis label is the
 number of sales in that group.
 
-### By Township
-
 ```{r _model_est_v_actual_township, fig.width=8, fig.height=14}
 model_test_est_v_actual <- model_performance_test_merged %>%
   filter(
@@ -545,143 +543,11 @@ ggplot() +
   )
 ```
 
-### By Township and Class
-
-::: {.panel-tabset}
-
-```{r _model_est_v_actual_township_by_class, results='asis', fig.width=8, fig.height=10}
-# Make class breakout function with facet
-model_sale_vs_estimate_by_class <- function(data, township) {
-  est_vs_actual <- data %>%
-    filter(
-      triad_code == run_triad_code,
-      geography_type == "township_code",
-      by_class
-    ) %>%
-    select(
-      geography_type, geography_id, class, num_sale, stage,
-      sale_fmv_q25, sale_fmv_median, sale_fmv_q75,
-      estimate_fmv_q25, estimate_fmv_median, estimate_fmv_q75
-    )
-
-  reshaped_data <- est_vs_actual %>%
-    mutate(township_name = ccao::town_convert(geography_id)) %>%
-    dplyr::filter(township_name == township) %>%
-    pivot_longer(
-      cols = -c(
-        geography_type, geography_id, township_name,
-        class, num_sale, stage
-      ),
-      names_to = "type",
-      values_to = "value"
-    ) %>%
-    mutate(
-      category = case_when(
-        str_detect(type, "sale") ~ "Actual (Sales)",
-        str_detect(type, "estimate") &
-          stage == "Linear Baseline" ~ "Estimate (Linear Baseline)",
-        str_detect(type, "estimate") ~ "Estimate (Main Model)"
-      )
-    ) %>%
-    select(township_name, class, category, value, num_sale) %>%
-    mutate(
-      type_factor = factor(
-        category,
-        levels = c(
-          "Estimate (Linear Baseline)",
-          "Estimate (Main Model)",
-          "Actual (Sales)"
-        )
-      ),
-      class = paste0(class, "\n(", num_sale, ")")
-    )
-
-  segment_data <- reshaped_data %>%
-    group_by(class, type_factor) %>%
-    arrange(class, type_factor, value) %>%
-    mutate(xend = lead(value)) %>%
-    filter(!is.na(xend))
-
-  ggplot() +
-    geom_segment(
-      data = segment_data,
-      aes(
-        x = value,
-        xend = xend,
-        y = type_factor,
-        yend = type_factor,
-        color = type_factor
-      ),
-      linewidth = 1
-    ) +
-    geom_point(
-      data = reshaped_data,
-      aes(
-        x = value,
-        y = type_factor,
-        group = type_factor,
-        color = type_factor
-      ),
-      size = 2.2,
-      fill = "white"
-    ) +
-    facet_grid(class ~ ., scales = "free_x", space = "free", switch = "y") +
-    labs(
-      x = "Price",
-      y = "Class",
-      color = "Type",
-      title = "25th percentile, median, 75th percentile"
-    ) +
-    coord_cartesian(clip = "off") +
-    scale_color_manual(
-      values = c(
-        "Estimate (Linear Baseline)" = plot_colors$linear,
-        "Estimate (Main Model)" = plot_colors$main,
-        "Actual (Sales)" = plot_colors$sales
-      )
-    ) +
-    scale_x_continuous(
-      labels = label_dollar(scale = 1 / 1000, suffix = "K"),
-      n.breaks = 10,
-      expand = expansion(add = c(2.5e4, 5e4))
-    ) +
-    scale_y_discrete(
-      labels = function(x) rep("", length(x)),
-      expand = expansion(add = c(1.5, 1.5))
-    ) +
-    guides(color = guide_legend(reverse = TRUE)) +
-    theme_minimal() +
-    theme(
-      strip.text.y.left = element_text(angle = 0, hjust = 1),
-      axis.text.x = element_text(angle = 45, hjust = 1),
-      axis.ticks.x = element_line(color = "grey65"),
-      legend.position = "bottom",
-      panel.spacing.y = unit(0, "lines"),
-      panel.grid.major.y = element_blank(),
-      panel.border = element_rect(fill = NA, color = "grey75"),
-      axis.title.y = element_blank(),
-      axis.text.y = element_blank()
-    )
-}
-
-for (township in model_townships_list) {
-  cat("###", township, "\n")
-  model_performance_test_merged %>%
-    model_sale_vs_estimate_by_class(township) %>%
-    print()
-  cat("\n\n")
-}
-```
-
-:::
-
 ## Estimate vs Actual (Individual Obs.)
 
 Scatterplot of predicted vs actual sale price for each PIN in the **test set**. The goal is for all points to be close to the 45-degree line; the farther away from the line, the worse the model is at predicting that PIN.
 
 _NOTE: Click any of the dots on the plot below to open the Assessor's website for that PIN._
-
-### By Township
 
 ::: panel-tabset
 
@@ -720,7 +586,7 @@ est_v_actual_plotly_town <- function(data, x) {
         suffix = "K"
       ),
       n.breaks = 5,
-      limits = c(1e4, 3e6)
+      limits = c(1e4, 1.6e6)
     ) +
     scale_x_continuous(
       name = "Actual FMV (Sale Price)",
@@ -730,7 +596,7 @@ est_v_actual_plotly_town <- function(data, x) {
         suffix = "K"
       ),
       n.breaks = 5,
-      limits = c(1e4, 3e6)
+      limits = c(1e4, 1.6e6)
     ) +
     theme_minimal()
 
@@ -755,85 +621,6 @@ est_v_actual_plotly_town(test_card, pred_card_initial_fmv)
 
 ```{r _model_est_v_actual_town_indiv_lin}
 est_v_actual_plotly_town(test_card, pred_card_initial_fmv_lin)
-```
-
-:::
-
-### By Class
-
-::: panel-tabset
-
-#### Main Model
-
-```{r _model_est_v_actual_class_indiv_main}
-est_v_actual_plotly_class <- function(data, x) {
-  pred_v_actual_plot_df <- data %>%
-    filter(meta_triad_code == run_triad_code) %>%
-    mutate(Township = ccao::town_convert(meta_township_code)) %>%
-    rename(
-      PIN = meta_pin,
-      Class = meta_class,
-      `Sale Price` = meta_sale_price,
-      `Predicted FMV` = {{ x }}
-    )
-
-  pred_v_actual_plot <- ggplot(pred_v_actual_plot_df) +
-    geom_point(aes(
-      group = PIN,
-      y = `Predicted FMV`,
-      x = `Sale Price`,
-      color = Class,
-      text = paste0(
-        "Class: ", Class, "<br>",
-        "PIN: ", PIN, "<br>",
-        "Sale Price: ", scales::dollar(`Sale Price`, accuracy = 1), "<br>",
-        "Estimated FMV: ", scales::dollar(`Predicted FMV`, accuracy = 1)
-      )
-    )) +
-    geom_abline(slope = 1, intercept = 0) +
-    scale_y_continuous(
-      name = "Estimated FMV",
-      labels = scales::label_dollar(
-        accuracy = 1,
-        scale = 1 / 1000,
-        suffix = "K"
-      ),
-      n.breaks = 5,
-      limits = c(1e4, 3e6)
-    ) +
-    scale_x_continuous(
-      name = "Actual FMV (Sale Price)",
-      labels = scales::label_dollar(
-        accuracy = 1,
-        scale = 1 / 1000,
-        suffix = "K"
-      ),
-      n.breaks = 5,
-      limits = c(1e4, 3e6)
-    ) +
-    theme_minimal()
-
-  gplt <- ggplotly(pred_v_actual_plot, tooltip = "text")
-
-  click_handler_javascript <- HTML(paste0("
-    var gplt = document.getElementsByClassName('js-plotly-plot')[0];
-    gplt.on('plotly_click', function(data){
-      const re = /PIN\\: ([0-9]{14})/;
-      var pin = re.exec(data.points[0].text)[1];
-      var url = 'https://www.cookcountyassessor.com/pin/' + pin;
-      window.open(url,'_blank');
-    });"))
-
-  prependContent(gplt, onStaticRenderComplete(click_handler_javascript))
-}
-
-est_v_actual_plotly_class(test_card, pred_card_initial_fmv)
-```
-
-#### Linear Baseline
-
-```{r _model_est_v_actual_class_indiv_lin}
-est_v_actual_plotly_class(test_card, pred_card_initial_fmv_lin)
 ```
 
 :::
@@ -988,11 +775,7 @@ test_card %>%
 
 ```{r _model_time_trends_seen, fig.height=8, fig.width=7}
 training_data_pred %>%
-  filter(
-    !sv_is_outlier,
-    meta_triad_name == run_triad,
-    !ind_pin_is_multicard
-  ) %>%
+  filter(!sv_is_outlier, meta_triad_name == run_triad) %>%
   mutate(
     time_sale_month = floor_date(meta_sale_date, "month"),
     meta_township_name = ccao::town_convert(meta_township_code)
@@ -1146,7 +929,7 @@ model_big_misses_test <- test_card %>%
   filter(meta_triad_code == run_triad_code) %>%
   select(
     Town = township_name, PIN = meta_pin, Class = meta_class,
-    NBHD = meta_nbhd_code, `Bldg Sqft` = char_bldg_sf,
+    NBHD = meta_nbhd_code,
     `Sale Date` = meta_sale_date, `Sale Price` = meta_sale_price,
     `Est. FMV` = pred_card_initial_fmv
   ) %>%
@@ -1168,8 +951,7 @@ model_big_misses_test <- test_card %>%
     across(
       c(ends_with("Price"), ends_with("FMV"), Difference),
       ~ scales::dollar(.x, prefix = "$")
-    ),
-    `Bldg Sqft` = scales::comma(`Bldg Sqft`)
+    )
   ) %>%
   arrange(Town, `Qnt.`)
 
@@ -1180,7 +962,7 @@ model_big_misses_test %>%
       columnDefs = list(
         list(
           className = "dt-right",
-          targets = c("Bldg Sqft", "Sale Price", "Est. FMV", "Difference")
+          targets = c("Sale Price", "Est. FMV", "Difference")
         ),
         list(
           className = "dt-nowrap",
@@ -1204,7 +986,7 @@ model_big_misses_assessment <- assessment_pin %>%
   ) %>%
   select(
     Town = township_name, PIN = meta_pin, Class = meta_class,
-    NBHD = meta_nbhd_code, `Bldg Sqft` = char_total_bldg_sf, Yrblt = char_yrblt,
+    NBHD = meta_nbhd_code, Yrblt = char_yrblt,
     `Sale 2 Date` = sale_recent_2_date, `Sale 2 Price` = sale_recent_2_price,
     `Sale 1 Date` = sale_recent_1_date, `Sale 1 Price` = sale_recent_1_price,
     `Est. FMV` = pred_pin_final_fmv_round
@@ -1227,8 +1009,7 @@ model_big_misses_assessment <- assessment_pin %>%
     across(
       c(ends_with("Price"), ends_with("FMV"), Difference),
       ~ scales::dollar(.x, prefix = "$")
-    ),
-    `Bldg Sqft` = scales::comma(`Bldg Sqft`)
+    )
   ) %>%
   arrange(Town, `Qnt.`)
 
@@ -1240,7 +1021,7 @@ model_big_misses_assessment %>%
         list(
           className = "dt-right",
           targets = c(
-            "Bldg Sqft", "Sale 1 Price", "Sale 1 Date",
+            "Sale 1 Price", "Sale 1 Date",
             "Sale 2 Price", "Sale 2 Date",
             "Est. FMV", "Difference"
           )
