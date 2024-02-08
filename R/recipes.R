@@ -116,7 +116,6 @@ model_lin_recipe <- function(data, pred_vars, cat_vars,
     ) %>%
     # Drop any predictors with near-zero variance, add interactions, and
     # perform transforms
-
     step_interact(terms = ~ meta_township_code * time_sale_day) %>%
     step_interact(terms = ~ meta_township_code * char_yrblt) %>%
     step_BoxCox(

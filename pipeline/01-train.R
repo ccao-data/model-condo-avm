@@ -14,6 +14,7 @@ purrr::walk(list.files("R/", "\\.R$", full.names = TRUE), source)
 
 # Print a run note for context at the top of CI logs
 message("Run note: ", run_note)
+message("Run type: ", run_type)
 
 
 
@@ -84,19 +85,34 @@ lin_wflow <- workflow() %>%
   )
 
 
-# 3.2. Cross-Validation -------------------------------------------------------
+## 3.2. Cross-Validation -------------------------------------------------------
 
 # Begin CV tuning if enabled. We use Bayesian tuning as grid search or random
 # search take a very long time to produce good results due to the high number
 # of hyperparameters
 if (cv_enable) {
-  message("Starting cross-validation")
+  message("Starting linear model cross-validation")
 
-  # Create the cross-validation folds
-  train_folds <- vfold_cv(
-    data = train,
-    v = params$cv$num_folds
-  )
+  # Create resamples / folds for cross-validation
+  if (params$model$parameter$validation_type == "random") {
+    train_folds <- vfold_cv(data = train, v = params$cv$num_folds)
+  } else if (params$model$parameter$validation_type == "recent") {
+    # CRITICAL NOTE: When using rolling-origin CV with train_includes_val = TRUE
+    # the validation set IS INCLUDED IN THE TRAINING DATA for each fold
+
+    # This is a hack to pass a validation set to LightGBM for early stopping
+    # (our R wrapper package Lightsnip cuts out the last X% of each training
+    # set to use as a validation set). See GitLab issue #82 for more info
+    train_folds <- create_rolling_origin_splits(
+      data = train,
+      v = params$cv$num_folds,
+      overlap_months = params$cv$fold_overlap,
+      date_col = meta_sale_date,
+      val_prop = params$model$parameter$validation_prop,
+      train_includes_val = params$model$parameter$validation_prop > 0,
+      cumulative = FALSE
+    )
+  }
 
   # Create the parameter search space for hyperparameter optimization
   # Parameter boundaries are taken from the lightgbm docs and hand-tuned
@@ -112,8 +128,8 @@ if (cv_enable) {
   lin_search <- tune_bayes(
     object = lin_wflow,
     resamples = train_folds,
-    initial = params$cv$initial_set,
-    iter = params$cv$max_iterations,
+    initial = 4,
+    iter = 6,
     param_info = lin_params,
     metrics = metric_set(rmse, mape, mae),
     control = control_bayes(
@@ -132,37 +148,20 @@ if (cv_enable) {
     engine = "lm",
     objective = params$model$objective
   ) %>%
-    bind_cols(
-      as_tibble(params$model$parameter) %>%
-        select(-any_of("num_iterations"))
-    ) %>%
-    bind_cols(
-      select_iterations(lin_search, metric = params$cv$best_metric)
-    ) %>%
-    bind_cols(
-      select_best(lin_search, metric = params$cv$best_metric) %>%
-        select(-any_of("trees"))
-    ) %>%
-    select(configuration = .config, everything()) %>%
-    mutate(across(any_of("num_iterations"), as.integer)) %>%
-    arrow::write_parquet(paths$output$parameter_final$local)
+    bind_cols(as_tibble(params$model$parameter)) %>%
+    bind_cols(select_iterations(lin_search, metric = params$cv$best_metric)) %>%
+    bind_cols(select_best(lin_search, metric = params$cv$best_metric)) %>%
+    select(configuration = .config, everything())
 } else {
   # If CV is disabled, just use the default set of parameters specified in
   # params.yaml, keeping only the ones used in the model specification
-  lin_missing_params <- "neighbors"
-  lin_missing_params <- lin_missing_params[
-    !lin_missing_params %in%
-      c(hardhat::extract_parameter_set_dials(lin_wflow)$name, "num_iterations")
-  ]
   lin_final_params <- tibble(
     configuration = "Default",
     engine = "lm",
     objective = params$model$objective
   ) %>%
     bind_cols(as_tibble(params$model$parameter)) %>%
-    bind_cols(as_tibble(params$model$hyperparameter$default["neighbors"])) %>%
-    select(-all_of(lin_missing_params)) %>%
-    mutate(across(any_of("num_iterations"), as.integer))
+    bind_cols(as_tibble(params$model$hyperparameter$default["neighbors"]))
 }
 
 
@@ -297,11 +296,26 @@ lgbm_wflow <- workflow() %>%
 if (cv_enable) {
   message("Starting cross-validation")
 
-  # Create the cross-validation folds
-  train_folds <- vfold_cv(
-    data = train,
-    v = params$cv$num_folds
-  )
+  # Create resamples / folds for cross-validation
+  if (params$model$parameter$validation_type == "random") {
+    train_folds <- vfold_cv(data = train, v = params$cv$num_folds)
+  } else if (params$model$parameter$validation_type == "recent") {
+    # CRITICAL NOTE: When using rolling-origin CV with train_includes_val = TRUE
+    # the validation set IS INCLUDED IN THE TRAINING DATA for each fold
+
+    # This is a hack to pass a validation set to LightGBM for early stopping
+    # (our R wrapper package Lightsnip cuts out the last X% of each training
+    # set to use as a validation set). See GitLab issue #82 for more info
+    train_folds <- create_rolling_origin_splits(
+      data = train,
+      v = params$cv$num_folds,
+      overlap_months = params$cv$fold_overlap,
+      date_col = meta_sale_date,
+      val_prop = params$model$parameter$validation_prop,
+      train_includes_val = params$model$parameter$validation_prop > 0,
+      cumulative = FALSE
+    )
+  }
 
   # Create the parameter search space for hyperparameter optimization
   # Parameter boundaries are taken from the lightgbm docs and hand-tuned
