@@ -49,7 +49,7 @@ test_data_card <- read_parquet(paths$output$test_card$local) %>%
   filter(
     between(ratio, quantile(ratio, 0.05), quantile(ratio, 0.95)),
     .by = meta_township_code
-    ) %>%
+  ) %>%
   select(-ratio)
 
 # Load the assessment results from the previous stage. This will include every
@@ -65,7 +65,7 @@ assessment_data_pin <- read_parquet(paths$output$assessment_pin$local) %>%
       ratio,
       quantile(ratio, 0.05, na.rm = TRUE),
       quantile(ratio, 0.95, na.rm = TRUE)
-      ),
+    ),
     .by = meta_township_code
   ) %>%
   select(
