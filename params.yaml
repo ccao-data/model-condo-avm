@@ -92,6 +92,7 @@ cv:
   # Number of folds to use for cross-validation. For v-fold CV, the data will be
   # randomly split. For rolling-origin, the data will be split into V chunks by
   # time, with each chunk/period calculated automatically
+  num_folds: 7
 
   # The number of months time-based folds should overlap each other. Only
   # applicable to rolling-origin CV. See https://www.tmwr.org/resampling#rolling
@@ -149,6 +150,10 @@ model:
       - "char_building_non_units"
       - "char_bldg_is_mixed_use"
       - "char_building_sf"
+      - "char_unit_sf"
+      - "char_bedrooms"
+      - "char_half_baths"
+      - "char_full_baths"
       - "loc_longitude"
       - "loc_latitude"
       - "loc_env_flood_fema_sfha"
