@@ -81,4 +81,5 @@ Config/renv/profiles/reporting/dependencies:
     svglite,
     tableone,
     tools,
+    xfun,
     xgboost
