@@ -368,8 +368,7 @@ pwalk(
     ) %>%
       purrr::list_rbind() %>%
       write_parquet(path)
-  },
-  .progress = TRUE
+  }
 )
 
 # Same as above, but calculate stats per quantile of sale price
@@ -404,8 +403,7 @@ pwalk(
     ) %>%
       purrr::list_rbind() %>%
       write_parquet(path)
-  },
-  .progress = TRUE
+  }
 )
 
 
