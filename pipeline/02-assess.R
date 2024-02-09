@@ -221,7 +221,8 @@ sales_data_ratio_study <- sales_data %>%
 sales_data_two_most_recent <- sales_data %>%
   distinct(
     meta_pin, meta_year,
-    meta_sale_price, meta_sale_date, meta_sale_document_num
+    meta_sale_price, meta_sale_date, meta_sale_document_num,
+    sv_outlier_type
   ) %>%
   # Include outliers, since these data are used for desk review and
   # not for modeling
