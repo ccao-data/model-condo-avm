@@ -110,9 +110,9 @@ model_lin_recipe <- function(data, pred_vars, cat_vars,
     step_impute_mode(all_nominal_predictors(), -has_role("ID")) %>%
     step_zv(all_predictors()) %>%
     # Replace novel levels with "new"
-    step_novel(all_of(cat_vars), -has_role("ID")) %>%
+    step_novel(all_nominal_predictors(), -has_role("ID")) %>%
     # Replace NA in factors with "unknown"
-    step_unknown(all_of(cat_vars), -has_role("ID")) %>%
+    step_unknown(all_nominal_predictors(), -has_role("ID")) %>%
     # Dummify categorical predictors
     step_dummy(all_nominal_predictors(), -has_role("ID"), one_hot = TRUE) %>%
     # Drop any predictors with near-zero variance, add interactions, and
