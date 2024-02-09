@@ -84,94 +84,11 @@ lin_wflow <- workflow() %>%
     blueprint = hardhat::default_recipe_blueprint(allow_novel_levels = TRUE)
   )
 
-
-## 3.2. Cross-Validation -------------------------------------------------------
-
-# Begin CV tuning if enabled. We use Bayesian tuning as grid search or random
-# search take a very long time to produce good results due to the high number
-# of hyperparameters
-if (cv_enable) {
-  message("Starting linear model cross-validation")
-
-  # Create resamples / folds for cross-validation
-  if (params$model$parameter$validation_type == "random") {
-    train_folds <- vfold_cv(data = train, v = params$cv$num_folds)
-  } else if (params$model$parameter$validation_type == "recent") {
-    # CRITICAL NOTE: When using rolling-origin CV with train_includes_val = TRUE
-    # the validation set IS INCLUDED IN THE TRAINING DATA for each fold
-
-    # This is a hack to pass a validation set to LightGBM for early stopping
-    # (our R wrapper package Lightsnip cuts out the last X% of each training
-    # set to use as a validation set). See GitLab issue #82 for more info
-    train_folds <- create_rolling_origin_splits(
-      data = train,
-      v = params$cv$num_folds,
-      overlap_months = params$cv$fold_overlap,
-      date_col = meta_sale_date,
-      val_prop = params$model$parameter$validation_prop,
-      train_includes_val = params$model$parameter$validation_prop > 0,
-      cumulative = FALSE
-    )
-  }
-
-  # Create the parameter search space for hyperparameter optimization
-  # Parameter boundaries are taken from the lightgbm docs and hand-tuned
-  # See: https://lightgbm.readthedocs.io/en/latest/Parameters-Tuning.html
-  lin_params <- lin_wflow %>%
-    hardhat::extract_parameter_set_dials() %>%
-    update(
-      neighbors = dials::neighbors(params$model$hyperparameter$range$neighbors)
-    )
-
-  # Use Bayesian tuning to find best performing hyperparameters. This part takes
-  # quite a long time, depending on the compute resources available
-  lin_search <- tune_bayes(
-    object = lin_wflow,
-    resamples = train_folds,
-    initial = 4,
-    iter = 6,
-    param_info = lin_params,
-    metrics = metric_set(rmse, mape, mae),
-    control = control_bayes(
-      verbose = TRUE,
-      verbose_iter = TRUE,
-      uncertain = params$cv$uncertain,
-      no_improve = params$cv$no_improve,
-      extract = extract_num_iterations,
-      seed = params$model$seed
-    )
-  )
-
-  # Choose the best model (whichever model minimizes the chosen objective,
-  # averaged across CV folds)
-  lin_final_params <- tibble(
-    engine = "lm",
-    objective = params$model$objective
-  ) %>%
-    bind_cols(as_tibble(params$model$parameter)) %>%
-    bind_cols(select_iterations(lin_search, metric = params$cv$best_metric)) %>%
-    bind_cols(select_best(lin_search, metric = params$cv$best_metric)) %>%
-    select(configuration = .config, everything())
-} else {
-  # If CV is disabled, just use the default set of parameters specified in
-  # params.yaml, keeping only the ones used in the model specification
-  lin_final_params <- tibble(
-    configuration = "Default",
-    engine = "lm",
-    objective = params$model$objective
-  ) %>%
-    bind_cols(as_tibble(params$model$parameter)) %>%
-    bind_cols(as_tibble(params$model$hyperparameter$default["neighbors"]))
-}
-
-
-## 3.3. Fit Models -------------------------------------------------------------
-message("Fitting linear baseline model")
-
 # Fit the linear model on the training data
 lin_wflow_final_fit <- lin_wflow %>%
-  update_model(lin_model) %>%
-  finalize_workflow(lin_final_params) %>%
+  finalize_workflow(
+    list(neighbors = params$model$hyperparameter$default$neighbors)
+  ) %>%
   fit(data = train %>% mutate(meta_sale_price = log(meta_sale_price)))
 
 
