@@ -57,7 +57,6 @@ training_data <- dbGetQuery(
   AND NOT sale.sale_filter_same_sale_within_365
   AND NOT sale.sale_filter_less_than_10k
   AND NOT sale.sale_filter_deed_type
-  AND NOT sale.is_multisale
   AND Year(sale.sale_date) >= {params$input$min_sale_year}
   AND sale.num_parcels_sale <= 2
   ")
@@ -323,7 +322,7 @@ assessment_data_clean <- assessment_data %>%
   select(-any_of(c("time_interval"))) %>%
   relocate(starts_with("sv_"), .after = everything()) %>%
   relocate("year", .after = everything()) %>%
-  relocate(starts_with("meta_sale_"), .after = hie_num_expired) %>%
+  relocate(starts_with("meta_sale_"), .before = loc_property_address) %>%
   as_tibble()
 
 
