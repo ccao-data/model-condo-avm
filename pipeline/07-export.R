@@ -101,7 +101,8 @@ assessment_pin_prepped <- assessment_pin %>%
         prior_near_tot <= params$pv$nonlivable_threshold,
       0
     ),
-    char_type_resd = NA
+    char_type_resd = NA,
+    valuations_note = NA # Empty notes field for Valuations to fill out
   ) %>%
   select(
     township_code, meta_pin, meta_class, meta_nbhd_code,
@@ -112,7 +113,7 @@ assessment_pin_prepped <- assessment_pin %>%
     pred_pin_final_fmv, pred_pin_final_fmv_land, pred_pin_final_fmv_bldg,
     pred_pin_final_fmv_round, land_rate_per_sqft, pred_pin_land_rate_effective,
     pred_pin_bldg_rate_effective, pred_pin_land_pct_total,
-    prior_near_yoy_change_nom, prior_near_yoy_change_pct,
+    prior_near_yoy_change_nom, prior_near_yoy_change_pct, valuations_note,
     sale_recent_1_date, sale_recent_1_price,
     sale_recent_1_outlier_type, sale_recent_1_document_num,
     sale_recent_2_date, sale_recent_2_price,
@@ -175,13 +176,6 @@ assessment_pin10_prepped <- assessment_pin_prepped %>%
 for (town in unique(assessment_pin_prepped$township_code)) {
   message("Now processing: ", town_convert(town))
 
-  workbook_name <- glue(
-    params$assessment$year,
-    str_replace(town_convert(town), " ", "_"),
-    "Initial_Model_Values_Condo.xlsx",
-    .sep = "_"
-  )
-
   ## 4.1. PIN-Level ------------------------------------------------------------
 
   # Filter building data to specific township
@@ -190,6 +184,10 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     select(-township_code)
 
   building_coords <- assessment_pin10_filtered %>%
+    # Handle a rare edge case where neighborhoods span multiple townships
+    # and so introduce duplicate pin10s; more details here:
+    # https://github.com/ccao-data/data-architecture/issues/275
+    distinct(meta_pin10) %>%
     tibble::rowid_to_column("building_coord") %>%
     select(meta_pin10, building_coord)
 
@@ -213,12 +211,37 @@ for (town in unique(assessment_pin_prepped$township_code)) {
         is.na(building_coord),
         NA,
         glue::glue(
-          '=HYPERLINK("[{workbook_name}]{bldg_sheet_name}!',
-          '{building_coord}","{meta_pin10}")'
+          '=HYPERLINK(@CELL("address",{bldg_sheet_name}!{building_coord}),',
+          '"{meta_pin10}")'
         )
       )
     ) %>%
     select(-building_coord)
+
+  # Get range of rows in the PIN data + number of header rows
+  num_head <- 6
+  pin_row_range <- (num_head + 1):(nrow(assessment_pin_filtered) + num_head)
+  pin_row_range_w_header <- c(num_head, pin_row_range)
+  pin_col_range <- 1:50
+
+  # Calculate AVs so we can store them as separate, hidden columns for use
+  # in the neighborhood breakouts pivot table
+  assessment_pin_avs <- assessment_pin_filtered %>%
+    tibble::rowid_to_column("row_id") %>%
+    mutate(
+      row_id = row_id + num_head,
+      total_av = glue::glue("=R{row_id} * 0.1"),
+      av_difference = glue::glue("=(R{row_id} * 0.1) - (K{row_id} * 0.1)")
+    ) %>%
+    select(total_av, av_difference)
+
+  # Make AV fields formulas
+  class(assessment_pin_avs$total_av) <- c(
+    class(assessment_pin_avs$total_av), "formula"
+  )
+  class(assessment_pin_avs$av_difference) <- c(
+    class(assessment_pin_avs$av_difference), "formula"
+  )
 
   # Generate sheet and column headers
   model_header <- str_to_title(paste(
@@ -239,9 +262,6 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     class(assessment_pin_filtered$meta_pin), "formula"
   )
 
-  # Get range of rows in the PIN data + number of header rows
-  pin_row_range <- 7:(nrow(assessment_pin_filtered) + 9)
-
   # Load the excel workbook template from file
   wb <- loadWorkbook(here("misc", "desk_review_template.xlsx"))
 
@@ -256,7 +276,8 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   addStyle(
     wb, pin_sheet_name,
     style = style_price,
-    rows = pin_row_range, cols = c(9:11, 15:18, 23, 26, 30), gridExpand = TRUE
+    rows = pin_row_range,
+    cols = c(9:11, 15:18, 23, 27, 31, 49, 50), gridExpand = TRUE
   )
   addStyle(
     wb, pin_sheet_name,
@@ -271,14 +292,14 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   addStyle(
     wb, pin_sheet_name,
     style = style_comma,
-    rows = pin_row_range, cols = c(34, 36, 37, 39), gridExpand = TRUE
+    rows = pin_row_range, cols = c(35, 37, 38, 40), gridExpand = TRUE
   )
   addStyle(
     wb, pin_sheet_name,
     style = style_link,
     rows = pin_row_range, cols = c(6), gridExpand = TRUE
   )
-  addFilter(wb, pin_sheet_name, 6, 1:47)
+  addFilter(wb, pin_sheet_name, 6, pin_col_range)
 
   # Format YoY % change column with a range of colors from low to high
   conditionalFormatting(
@@ -292,10 +313,10 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   # Format sale columns such that they are red if the sale has an outlier flag
   conditionalFormatting(
     wb, pin_sheet_name,
-    cols = 25:28,
+    cols = 26:29,
     rows = pin_row_range,
     style = createStyle(bgFill = "#FF9999"),
-    rule = '$AA7!=""',
+    rule = '$AB7!=""',
     type = "expression"
   )
   # For some reason vector cols don't work with expressions, so we have
@@ -303,10 +324,10 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   # to apply it to the second range of columns
   conditionalFormatting(
     wb, pin_sheet_name,
-    cols = 29:32,
+    cols = 30:33,
     rows = pin_row_range,
     style = createStyle(bgFill = "#FF9999"),
-    rule = '$AE7!=""',
+    rule = '$AF7!=""',
     type = "expression"
   )
 
@@ -320,11 +341,13 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   writeFormula(
     wb, pin_sheet_name,
     assessment_pin_filtered$meta_pin,
+    startCol = 1,
     startRow = 7
   )
   writeFormula(
     wb, pin_sheet_name,
     assessment_pin_filtered$meta_pin10,
+    startCol = 6,
     startRow = 7
   )
   writeData(
@@ -344,6 +367,33 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     startCol = 15, startRow = 5, colNames = FALSE
   )
 
+  # Write hidden formulas
+  writeFormula(
+    wb, pin_sheet_name,
+    assessment_pin_avs$total_av,
+    startCol = 49,
+    startRow = 7
+  )
+  writeFormula(
+    wb, pin_sheet_name,
+    assessment_pin_avs$av_difference,
+    startCol = 50,
+    startRow = 7
+  )
+  setColWidths(
+    wb, pin_sheet_name,
+    c(49, 50),
+    widths = 1,
+    hidden = c(TRUE, TRUE), ignoreMergedCells = FALSE
+  )
+
+  # Add a named range for the PIN-level data, which the template will use
+  # to populate the Neighborhood Breakouts pivot table
+  createNamedRegion(
+    wb, pin_sheet_name,
+    cols = pin_col_range, rows = pin_row_range_w_header,
+    name = "pin_detail_range", overwrite = TRUE
+  )
 
   # 4.2. Building-Level --------------------------------------------------------
 
@@ -368,6 +418,16 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   )
   addFilter(wb, bldg_sheet_name, 4, 1:13)
 
+  # Format YoY % change column with a range of colors from low to high
+  conditionalFormatting(
+    wb, bldg_sheet_name,
+    cols = c(11),
+    rows = bldg_row_range,
+    style = c("#F8696B", "#FFFFFF", "#00B0F0"),
+    rule = c(-1, 0, 1),
+    type = "colourScale"
+  )
+
   # Write bldg-level data to workbook
   writeData(
     wb, bldg_sheet_name, assessment_pin10_filtered,
@@ -385,12 +445,29 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   )
 
   # Save workbook to file based on town name
+  workbook_name <- glue(
+    params$assessment$year,
+    str_replace(town_convert(town), " ", "_"),
+    "Initial_Model_Values_Condo.xlsx",
+    .sep = "_"
+  )
   saveWorkbook(
     wb, here("output", "desk_review", workbook_name),
     overwrite = TRUE
   )
   rm(wb)
 }
+
+### NOTE ###
+# OpenXLSX is not perfect and messes up the macros and formatting on saved
+# workbooks. To finish each workbook, you must manually:
+
+# 1. Open the Neighborhood Breakout sheet and ensure that the values are
+#    all formatted correctly in the pivot table; if not (e.g. if
+#    `Average of YoY ∆ %` is formatted as a date when it should be a percentage)
+#    then manually update the formatting by selecting
+#    PivotTable Fields > Values > {fieldname} > Value Field Settings... >
+#    Number Format.
 
 
 
