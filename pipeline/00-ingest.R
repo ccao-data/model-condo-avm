@@ -270,6 +270,12 @@ training_data_clean <- training_data %>%
   select(-any_of(c("time_interval"))) %>%
   relocate(starts_with("sv_"), .after = everything()) %>%
   relocate("year", .after = everything()) %>%
+  relocate(
+    (starts_with("meta_") & !meta_pin:meta_2yr_pri_board_tot),
+    .after = meta_2yr_pri_board_tot
+  ) %>%
+  relocate(starts_with("ind_"), .after = starts_with("meta_")) %>%
+  relocate(starts_with("char_"), .after = starts_with("ind_")) %>%
   filter(
     between(
       meta_sale_date,
@@ -322,7 +328,12 @@ assessment_data_clean <- assessment_data %>%
   select(-any_of(c("time_interval"))) %>%
   relocate(starts_with("sv_"), .after = everything()) %>%
   relocate("year", .after = everything()) %>%
-  relocate(starts_with("meta_sale_"), .before = loc_property_address) %>%
+  relocate(
+    (starts_with("meta_") & !meta_pin:meta_2yr_pri_board_tot),
+    .after = meta_2yr_pri_board_tot
+  ) %>%
+  relocate(starts_with("ind_"), .after = starts_with("meta_")) %>%
+  relocate(starts_with("char_"), .after = starts_with("ind_")) %>%
   as_tibble()
 
 
@@ -471,11 +482,19 @@ bldg_strata <- bldg_5yr_sales_avg %>%
 training_data_w_strata <- training_data_clean %>%
   left_join(bldg_strata, by = "meta_pin10") %>%
   mutate(meta_pin10_5yr_num_sale = replace_na(meta_pin10_5yr_num_sale, 0)) %>%
+  relocate(
+    c(starts_with("meta_strata"), meta_pin10_5yr_num_sale),
+    .before = starts_with("ind_")
+  ) %>%
   write_parquet(paths$input$training$local)
 
 assessment_data_w_strata <- assessment_data_clean %>%
   left_join(bldg_strata, by = "meta_pin10") %>%
   mutate(meta_pin10_5yr_num_sale = replace_na(meta_pin10_5yr_num_sale, 0)) %>%
+  relocate(
+    c(starts_with("meta_strata"), meta_pin10_5yr_num_sale),
+    .before = starts_with("ind_")
+  ) %>%
   write_parquet(paths$input$assessment$local)
 
 
