@@ -57,9 +57,7 @@ train_recipe <- model_main_recipe(
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 3. Linear Model --------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-## 3.1. Model Initialization ---------------------------------------------------
-message("Initizializing linear baseline model")
+message("Creating and fitting linear baseline model")
 
 # Create a linear model recipe with additional imputation, transformations,
 # and feature interactions
