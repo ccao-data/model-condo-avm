@@ -84,6 +84,8 @@ model_lin_recipe <- function(data, pred_vars, cat_vars,
     # Remove any variables not an outcome var or in the pred_vars vector
     step_rm(any_of("time_split")) %>%
     step_rm(-all_outcomes(), -all_predictors(), -has_role("ID")) %>%
+    # Drop extra location predictors that aren't nbhd or township
+    step_rm(starts_with("loc_"), -all_numeric_predictors()) %>%
     # Impute missing values using KNN. Specific to condo model, usually used to
     # impute missing condo building strata
     step_impute_knn(
