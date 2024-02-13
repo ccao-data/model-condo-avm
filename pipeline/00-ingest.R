@@ -43,6 +43,7 @@ training_data <- dbGetQuery(
       sale.deed_type AS meta_sale_deed_type,
       sale.seller_name AS meta_sale_seller_name,
       sale.buyer_name AS meta_sale_buyer_name,
+      sale.num_parcels_sale AS meta_sale_num_parcels,
       sale.sv_is_outlier,
       sale.sv_outlier_type,
       condo.*
@@ -207,7 +208,7 @@ message("Adding time features and cleaning")
 # unit's value
 training_data <- training_data %>%
   group_by(meta_sale_document_num) %>%
-  arrange(meta_tieback_proration_rate) %>%
+  arrange(meta_sale_document_num, meta_tieback_proration_rate) %>%
   mutate(
     keep_unit_sale =
       meta_tieback_proration_rate >= (lag(meta_tieback_proration_rate) * 3)
