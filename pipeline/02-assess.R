@@ -74,7 +74,7 @@ message("Aggregating to building level")
 # Unit 1 valued at 25% of $300, or $75.
 
 # Note that this valuation method is essentially required by statute
-assessment_data_bldg <- assessment_data_nl %>%
+assessment_data_bldg <- assessment_data_pred %>%
   # In cases where a PIN has multiple llines, count only the value of the first
   # line when getting the building total value
   arrange(meta_pin, meta_card_num, meta_lline_num) %>%
