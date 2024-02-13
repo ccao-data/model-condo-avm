@@ -92,14 +92,14 @@ assessment_data_bldg <- assessment_data_pred %>%
   # value for said building's 'livable' units.
   mutate(
     bldg_total_value = sum(
-      ifelse(meta_modeling_group == "CONDO", pred_pin_final_fmv, 0),
+      ifelse(meta_modeling_group == "CONDO", pred_card_initial_fmv, 0),
       na.rm = TRUE
     ),
     bldg_total_proration_rate = sum(
       ifelse(meta_modeling_group == "CONDO", meta_tieback_proration_rate, 0),
       na.rm = TRUE
     ),
-    pred_pin_final_fmv = bldg_total_value *
+    pred_card_initial_fmv = bldg_total_value *
       (meta_tieback_proration_rate / bldg_total_proration_rate),
 
     # For certain units (common areas), we want to have a consistent low value
@@ -110,7 +110,7 @@ assessment_data_bldg <- assessment_data_pred %>%
         meta_mailed_tot * 10,
       meta_modeling_group == "NONLIVABLE" &
         is.na(meta_mailed_tot) ~ 10,
-      TRUE ~ pred_pin_final_fmv
+      TRUE ~ pred_card_initial_fmv
     )
   ) %>%
   ungroup()
