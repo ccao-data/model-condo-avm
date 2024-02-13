@@ -156,6 +156,7 @@ model:
       - "char_bedrooms"
       - "char_half_baths"
       - "char_full_baths"
+      - "char_bldg_is_mixed_use"
       - "loc_longitude"
       - "loc_latitude"
       - "loc_census_tract_geoid"
