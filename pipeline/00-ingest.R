@@ -237,6 +237,20 @@ training_data_clean <- training_data_ms %>%
     any_of(col_type_dict$var_name),
     ~ recode_column_type(.x, cur_column())
   )) %>%
+  mutate(
+    # Treat sales for non-livable spaces as outliers. They are included for
+    # reference only
+    sv_is_outlier = ifelse(
+      meta_modeling_group == "NONLIVABLE",
+      TRUE,
+      sv_is_outlier
+    ),
+    sv_outlier_type = ifelse(
+      meta_modeling_group == "NONLIVABLE",
+      "Non-livable area",
+      sv_outlier_type
+    )
+  ) %>%
   # Only exclude explicit outliers from training. Sales with missing validation
   # outcomes will be considered non-outliers
   mutate(
