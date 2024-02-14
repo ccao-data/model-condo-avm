@@ -120,8 +120,6 @@ assessment_data_bldg <- assessment_data_pred %>%
   ungroup()
 
 
-
-
 ## 3.2. Round and Finalize -----------------------------------------------------
 message("Rounding and finalizing")
 
