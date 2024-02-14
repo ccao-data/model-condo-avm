@@ -147,17 +147,16 @@ model:
       - "meta_township_code"
       - "meta_nbhd_code"
       - "meta_tieback_proration_rate"
-      - "meta_modeling_group"
       - "char_yrblt"
       - "char_land_sf"
       - "char_building_units"
       - "char_building_non_units"
+      - "char_bldg_is_mixed_use"
       - "char_building_sf"
       - "char_unit_sf"
       - "char_bedrooms"
       - "char_half_baths"
       - "char_full_baths"
-      - "char_bldg_is_mixed_use"
       - "loc_longitude"
       - "loc_latitude"
       - "loc_census_tract_geoid"
@@ -228,7 +227,6 @@ model:
     categorical:
       - "meta_township_code"
       - "meta_nbhd_code"
-      - "meta_modeling_group"
       - "loc_census_tract_geoid"
       - "loc_tax_municipality_name"
       - "loc_school_elementary_district_geoid"
@@ -346,7 +344,7 @@ pv:
   # The fixed fair market value of non-livable PINs such as parking spaces,
   # common areas, and storage. These PINs are nearly impossible to value with
   # modeling since they don't really have sales
-  nonlivable_fixed_fmv: 50000
+  nonlivable_fixed_fmv: 30000
 
   # Cap the proportion of the PIN's total value dedicated to land. This is
   # necessary since sometimes the model provides low predictions relative to the
