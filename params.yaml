@@ -341,11 +341,6 @@ pv:
   # prior year
   nonlivable_threshold: 1000
 
-  # The fixed fair market value of non-livable PINs such as parking spaces,
-  # common areas, and storage. These PINs are nearly impossible to value with
-  # modeling since they don't really have sales
-  nonlivable_fixed_fmv: 30000
-
   # Cap the proportion of the PIN's total value dedicated to land. This is
   # necessary since sometimes the model provides low predictions relative to the
   # land rates created by Valuations
