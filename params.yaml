@@ -147,7 +147,6 @@ model:
       - "meta_township_code"
       - "meta_nbhd_code"
       - "meta_tieback_proration_rate"
-      - "meta_sale_num_parcels"
       - "char_yrblt"
       - "char_land_sf"
       - "char_building_units"

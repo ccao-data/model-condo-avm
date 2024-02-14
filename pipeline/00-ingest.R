@@ -206,12 +206,17 @@ message("Adding time features and cleaning")
 # parking spot, but only the sale for the unit, not the parking. Drop other
 # multi-unit sale types since we don't have a way to disaggregate each
 # unit's value
-training_data <- training_data %>%
+training_data_ms <- training_data %>%
   group_by(meta_sale_document_num) %>%
   arrange(meta_sale_document_num, meta_tieback_proration_rate) %>%
   mutate(
+    # Attach sale to the condo UNIT if one of the PINs in the sale is a garage
+    # and the unit % of ownership is greater than 3x the garage % of ownership
     keep_unit_sale =
-      meta_tieback_proration_rate >= (lag(meta_tieback_proration_rate) * 3)
+      meta_tieback_proration_rate >= (lag(meta_tieback_proration_rate) * 3) &
+        sum(meta_cdu == "GR", na.rm = TRUE) == 1, # nolint
+    meta_tieback_proration_rate_agg =
+      sum(meta_tieback_proration_rate, na.rm = TRUE)
   ) %>%
   filter(n() == 1 | (n() == 2 & keep_unit_sale)) %>%
   ungroup() %>%
@@ -220,7 +225,7 @@ training_data <- training_data %>%
 
 # Clean up the training data. Goal is to get it into a publishable format.
 # Final featurization, missingness, etc. is handled via Tidymodels recipes
-training_data_clean <- training_data %>%
+training_data_clean <- training_data_ms %>%
   # Recode factor variables using the definitions stored in ccao::vars_dict
   # This will remove any categories not stored in the dictionary and convert
   # them to NA (useful since there are a lot of misrecorded variables)
