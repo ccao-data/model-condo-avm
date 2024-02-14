@@ -62,30 +62,7 @@ assessment_data_pred <- read_parquet(paths$input$assessment$local) %>%
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 message("Performing post-modeling adjustments")
 
-## 3.1. Value Non-Livable Units ------------------------------------------------
-message("Fixing non-livable unit values")
-
-# Many 14-digit PINs are non-livable units such as parking spaces, common
-# areas, or storage areas. These units are valued by the model but tend to be
-# overvalued (since most of a unit's value comes from location). As a result,
-# these units are set to a fixed fair market value
-assessment_data_nl <- assessment_data_pred %>%
-  mutate(
-    pred_pin_final_fmv = case_when(
-      meta_modeling_group == "NONLIVABLE" &
-        (meta_mailed_tot * 10) <= params$pv$nonlivable_threshold ~
-        meta_mailed_tot * 10,
-      meta_modeling_group == "NONLIVABLE" &
-        (meta_mailed_tot * 10) > params$pv$nonlivable_threshold ~
-        as.numeric(params$pv$nonlivable_fixed_fmv),
-      meta_modeling_group == "NONLIVABLE" &
-        is.na(meta_mailed_tot) ~ as.numeric(params$pv$nonlivable_fixed_fmv),
-      TRUE ~ pred_card_initial_fmv
-    )
-  )
-
-
-## 3.2. Peg to % Ownership -----------------------------------------------------
+## 3.1. Peg to % Ownership -----------------------------------------------------
 message("Aggregating to building level")
 
 # For condominiums, we need to aggregate values to the building level, then
@@ -97,7 +74,7 @@ message("Aggregating to building level")
 # Unit 1 valued at 25% of $300, or $75.
 
 # Note that this valuation method is essentially required by statute
-assessment_data_bldg <- assessment_data_nl %>%
+assessment_data_bldg <- assessment_data_pred %>%
   # In cases where a PIN has multiple llines, count only the value of the first
   # line when getting the building total value
   arrange(meta_pin, meta_card_num, meta_lline_num) %>%
@@ -107,13 +84,22 @@ assessment_data_bldg <- assessment_data_nl %>%
   filter(meta_lline_num == first_lline | is.na(first_lline)) %>%
   select(-first_lline) %>%
   group_by(meta_pin10) %>%
+  # Many 14-digit PINs are non-livable units such as parking spaces, common
+  # areas, or storage areas. These units are difficult for the model to value
+  # since they rarely ever sell on their own and are extremely dissimilar to
+  # normal 'livable' condos. We value them purely as a function of their
+  # proration rate derived from their building's declaration and the sum of the
+  # value for said building's 'livable' units.
   mutate(
-    bldg_total_value = sum(pred_pin_final_fmv, na.rm = TRUE),
-    bldg_total_proration_rate = sum(
-      meta_tieback_proration_rate,
+    bldg_total_value = sum(
+      ifelse(meta_modeling_group == "CONDO", pred_card_initial_fmv, 0),
       na.rm = TRUE
     ),
-    pred_pin_final_fmv = bldg_total_value *
+    bldg_total_proration_rate = sum(
+      ifelse(meta_modeling_group == "CONDO", meta_tieback_proration_rate, 0),
+      na.rm = TRUE
+    ),
+    pred_card_initial_fmv = bldg_total_value *
       (meta_tieback_proration_rate / bldg_total_proration_rate),
 
     # For certain units (common areas), we want to have a consistent low value
@@ -124,13 +110,13 @@ assessment_data_bldg <- assessment_data_nl %>%
         meta_mailed_tot * 10,
       meta_modeling_group == "NONLIVABLE" &
         is.na(meta_mailed_tot) ~ 10,
-      TRUE ~ pred_pin_final_fmv
+      TRUE ~ pred_card_initial_fmv
     )
   ) %>%
   ungroup()
 
 
-## 3.3. Round and Finalize -----------------------------------------------------
+## 3.2. Round and Finalize -----------------------------------------------------
 message("Rounding and finalizing")
 
 # Round PIN-level predictions using the breaks and amounts specified in params
