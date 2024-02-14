@@ -197,11 +197,7 @@ message("Attaching recent sales to PIN-level data")
 sales_data_ratio_study <- sales_data %>%
   # For ratio studies, we don't want to include outliers or sales on non-livable
   # units like parking or storages spaces
-  filter(
-    !sv_is_outlier,
-    meta_modeling_group == "CONDO",
-    meta_sale_num_parcels == 1
-  ) %>%
+  filter(!sv_is_outlier, meta_modeling_group == "CONDO") %>%
   filter(meta_year == params$assessment$data_year) %>%
   group_by(meta_pin) %>%
   filter(meta_sale_date == max(meta_sale_date)) %>%
@@ -249,11 +245,7 @@ sales_data_two_most_recent <- sales_data %>%
 # Get the % change in the average sale price within building between the last
 # assessment year and this year
 sales_data_bldg_change_pct <- sales_data %>%
-  filter(
-    !sv_is_outlier,
-    meta_modeling_group == "CONDO",
-    meta_sale_num_parcels == 1
-  ) %>%
+  filter(!sv_is_outlier, meta_modeling_group == "CONDO") %>%
   filter(
     meta_year == params$assessment$data_year |
       meta_year == params$ratio_study$far_year
