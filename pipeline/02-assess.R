@@ -86,10 +86,10 @@ assessment_data_bldg <- assessment_data_pred %>%
   group_by(meta_pin10) %>%
   # Many 14-digit PINs are non-livable units such as parking spaces, common
   # areas, or storage areas. These units are difficult for the model to value
-  # since they rarely ever sell on their own and are extremely dissimilar to
-  # normal 'livable' condos. We value them purely as a function of their
-  # proration rate derived from their building's declaration and the sum of the
-  # value for said building's 'livable' units.
+  # since they rarely sell on their own and are extremely dissimilar to
+  # 'livable' condos. We value them here as a function of their proration rate
+  # derived from their building's declaration and the sum of the value of their
+  # building's 'livable' units.
   mutate(
     bldg_total_value = sum(
       ifelse(meta_modeling_group == "CONDO", pred_card_initial_fmv, 0),
