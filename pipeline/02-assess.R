@@ -75,17 +75,11 @@ assessment_data_nl <- assessment_data_pred %>%
       meta_modeling_group == "NONLIVABLE" &
         (meta_mailed_tot * 10) <= params$pv$nonlivable_threshold ~
         meta_mailed_tot * 10,
-      meta_modeling_group == "NONLIVABLE" & (
-        (meta_mailed_tot * 10) > params$pv$nonlivable_threshold |
-          is.na(meta_mailed_tot)
-      ) ~
-        pmax(
-          params$pv$nonlivable_threshold,
-          pmin(
-            as.numeric(params$pv$nonlivable_fixed_fmv),
-            pred_card_initial_fmv
-          )
-        ),
+      meta_modeling_group == "NONLIVABLE" &
+        (meta_mailed_tot * 10) > params$pv$nonlivable_threshold ~
+        as.numeric(params$pv$nonlivable_fixed_fmv),
+      meta_modeling_group == "NONLIVABLE" &
+        is.na(meta_mailed_tot) ~ as.numeric(params$pv$nonlivable_fixed_fmv),
       TRUE ~ pred_card_initial_fmv
     )
   )
