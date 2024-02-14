@@ -215,7 +215,10 @@ training_data_ms <- training_data %>%
     keep_unit_sale =
       meta_tieback_proration_rate >= (lag(meta_tieback_proration_rate) * 3) &
         sum(meta_cdu == "GR", na.rm = TRUE) == 1, # nolint
-    meta_tieback_proration_rate_agg =
+    # If there are multiple PINs associated with a PIN, sum the % of ownership
+    # of the PIN. This ONLY occurs in the training data. The goal is to capture
+    # the increased value of a sale with a deeded parking spot
+    meta_tieback_proration_rate =
       sum(meta_tieback_proration_rate, na.rm = TRUE)
   ) %>%
   filter(n() == 1 | (n() == 2 & keep_unit_sale)) %>%
