@@ -353,9 +353,9 @@ pv:
 
   # Rounding settings to apply to initial predictions. Rounding is done to
   # indicate to property owners that model values are estimates, not exact
-  round_break: [1000, 10000, 100000]
-  round_to_nearest: [1, 500, 5000, 10000]
-  round_type: "floor"
+  round_break: [1000, 10000]
+  round_to_nearest: [1, 10, 100]
+  round_type: "ceiling"
 
 
 # Ratio Study ------------------------------------------------------------------
