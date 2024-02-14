@@ -84,7 +84,7 @@ assessment_data_nl <- assessment_data_pred %>%
           pmin(
             as.numeric(params$pv$nonlivable_fixed_fmv),
             pred_card_initial_fmv
-          ),
+          )
         ),
       TRUE ~ pred_card_initial_fmv
     )
