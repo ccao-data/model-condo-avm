@@ -513,12 +513,13 @@ upload_data_prepped <- assessment_pin %>%
     # For any missing LLINE values, simply fill with 1
     meta_lline_num = replace_na(meta_lline_num, 1)
   ) %>%
+  ungroup() %>%
   select(
     township_code = meta_township_code,
     PARID = meta_pin,
     CARD = meta_card_num,
     LLINE = meta_lline_num,
-    MV = pred_pin_final_fmv_bldg
+    MV = pred_pin10_final_fmv_bldg
   ) %>%
   arrange(township_code, PARID)
 
