@@ -193,8 +193,7 @@ message("Attaching recent sales to PIN-level data")
 # These are the sales that will be used for ratio studies in the evaluate stage.
 # We want our assessed value to be as close as possible to this sale
 sales_data_ratio_study <- sales_data %>%
-  # For ratio studies, we don't want to include outliers or sales on non-livable
-  # units like parking or storages spaces
+  # For ratio studies, we don't want to include outliers
   filter(!sv_is_outlier) %>%
   filter(meta_year == params$assessment$data_year) %>%
   group_by(meta_pin) %>%
