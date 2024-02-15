@@ -520,7 +520,7 @@ for (town in unique(upload_data_prepped$township_code)) {
     filter(township_code == town) %>%
     select(-township_code)
 
-  write_csv(
+  readr::write_csv(
     x = upload_data_fil,
     file = here(
       "output", "iasworld",
