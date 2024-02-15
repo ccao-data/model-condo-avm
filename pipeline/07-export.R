@@ -118,7 +118,7 @@ assessment_pin_prepped <- assessment_pin %>%
     sale_recent_1_outlier_type, sale_recent_1_document_num,
     sale_recent_2_date, sale_recent_2_price,
     sale_recent_2_outlier_type, sale_recent_2_document_num,
-    char_yrblt, char_total_bldg_sf, char_type_resd, char_land_sf,
+    char_yrblt, char_total_bldg_sf, char_land_sf,
     char_unit_sf, flag_nonlivable_space, flag_pin10_5yr_num_sale,
     flag_common_area, flag_proration_sum_not_1, flag_pin_is_multiland,
     flag_land_gte_95_percentile,
@@ -222,7 +222,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   num_head <- 6
   pin_row_range <- (num_head + 1):(nrow(assessment_pin_filtered) + num_head)
   pin_row_range_w_header <- c(num_head, pin_row_range)
-  pin_col_range <- 1:50
+  pin_col_range <- 1:52
 
   # Calculate AVs so we can store them as separate, hidden columns for use
   # in the neighborhood breakouts pivot table
@@ -277,7 +277,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     wb, pin_sheet_name,
     style = style_price,
     rows = pin_row_range,
-    cols = c(9:11, 15:18, 23, 27, 31, 49, 50), gridExpand = TRUE
+    cols = c(9:11, 15:18, 23, 27, 32, 51, 52), gridExpand = TRUE
   )
   addStyle(
     wb, pin_sheet_name,
@@ -292,7 +292,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   addStyle(
     wb, pin_sheet_name,
     style = style_comma,
-    rows = pin_row_range, cols = c(35, 37, 38, 40), gridExpand = TRUE
+    rows = pin_row_range, cols = c(37, 39, 40), gridExpand = TRUE
   )
   addStyle(
     wb, pin_sheet_name,
@@ -324,7 +324,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   # to apply it to the second range of columns
   conditionalFormatting(
     wb, pin_sheet_name,
-    cols = 30:33,
+    cols = 31:34,
     rows = pin_row_range,
     style = createStyle(bgFill = "#FF9999"),
     rule = '$AF7!=""',
@@ -371,18 +371,18 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   writeFormula(
     wb, pin_sheet_name,
     assessment_pin_avs$total_av,
-    startCol = 49,
+    startCol = 51,
     startRow = 7
   )
   writeFormula(
     wb, pin_sheet_name,
     assessment_pin_avs$av_difference,
-    startCol = 50,
+    startCol = 52,
     startRow = 7
   )
   setColWidths(
     wb, pin_sheet_name,
-    c(49, 50),
+    c(51, 52),
     widths = 1,
     hidden = c(TRUE, TRUE), ignoreMergedCells = FALSE
   )

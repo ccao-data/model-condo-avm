@@ -394,5 +394,5 @@ ratio_study:
 # Final run ID(s) chosen for export to Desk Review spreadsheets and iasWorld
 # upload
 export:
-  triad_code: "3"
-  run_id: "2023-03-16-keen-tayun"
+  triad_code: "1"
+  run_id: "2024-02-15-reverent-caroline"
