@@ -232,9 +232,31 @@ training_data_ms <- training_data %>%
   filter(!as.logical(as.numeric(ind_pin_is_multilline))) %>%
   select(-keep_unit_sale, -total_proration_rate)
 
+# Multi-sale outlier detection / sales validation kludge. The main sales
+# validation logic cannot yet handle multi-sale properties, but they're a
+# significant minority of the total sales sample. We can borrow some
+# conservative thresholds from the main sales validation output to identify
+# likely non-arms-length sales. ONLY APPLIES to multi-sale properties
+training_data_fil <- training_data_ms %>%
+  mutate(
+    sv_outlier_type = case_when(
+      meta_sale_price < 50000 & meta_sale_num_parcels == 2 ~
+        "Low price (multi)",
+      meta_sale_price > 1700000 & meta_sale_num_parcels == 2 ~
+        "High price (multi)",
+      TRUE ~ sv_outlier_type
+    ),
+    sv_is_outlier = ifelse(
+      meta_sale_price < 50000 & meta_sale_num_parcels == 2 |
+        meta_sale_price > 1700000 & meta_sale_num_parcels == 2,
+      TRUE,
+      sv_is_outlier
+    )
+  )
+
 # Clean up the training data. Goal is to get it into a publishable format.
 # Final featurization, missingness, etc. is handled via Tidymodels recipes
-training_data_clean <- training_data_ms %>%
+training_data_clean <- training_data_fil %>%
   # Recode factor variables using the definitions stored in ccao::vars_dict
   # This will remove any categories not stored in the dictionary and convert
   # them to NA (useful since there are a lot of misrecorded variables)
