@@ -215,16 +215,22 @@ training_data_ms <- training_data %>%
     keep_unit_sale =
       meta_tieback_proration_rate >= (lag(meta_tieback_proration_rate) * 3) &
         sum(meta_cdu == "GR", na.rm = TRUE) == 1, # nolint
-    # If there are multiple PINs associated with a PIN, sum the % of ownership
-    # of the PIN. This ONLY occurs in the training data. The goal is to capture
-    # the increased value of a sale with a deeded parking spot
-    meta_tieback_proration_rate =
-      sum(meta_tieback_proration_rate, na.rm = TRUE)
+    # If there are multiple PINs associated with a sale, take only the
+    # proportion of the sale value that is attributable to the main unit (based
+    # on percentage of ownership)
+    total_proration_rate = sum(meta_tieback_proration_rate, na.rm = TRUE),
+    meta_sale_price = as.numeric(meta_sale_price),
+    meta_sale_price = ifelse(
+      n() == 2 & keep_unit_sale,
+      meta_sale_price * (meta_tieback_proration_rate / total_proration_rate),
+      meta_sale_price
+    ),
+    meta_sale_price = round(meta_sale_price, 0)
   ) %>%
   filter(n() == 1 | (n() == 2 & keep_unit_sale)) %>%
   ungroup() %>%
   filter(!as.logical(as.numeric(ind_pin_is_multilline))) %>%
-  select(-keep_unit_sale)
+  select(-keep_unit_sale, -total_proration_rate)
 
 # Clean up the training data. Goal is to get it into a publishable format.
 # Final featurization, missingness, etc. is handled via Tidymodels recipes
