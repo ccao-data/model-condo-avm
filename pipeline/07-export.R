@@ -141,7 +141,18 @@ assessment_pin_prepped <- assessment_pin %>%
       property_full_address,
       "[^[:alnum:]|' ',.-]"
     )
-  )
+  ) %>%
+  # Replace values for buildings with ONLY parking with NA, as they do not
+  # receive correct values from this pipeline and are very rare
+  group_by(meta_pin10) %>%
+  mutate(
+    across(
+      starts_with("pred_pin_"),
+      ~ ifelse(is.nan(pred_pin_final_fmv), NA, .x)
+    )
+  ) %>%
+  ungroup()
+
 
 # Prep building-level (PIN10) data
 assessment_pin10_prepped <- assessment_pin_prepped %>%
@@ -224,7 +235,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   num_head <- 6
   pin_row_range <- (num_head + 1):(nrow(assessment_pin_filtered) + num_head)
   pin_row_range_w_header <- c(num_head, pin_row_range)
-  pin_col_range <- 1:52
+  pin_col_range <- 1:51
 
   # Calculate AVs so we can store them as separate, hidden columns for use
   # in the neighborhood breakouts pivot table
@@ -279,7 +290,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     wb, pin_sheet_name,
     style = style_price,
     rows = pin_row_range,
-    cols = c(9:11, 15:18, 23, 27, 32, 51, 52), gridExpand = TRUE
+    cols = c(9:11, 15:18, 23, 27, 32, 50, 51), gridExpand = TRUE
   )
   addStyle(
     wb, pin_sheet_name,
@@ -294,7 +305,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   addStyle(
     wb, pin_sheet_name,
     style = style_comma,
-    rows = pin_row_range, cols = c(37, 39, 40), gridExpand = TRUE
+    rows = pin_row_range, cols = c(37, 38, 39), gridExpand = TRUE
   )
   addStyle(
     wb, pin_sheet_name,
@@ -312,6 +323,24 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     rule = c(-1, 0, 1),
     type = "colourScale"
   )
+  # Format sale such that they are orange for adjusted multi-PIN sales
+  conditionalFormatting(
+    wb, pin_sheet_name,
+    cols = 26:30,
+    rows = pin_row_range,
+    style = createStyle(bgFill = "#FFCC99"),
+    rule = "$AD7=2",
+    type = "expression"
+  )
+  conditionalFormatting(
+    wb, pin_sheet_name,
+    cols = 31:35,
+    rows = pin_row_range,
+    style = createStyle(bgFill = "#FFCC99"),
+    rule = "$AI7=2",
+    type = "expression"
+  )
+
   # Format sale columns such that they are red if the sale has an outlier flag
   conditionalFormatting(
     wb, pin_sheet_name,
@@ -329,7 +358,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     cols = 31:34,
     rows = pin_row_range,
     style = createStyle(bgFill = "#FF9999"),
-    rule = '$AF7!=""',
+    rule = '$AG7!=""',
     type = "expression"
   )
 
@@ -373,18 +402,18 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   writeFormula(
     wb, pin_sheet_name,
     assessment_pin_avs$total_av,
-    startCol = 51,
+    startCol = 50,
     startRow = 7
   )
   writeFormula(
     wb, pin_sheet_name,
     assessment_pin_avs$av_difference,
-    startCol = 52,
+    startCol = 51,
     startRow = 7
   )
   setColWidths(
     wb, pin_sheet_name,
-    c(51, 52),
+    c(50, 51),
     widths = 1,
     hidden = c(TRUE, TRUE), ignoreMergedCells = FALSE
   )
