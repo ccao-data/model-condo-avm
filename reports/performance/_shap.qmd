@@ -1,0 +1,203 @@
+{{< include ../_setup.qmd >}}
+
+# SHAP Values
+
+SHAP values are a way to explain the importance of specific features within the model.
+They represent both the direction and magnitude of a feature's impact on an individual
+property's predicted value. Summed together, the SHAP values of all features for a given
+property should equal the difference between the predicted value and the baseline value.
+
+## Overall Feature Importance
+
+Aggregate feature importance scores ***for the target triad***. The length of the bars corresponds to the `Mean Abs.` column in the table below.
+
+```{r _shap_filtering, warning=FALSE}
+shap_predictors <- unlist(metadata$model_predictor_all_name)
+
+shap_df_filtered <- shap_df %>%
+  mutate(meta_triad = ccao::town_get_triad(as.character(township_code))) %>%
+  filter(meta_triad == run_triad_code) %>%
+  arrange(meta_pin, meta_card_num)
+
+shap_df_filtered_long <- shap_df_filtered %>%
+  select(township_code, all_of(shap_predictors)) %>%
+  pivot_longer(
+    cols = all_of(shap_predictors),
+    names_to = "feature",
+    values_to = "shap"
+  )
+```
+
+```{r _shap_function}
+assessment_card_filtered <- assessment_card %>%
+  mutate(meta_triad = ccao::town_get_triad(as.character(township_code))) %>%
+  filter(meta_triad == run_triad_code) %>%
+  arrange(meta_pin, meta_card_num)
+
+create_shapviz <- function(shap_df, assessment_df, idx) {
+  shapviz::shapviz(
+    object = shap_df_filtered %>%
+      select(all_of(shap_predictors)) %>%
+      slice(idx) %>%
+      as.matrix(),
+    X = assessment_df %>%
+      select(all_of(shap_predictors)) %>%
+      slice(idx),
+    baseline = shap_df_filtered$pred_card_shap_baseline_fmv[1]
+  )
+}
+```
+
+```{r _shap_triad_plot, warning=FALSE}
+shap_townships_list <- shap_df_filtered %>%
+  distinct(township_code) %>%
+  pull() %>%
+  as.character()
+
+shap_idx_full_model <- which(
+  as.character(assessment_card_filtered$township_code) %in% shap_townships_list
+)
+
+shapviz::shapviz(
+  object = shap_df_filtered %>%
+    select(all_of(shap_predictors)) %>%
+    slice(shap_idx_full_model) %>%
+    as.matrix(),
+  X = assessment_card_filtered %>%
+    select(all_of(shap_predictors)) %>%
+    slice(shap_idx_full_model),
+  baseline = shap_df_filtered$pred_card_shap_baseline_fmv[1]
+) %>%
+  shapviz::sv_importance(
+    kind = "bar",
+    max_display = 25L
+  ) +
+  labs(x = "Mean Abs. SHAP Value") +
+  scale_x_continuous(
+    labels = scales::dollar,
+    expand = expansion(mult = c(0, 0.1))
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.title.x = element_text(margin = margin(t = 10))
+  )
+```
+
+```{r _shap_triad_table}
+shap_df_imp_overall <- shap_df_filtered_long %>%
+  group_by(feature) %>%
+  summarize(
+    `Mean Abs.` = mean(abs(shap)),
+    `Median Abs.` = median(abs(shap)),
+    Mean = mean(shap),
+    Median = median(shap),
+    SD = sd(shap),
+    `Min.` = min(shap),
+    `Max.` = max(shap)
+  ) %>%
+  mutate(`Rel. Imp.` = `Mean Abs.` / sum(`Mean Abs.`)) %>%
+  relocate(`Rel. Imp.`, .after = feature) %>%
+  arrange(desc(`Mean Abs.`)) %>%
+  mutate(
+    across(`Mean Abs.`:`Max.`, ~ scales::dollar(.x, accuracy = 0.01)),
+    `Rel. Imp.` = scales::percent(`Rel. Imp.`, accuracy = 0.01)
+  ) %>%
+  rename(Feature = feature)
+
+shap_df_imp_overall %>%
+  datatable(
+    rownames = FALSE,
+    options = list(
+      columnDefs = list(
+        list(
+          className = "dt-nowrap dt-right",
+          targets = c(1:8)
+        )
+      )
+    )
+  )
+```
+
+## Feature Importance by Township
+
+::: {.panel-tabset}
+
+```{r _shap_township_plot, results='asis', warning=FALSE}
+# Dynamically produce tabset
+for (township in shap_townships_list) {
+  cat("##", ccao::town_convert(township), "\n")
+  shap_idx <- which(
+    as.character(assessment_card_filtered$township_code) == township
+  )
+  print(
+    create_shapviz(
+      shap_df_filtered,
+      assessment_card_filtered,
+      shap_idx
+    ) %>%
+      shapviz::sv_importance(
+        kind = "bar",
+        max_display = 25L
+      ) +
+      labs(x = "Mean Abs. SHAP Value") +
+      scale_x_continuous(
+        labels = scales::dollar,
+        expand = expansion(mult = c(0, 0.1))
+      ) +
+      theme_minimal() +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.title.x = element_text(margin = margin(t = 10))
+      )
+  )
+  cat("\n\n")
+}
+```
+
+:::
+
+```{r _shap_township_table}
+shap_df_filtered_long %>%
+  group_by(feature, township_code) %>%
+  summarize(
+    `Mean Abs.` = mean(abs(shap)),
+    `Median Abs.` = median(abs(shap)),
+    Mean = mean(shap),
+    Median = median(shap),
+    SD = sd(shap),
+    `Min.` = min(shap),
+    `Max.` = max(shap)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    `Rel. Imp.` = `Mean Abs.` / sum(`Mean Abs.`),
+    township_code = ccao::town_convert(as.character(township_code)),
+    .by = township_code
+  ) %>%
+  relocate(township_code, .before = everything()) %>%
+  relocate(`Rel. Imp.`, .after = feature) %>%
+  arrange(township_code, desc(`Mean Abs.`)) %>%
+  mutate(
+    across(`Mean Abs.`:`Max.`, ~ scales::dollar(.x, accuracy = 0.01)),
+    `Rel. Imp.` = scales::percent(`Rel. Imp.`, accuracy = 0.01)
+  ) %>%
+  rename(Township = township_code, Feature = feature) %>%
+  datatable(
+    rownames = FALSE,
+    filter = "top",
+    options = list(
+      columnDefs = list(
+        list(
+          className = "dt-nowrap dt-right",
+          targets = c(2:9),
+          searchable = FALSE
+        ),
+        list(
+          className = "dt-nowrap",
+          targets = 0
+        )
+      )
+    )
+  )
+```

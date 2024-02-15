@@ -62,42 +62,18 @@ assessment_data_pred <- read_parquet(paths$input$assessment$local) %>%
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 message("Performing post-modeling adjustments")
 
-## 3.1. Value Non-Livable Units ------------------------------------------------
-message("Fixing non-livable unit values")
-
-# Many 14-digit PINs are non-livable units such as parking spaces, common
-# areas, or storage areas. These units are valued by the model but tend to be
-# overvalued (since most of a unit's value comes from location). As a result,
-# these units are set to a fixed fair market value
-assessment_data_nl <- assessment_data_pred %>%
-  mutate(
-    pred_pin_final_fmv = case_when(
-      meta_modeling_group == "NONLIVABLE" &
-        (meta_mailed_tot * 10) <= params$pv$nonlivable_threshold ~
-        meta_mailed_tot * 10,
-      meta_modeling_group == "NONLIVABLE" &
-        (meta_mailed_tot * 10) > params$pv$nonlivable_threshold ~
-        as.numeric(params$pv$nonlivable_fixed_fmv),
-      meta_modeling_group == "NONLIVABLE" &
-        is.na(meta_mailed_tot) ~ as.numeric(params$pv$nonlivable_fixed_fmv),
-      TRUE ~ pred_card_initial_fmv
-    )
-  )
-
-
-## 3.2. Peg to % Ownership -----------------------------------------------------
+## 3.1. Peg to % Ownership -----------------------------------------------------
 message("Aggregating to building level")
 
 # For condominiums, we need to aggregate values to the building level, then
-# multiply by proration rate/percent ownership to get the final unit value. For
-# example, if you have a 3 unit building, with percentages .25, .25, .5,
-# and the model-predicted values for all 3 units are the same, you want to
-# divide the value of the building proportionally across units.
-# Suppose each unit is valued at $100. The whole building is worth $300.
-# Unit 1 valued at 25% of $300, or $75.
-
+# multiply by proration rate/percent ownership to get the final unit value. In
+# other words, if you have a 3-unit building, with percentages .25, .25, .5,
+# and the model-predicted values for all 3 units are the same, you need to
+# divide the value of the building proportionally across units. For example,
+# suppose each unit is valued by the model at $100. The whole building is then
+# worth $300. After proration, Unit 1 valued at 25% of $300, or $75.
 # Note that this valuation method is essentially required by statute
-assessment_data_bldg <- assessment_data_nl %>%
+assessment_data_bldg <- assessment_data_pred %>%
   # In cases where a PIN has multiple llines, count only the value of the first
   # line when getting the building total value
   arrange(meta_pin, meta_card_num, meta_lline_num) %>%
@@ -107,15 +83,29 @@ assessment_data_bldg <- assessment_data_nl %>%
   filter(meta_lline_num == first_lline | is.na(first_lline)) %>%
   select(-first_lline) %>%
   group_by(meta_pin10) %>%
+  # Each unit receives an initial prediction from the model. Then, the livable
+  # values are summed to get the total value of the livable-only portion of the
+  # building. Next, the proration rates for the livable units are summed to get
+  # the total percentage of ownership for the livable units. Finally, the value
+  # of ALL units is apportioned based on its relative percentage of ownership,
+  # compared to the total value of the livable units.
+  #
+  # Non-livable spaces, such parking spaces, common areas, or storage areas are
+  # valued purely as a function of their proration rate derived from their
+  # condo declaration and the sum of the value for a building's "livable" units
   mutate(
-    bldg_total_value = sum(pred_pin_final_fmv, na.rm = TRUE),
-    bldg_total_proration_rate = sum(
-      meta_tieback_proration_rate,
+    bldg_total_proration_rate = sum(meta_tieback_proration_rate, na.rm = TRUE),
+    adj_pro_rate = meta_tieback_proration_rate / bldg_total_proration_rate,
+    bldg_total_value_livable = sum(
+      ifelse(meta_modeling_group == "CONDO", pred_card_initial_fmv, 0),
       na.rm = TRUE
     ),
-    pred_pin_final_fmv = bldg_total_value *
-      (meta_tieback_proration_rate / bldg_total_proration_rate),
-
+    bldg_total_proration_rate_livable = sum(
+      ifelse(meta_modeling_group == "CONDO", adj_pro_rate, 0),
+      na.rm = TRUE
+    ),
+    pred_pin_final_fmv = bldg_total_value_livable *
+      (adj_pro_rate / bldg_total_proration_rate_livable),
     # For certain units (common areas), we want to have a consistent low value
     # across time (usually $10)
     pred_pin_final_fmv = case_when(
@@ -130,7 +120,7 @@ assessment_data_bldg <- assessment_data_nl %>%
   ungroup()
 
 
-## 3.3. Round and Finalize -----------------------------------------------------
+## 3.2. Round and Finalize -----------------------------------------------------
 message("Rounding and finalizing")
 
 # Round PIN-level predictions using the breaks and amounts specified in params
@@ -175,6 +165,9 @@ assessment_data_merged %>%
     meta_year, meta_pin, meta_class, meta_card_num, meta_lline_num,
     meta_modeling_group, ends_with("_num_sale"), pred_card_initial_fmv,
     all_of(params$model$predictor$all), township_code
+  ) %>%
+  mutate(
+    ccao_n_years_exe_homeowner = as.integer(ccao_n_years_exe_homeowner)
   ) %>%
   ccao::vars_recode(
     starts_with("char_"),
@@ -249,6 +242,7 @@ sales_data_two_most_recent <- sales_data %>%
 # Get the % change in the average sale price within building between the last
 # assessment year and this year
 sales_data_bldg_change_pct <- sales_data %>%
+  filter(!sv_is_outlier) %>%
   filter(
     meta_year == params$assessment$data_year |
       meta_year == params$ratio_study$far_year

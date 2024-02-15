@@ -45,11 +45,6 @@ on:
         description: Run cross-validation
         default: false
         required: true
-      comp_enable:
-        type: boolean
-        description: Run comparables finding
-        default: false
-        required: true
       shap_enable:
         type: boolean
         description: Calculate SHAP values
@@ -86,7 +81,6 @@ jobs:
         WORKFLOW_RUN_NOTE=${{ inputs.run_note }}
         UPLOAD_ENABLE_OVERRIDE=${{ inputs.upload_enable }}
         CV_ENABLE_OVERRIDE=${{ inputs.cv_enable }}
-        COMP_ENABLE_OVERRIDE=${{ inputs.comp_enable }}
         SHAP_ENABLE_OVERRIDE=${{ inputs.shap_enable }}
         REPORT_ADDITIONAL_PINS=${{ inputs.report_additional_pins }}
     secrets:
