@@ -211,7 +211,9 @@ training_data_ms <- training_data %>%
   arrange(meta_sale_document_num, meta_tieback_proration_rate) %>%
   mutate(
     # Attach sale to the condo UNIT if one of the PINs in the sale is a garage
-    # and the unit % of ownership is greater than 3x the garage % of ownership
+    # and the unit % of ownership is greater than 3x the garage % of ownership.
+    # The sum() call here ensures that one (and only one) PIN of the multi-sale
+    # is a garage unit
     keep_unit_sale =
       meta_tieback_proration_rate >= (lag(meta_tieback_proration_rate) * 3) &
         sum(meta_cdu == "GR", na.rm = TRUE) == 1, # nolint
@@ -247,8 +249,8 @@ training_data_fil <- training_data_ms %>%
       TRUE ~ sv_outlier_type
     ),
     sv_is_outlier = ifelse(
-      meta_sale_price < 50000 & meta_sale_num_parcels == 2 |
-        meta_sale_price > 1700000 & meta_sale_num_parcels == 2,
+      (meta_sale_price < 50000 & meta_sale_num_parcels == 2) |
+        (meta_sale_price > 1700000 & meta_sale_num_parcels == 2),
       TRUE,
       sv_is_outlier
     )
