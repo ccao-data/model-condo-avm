@@ -101,26 +101,28 @@ assessment_pin_prepped <- assessment_pin %>%
         prior_near_tot <= params$pv$nonlivable_threshold,
       0
     ),
-    char_type_resd = NA
+    char_type_resd = NA,
+    valuations_note = NA # Empty notes field for Valuations to fill out
   ) %>%
   select(
     township_code, meta_pin, meta_class, meta_nbhd_code,
-    property_full_address, loc_cook_municipality_name, meta_pin10,
+    property_full_address, loc_tax_municipality_name, meta_pin10,
     meta_tieback_key_pin, meta_tieback_proration_rate,
     prior_near_land, prior_near_bldg, prior_near_tot,
     prior_near_land_rate, prior_near_bldg_rate, prior_near_land_pct_total,
     pred_pin_final_fmv, pred_pin_final_fmv_land, pred_pin_final_fmv_bldg,
     pred_pin_final_fmv_round, land_rate_per_sqft, pred_pin_land_rate_effective,
     pred_pin_bldg_rate_effective, pred_pin_land_pct_total,
-    prior_near_yoy_change_nom, prior_near_yoy_change_pct,
-    sale_recent_1_date, sale_recent_1_price, sale_recent_1_document_num,
-    sale_recent_2_date, sale_recent_2_price, sale_recent_2_document_num,
+    prior_near_yoy_change_nom, prior_near_yoy_change_pct, valuations_note,
+    sale_recent_1_date, sale_recent_1_price,
+    sale_recent_1_outlier_type, sale_recent_1_document_num,
+    sale_recent_2_date, sale_recent_2_price,
+    sale_recent_2_outlier_type, sale_recent_2_document_num,
     char_yrblt, char_total_bldg_sf, char_type_resd, char_land_sf,
     char_unit_sf, flag_nonlivable_space, flag_pin10_5yr_num_sale,
     flag_common_area, flag_proration_sum_not_1, flag_pin_is_multiland,
-    flag_land_gte_95_percentile, flag_bldg_gte_95_percentile,
+    flag_land_gte_95_percentile,
     flag_land_value_capped, flag_prior_near_to_pred_unchanged,
-    flag_pred_initial_to_final_changed,
     flag_prior_near_yoy_inc_gt_50_pct, flag_prior_near_yoy_dec_gt_5_pct
   ) %>%
   mutate(
@@ -144,7 +146,7 @@ assessment_pin10_prepped <- assessment_pin_prepped %>%
   group_by(township_code, meta_pin10, meta_nbhd_code) %>%
   summarize(
     property_full_address = first(property_full_address),
-    loc_cook_municipality_name = first(loc_cook_municipality_name),
+    loc_tax_municipality_name = first(loc_tax_municipality_name),
     num_pin_livable = sum(!flag_nonlivable_space),
     num_pin_nonlivable = sum(flag_nonlivable_space),
     total_tieback_proration_rate = sum(meta_tieback_proration_rate),
@@ -174,13 +176,72 @@ assessment_pin10_prepped <- assessment_pin_prepped %>%
 for (town in unique(assessment_pin_prepped$township_code)) {
   message("Now processing: ", town_convert(town))
 
-
   ## 4.1. PIN-Level ------------------------------------------------------------
+
+  # Filter building data to specific township
+  assessment_pin10_filtered <- assessment_pin10_prepped %>%
+    filter(township_code == town) %>%
+    select(-township_code)
+
+  building_coords <- assessment_pin10_filtered %>%
+    # Handle a rare edge case where neighborhoods span multiple townships
+    # and so introduce duplicate pin10s; more details here:
+    # https://github.com/ccao-data/data-architecture/issues/275
+    distinct(meta_pin10) %>%
+    tibble::rowid_to_column("building_coord") %>%
+    select(meta_pin10, building_coord)
+
+  pin_sheet_name <- "PIN Detail"
+  bldg_sheet_name <- "Buildings"
 
   # Filter overall data to specific township
   assessment_pin_filtered <- assessment_pin_prepped %>%
     filter(township_code == town) %>%
-    select(-township_code)
+    select(-township_code) %>%
+    left_join(building_coords, by = "meta_pin10") %>%
+    mutate(
+      building_coord = ifelse(
+        is.na(building_coord),
+        NA,
+        getCellRefs(data.frame(row = building_coord + 4, column = 1))
+      )
+    ) %>%
+    mutate(
+      meta_pin10 = ifelse(
+        is.na(building_coord),
+        NA,
+        glue::glue(
+          '=HYPERLINK(@CELL("address",{bldg_sheet_name}!{building_coord}),',
+          '"{meta_pin10}")'
+        )
+      )
+    ) %>%
+    select(-building_coord)
+
+  # Get range of rows in the PIN data + number of header rows
+  num_head <- 6
+  pin_row_range <- (num_head + 1):(nrow(assessment_pin_filtered) + num_head)
+  pin_row_range_w_header <- c(num_head, pin_row_range)
+  pin_col_range <- 1:50
+
+  # Calculate AVs so we can store them as separate, hidden columns for use
+  # in the neighborhood breakouts pivot table
+  assessment_pin_avs <- assessment_pin_filtered %>%
+    tibble::rowid_to_column("row_id") %>%
+    mutate(
+      row_id = row_id + num_head,
+      total_av = glue::glue("=R{row_id} * 0.1"),
+      av_difference = glue::glue("=(R{row_id} * 0.1) - (K{row_id} * 0.1)")
+    ) %>%
+    select(total_av, av_difference)
+
+  # Make AV fields formulas
+  class(assessment_pin_avs$total_av) <- c(
+    class(assessment_pin_avs$total_av), "formula"
+  )
+  class(assessment_pin_avs$av_difference) <- c(
+    class(assessment_pin_avs$av_difference), "formula"
+  )
 
   # Generate sheet and column headers
   model_header <- str_to_title(paste(
@@ -194,13 +255,12 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     .sep = " "
   ))
 
-  pin_sheet_name <- "PIN Detail"
+  class(assessment_pin_filtered$meta_pin10) <- c(
+    class(assessment_pin_filtered$meta_pin10), "formula"
+  )
   class(assessment_pin_filtered$meta_pin) <- c(
     class(assessment_pin_filtered$meta_pin), "formula"
   )
-
-  # Get range of rows in the PIN data + number of header rows
-  pin_row_range <- 7:(nrow(assessment_pin_filtered) + 9)
 
   # Load the excel workbook template from file
   wb <- loadWorkbook(here("misc", "desk_review_template.xlsx"))
@@ -210,12 +270,14 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   style_2digit <- createStyle(numFmt = "$#,##0.00")
   style_pct <- createStyle(numFmt = "PERCENTAGE")
   style_comma <- createStyle(numFmt = "COMMA")
+  style_link <- createStyle(fontColour = "blue", textDecoration = "underline")
 
   # Add styles to PIN sheet
   addStyle(
     wb, pin_sheet_name,
     style = style_price,
-    rows = pin_row_range, cols = c(9:11, 15:18, 23, 26, 29), gridExpand = TRUE
+    rows = pin_row_range,
+    cols = c(9:11, 15:18, 23, 27, 31, 49, 50), gridExpand = TRUE
   )
   addStyle(
     wb, pin_sheet_name,
@@ -230,9 +292,44 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   addStyle(
     wb, pin_sheet_name,
     style = style_comma,
-    rows = pin_row_range, cols = c(32, 34, 35, 37), gridExpand = TRUE
+    rows = pin_row_range, cols = c(35, 37, 38, 40), gridExpand = TRUE
   )
-  addFilter(wb, pin_sheet_name, 6, 1:44)
+  addStyle(
+    wb, pin_sheet_name,
+    style = style_link,
+    rows = pin_row_range, cols = c(6), gridExpand = TRUE
+  )
+  addFilter(wb, pin_sheet_name, 6, pin_col_range)
+
+  # Format YoY % change column with a range of colors from low to high
+  conditionalFormatting(
+    wb, pin_sheet_name,
+    cols = c(24),
+    rows = pin_row_range,
+    style = c("#F8696B", "#FFFFFF", "#00B0F0"),
+    rule = c(-1, 0, 1),
+    type = "colourScale"
+  )
+  # Format sale columns such that they are red if the sale has an outlier flag
+  conditionalFormatting(
+    wb, pin_sheet_name,
+    cols = 26:29,
+    rows = pin_row_range,
+    style = createStyle(bgFill = "#FF9999"),
+    rule = '$AB7!=""',
+    type = "expression"
+  )
+  # For some reason vector cols don't work with expressions, so we have
+  # to duplicate the conditional formatting for the sale outlier flag above
+  # to apply it to the second range of columns
+  conditionalFormatting(
+    wb, pin_sheet_name,
+    cols = 30:33,
+    rows = pin_row_range,
+    style = createStyle(bgFill = "#FF9999"),
+    rule = '$AF7!=""',
+    type = "expression"
+  )
 
   # Write PIN-level data to workbook
   writeData(
@@ -244,6 +341,13 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   writeFormula(
     wb, pin_sheet_name,
     assessment_pin_filtered$meta_pin,
+    startCol = 1,
+    startRow = 7
+  )
+  writeFormula(
+    wb, pin_sheet_name,
+    assessment_pin_filtered$meta_pin10,
+    startCol = 6,
     startRow = 7
   )
   writeData(
@@ -263,15 +367,35 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     startCol = 15, startRow = 5, colNames = FALSE
   )
 
+  # Write hidden formulas
+  writeFormula(
+    wb, pin_sheet_name,
+    assessment_pin_avs$total_av,
+    startCol = 49,
+    startRow = 7
+  )
+  writeFormula(
+    wb, pin_sheet_name,
+    assessment_pin_avs$av_difference,
+    startCol = 50,
+    startRow = 7
+  )
+  setColWidths(
+    wb, pin_sheet_name,
+    c(49, 50),
+    widths = 1,
+    hidden = c(TRUE, TRUE), ignoreMergedCells = FALSE
+  )
+
+  # Add a named range for the PIN-level data, which the template will use
+  # to populate the Neighborhood Breakouts pivot table
+  createNamedRegion(
+    wb, pin_sheet_name,
+    cols = pin_col_range, rows = pin_row_range_w_header,
+    name = "pin_detail_range", overwrite = TRUE
+  )
 
   # 4.2. Building-Level --------------------------------------------------------
-
-  # Filter building data to specific township
-  assessment_pin10_filtered <- assessment_pin10_prepped %>%
-    filter(township_code == town) %>%
-    select(-township_code)
-
-  bldg_sheet_name <- "Building (PIN10)"
 
   # Get range of rows in the building data + number of header rows
   bldg_row_range <- 5:(nrow(assessment_pin10_filtered) + 6)
@@ -294,6 +418,16 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   )
   addFilter(wb, bldg_sheet_name, 4, 1:13)
 
+  # Format YoY % change column with a range of colors from low to high
+  conditionalFormatting(
+    wb, bldg_sheet_name,
+    cols = c(11),
+    rows = bldg_row_range,
+    style = c("#F8696B", "#FFFFFF", "#00B0F0"),
+    rule = c(-1, 0, 1),
+    type = "colourScale"
+  )
+
   # Write bldg-level data to workbook
   writeData(
     wb, bldg_sheet_name, assessment_pin10_filtered,
@@ -311,21 +445,29 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   )
 
   # Save workbook to file based on town name
+  workbook_name <- glue(
+    params$assessment$year,
+    str_replace(town_convert(town), " ", "_"),
+    "Initial_Model_Values_Condo.xlsx",
+    .sep = "_"
+  )
   saveWorkbook(
-    wb,
-    here(
-      "output", "desk_review",
-      glue(
-        params$assessment$year,
-        str_replace(town_convert(town), " ", "_"),
-        "Initial_Model_Values_Condo.xlsx",
-        .sep = "_"
-      )
-    ),
+    wb, here("output", "desk_review", workbook_name),
     overwrite = TRUE
   )
   rm(wb)
 }
+
+### NOTE ###
+# OpenXLSX is not perfect and messes up the macros and formatting on saved
+# workbooks. To finish each workbook, you must manually:
+
+# 1. Open the Neighborhood Breakout sheet and ensure that the values are
+#    all formatted correctly in the pivot table; if not (e.g. if
+#    `Average of YoY ∆ %` is formatted as a date when it should be a percentage)
+#    then manually update the formatting by selecting
+#    PivotTable Fields > Values > {fieldname} > Value Field Settings... >
+#    Number Format.
 
 
 
@@ -341,45 +483,25 @@ upload_data_prepped <- assessment_pin %>%
       select(meta_year, meta_pin, meta_card_num, meta_lline_num),
     by = c("meta_year", "meta_pin")
   ) %>%
-  mutate(meta_pin10 = str_sub(meta_pin, 1, 10)) %>%
-  group_by(meta_pin10, meta_tieback_proration_rate) %>%
-  # For PINs missing an individual building value, fill with the average of
-  # PINs with the same proration rate in the building. This is super rare,
-  # maybe 1 PIN out of every 100K. It happens mostly because of mis-coded nbhds
   mutate(
+    # For PINs missing an individual building value, fill with the average of
+    # PINs with the same proration rate in the building. This is super rare,
+    # maybe 1 PIN out of every 100K. It happens mostly because of mis-coded
+    # nbhds
     pred_pin_final_fmv_bldg = ifelse(
       is.na(pred_pin_final_fmv_bldg),
       mean(pred_pin_final_fmv_bldg, na.rm = TRUE),
       pred_pin_final_fmv_bldg
-    )
-  ) %>%
-  group_by(meta_pin10) %>%
-  mutate(
-    # Sum the building value of each PIN to the building total value
-    pred_pin10_final_fmv_bldg = sum(pred_pin_final_fmv_bldg, na.rm = TRUE),
-
-    # Hotfix for adjusting the total building value such that bldg_total *
-    # proration_rate = unit_value. Only applies to buildings where rates don't
-    # sum to 100%
-    pred_pin10_final_fmv_bldg = round(
-      pred_pin10_final_fmv_bldg * (1 / sum(
-        meta_tieback_proration_rate,
-        na.rm = TRUE
-      ))
     ),
-
     # For any missing LLINE values, simply fill with 1
     meta_lline_num = replace_na(meta_lline_num, 1)
   ) %>%
-  ungroup() %>%
   select(
     township_code = meta_township_code,
     PARID = meta_pin,
     CARD = meta_card_num,
     LLINE = meta_lline_num,
-    USER18 = pred_pin10_final_fmv_bldg,
-    USER20 = meta_tieback_proration_rate,
-    OVRRCNLD = pred_pin_final_fmv_bldg
+    MV = pred_pin_final_fmv_bldg
   ) %>%
   arrange(township_code, PARID)
 
