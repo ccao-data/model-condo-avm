@@ -43,6 +43,7 @@ training_data <- dbGetQuery(
       sale.deed_type AS meta_sale_deed_type,
       sale.seller_name AS meta_sale_seller_name,
       sale.buyer_name AS meta_sale_buyer_name,
+      sale.num_parcels_sale AS meta_sale_num_parcels,
       sale.sv_is_outlier,
       sale.sv_outlier_type,
       condo.*
@@ -205,21 +206,59 @@ message("Adding time features and cleaning")
 # parking spot, but only the sale for the unit, not the parking. Drop other
 # multi-unit sale types since we don't have a way to disaggregate each
 # unit's value
-training_data <- training_data %>%
+training_data_ms <- training_data %>%
   group_by(meta_sale_document_num) %>%
-  arrange(meta_tieback_proration_rate) %>%
+  arrange(meta_sale_document_num, meta_tieback_proration_rate) %>%
   mutate(
+    # Attach sale to the condo UNIT if one of the PINs in the sale is a garage
+    # and the unit % of ownership is greater than 3x the garage % of ownership.
+    # The sum() call here ensures that one (and only one) PIN of the multi-sale
+    # is a garage unit
     keep_unit_sale =
-      meta_tieback_proration_rate >= (lag(meta_tieback_proration_rate) * 3)
+      meta_tieback_proration_rate >= (lag(meta_tieback_proration_rate) * 3) &
+        sum(meta_cdu == "GR", na.rm = TRUE) == 1, # nolint
+    # If there are multiple PINs associated with a sale, take only the
+    # proportion of the sale value that is attributable to the main unit (based
+    # on percentage of ownership)
+    total_proration_rate = sum(meta_tieback_proration_rate, na.rm = TRUE),
+    meta_sale_price = as.numeric(meta_sale_price),
+    meta_sale_price = ifelse(
+      n() == 2 & keep_unit_sale,
+      meta_sale_price * (meta_tieback_proration_rate / total_proration_rate),
+      meta_sale_price
+    ),
+    meta_sale_price = round(meta_sale_price, 0)
   ) %>%
   filter(n() == 1 | (n() == 2 & keep_unit_sale)) %>%
   ungroup() %>%
   filter(!as.logical(as.numeric(ind_pin_is_multilline))) %>%
-  select(-keep_unit_sale)
+  select(-keep_unit_sale, -total_proration_rate)
+
+# Multi-sale outlier detection / sales validation kludge. The main sales
+# validation logic cannot yet handle multi-sale properties, but they're a
+# significant minority of the total sales sample. We can borrow some
+# conservative thresholds from the main sales validation output to identify
+# likely non-arms-length sales. ONLY APPLIES to multi-sale properties
+training_data_fil <- training_data_ms %>%
+  mutate(
+    sv_outlier_type = case_when(
+      meta_sale_price < 50000 & meta_sale_num_parcels == 2 ~
+        "Low price (multi)",
+      meta_sale_price > 1700000 & meta_sale_num_parcels == 2 ~
+        "High price (multi)",
+      TRUE ~ sv_outlier_type
+    ),
+    sv_is_outlier = ifelse(
+      (meta_sale_price < 50000 & meta_sale_num_parcels == 2) |
+        (meta_sale_price > 1700000 & meta_sale_num_parcels == 2),
+      TRUE,
+      sv_is_outlier
+    )
+  )
 
 # Clean up the training data. Goal is to get it into a publishable format.
 # Final featurization, missingness, etc. is handled via Tidymodels recipes
-training_data_clean <- training_data %>%
+training_data_clean <- training_data_fil %>%
   # Recode factor variables using the definitions stored in ccao::vars_dict
   # This will remove any categories not stored in the dictionary and convert
   # them to NA (useful since there are a lot of misrecorded variables)
@@ -231,6 +270,20 @@ training_data_clean <- training_data %>%
     any_of(col_type_dict$var_name),
     ~ recode_column_type(.x, cur_column())
   )) %>%
+  mutate(
+    # Treat sales for non-livable spaces as outliers. They are included for
+    # reference only
+    sv_is_outlier = ifelse(
+      meta_modeling_group == "NONLIVABLE",
+      TRUE,
+      sv_is_outlier
+    ),
+    sv_outlier_type = ifelse(
+      meta_modeling_group == "NONLIVABLE",
+      "Non-livable area",
+      sv_outlier_type
+    )
+  ) %>%
   # Only exclude explicit outliers from training. Sales with missing validation
   # outcomes will be considered non-outliers
   mutate(

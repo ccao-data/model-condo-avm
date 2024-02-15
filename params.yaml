@@ -146,6 +146,7 @@ model:
     all:
       - "meta_township_code"
       - "meta_nbhd_code"
+      - "meta_tieback_proration_rate"
       - "char_yrblt"
       - "char_land_sf"
       - "char_building_units"
@@ -159,10 +160,7 @@ model:
       - "loc_longitude"
       - "loc_latitude"
       - "loc_census_tract_geoid"
-      - "loc_env_flood_fema_sfha"
       - "loc_env_flood_fs_factor"
-      - "loc_env_flood_fs_risk_direction"
-      - "loc_env_airport_noise_dnl"
       - "loc_school_elementary_district_geoid"
       - "loc_school_secondary_district_geoid"
       - "loc_access_cmap_walk_nta_score"
@@ -172,8 +170,6 @@ model:
       - "prox_num_bus_stop_in_half_mile"
       - "prox_num_foreclosure_per_1000_pin_past_5_years"
       - "prox_num_school_in_half_mile"
-      - "prox_num_school_with_rating_in_half_mile"
-      - "prox_avg_school_rating_in_half_mile"
       - "prox_airport_dnl_total"
       - "prox_nearest_bike_trail_dist_ft"
       - "prox_nearest_cemetery_dist_ft"
@@ -194,7 +190,6 @@ model:
       - "acs5_percent_age_children"
       - "acs5_percent_age_senior"
       - "acs5_median_age_total"
-      - "acs5_percent_mobility_no_move"
       - "acs5_percent_mobility_moved_from_other_state"
       - "acs5_percent_household_family_married"
       - "acs5_percent_household_nonfamily_alone"
@@ -212,8 +207,6 @@ model:
       - "acs5_percent_household_total_occupied_w_sel_cond"
       - "acs5_percent_mobility_moved_in_county"
       - "other_tax_bill_rate"
-      - "other_school_district_elementary_avg_rating"
-      - "other_school_district_secondary_avg_rating"
       - "ccao_is_active_exe_homeowner"
       - "ccao_is_corner_lot"
       - "ccao_n_years_exe_homeowner"
@@ -294,27 +287,27 @@ model:
       # for setting this parameter is to discover a good fixed value using CV,
       # then manually set that value for non-CV runs (which don't use
       # early stopping by default)
-      num_iterations: 2500
-      learning_rate: 0.015
+      num_iterations: 2275
+      learning_rate: 0.011
 
       # Maximum number of bins for discretizing continuous features. Lower uses
       # less memory and speeds up training
-      max_bin: 512
+      max_bin: 225
 
       # See docs for details on each of the remaining parameters:
       # https://lightgbm.readthedocs.io/en/latest/Parameters.html
-      num_leaves: 159
-      add_to_linked_depth: 1
-      feature_fraction: 0.688
-      min_gain_to_split: 5.58
+      num_leaves: 200
+      add_to_linked_depth: 2
+      feature_fraction: 0.661
+      min_gain_to_split: 1.58
       min_data_in_leaf: 44
-      max_cat_threshold: 228
-      min_data_per_group: 160
-      cat_smooth: 54.52
-      cat_l2: 0.11
-      lambda_l1: 0.016
-      lambda_l2: 2.413
-      neighbors: 5
+      max_cat_threshold: 87
+      min_data_per_group: 200
+      cat_smooth: 140.85
+      cat_l2: 0.017
+      lambda_l1: 0.697
+      lambda_l2: 0.002
+      neighbors: 15
 
     # Range of possible hyperparameter values for tuning to explore
     range:
@@ -355,9 +348,9 @@ pv:
 
   # Rounding settings to apply to initial predictions. Rounding is done to
   # indicate to property owners that model values are estimates, not exact
-  round_break: [1000, 10000, 100000]
-  round_to_nearest: [1, 500, 5000, 10000]
-  round_type: "floor"
+  round_break: [1000, 10000]
+  round_to_nearest: [1, 10, 100]
+  round_type: "ceiling"
 
 
 # Ratio Study ------------------------------------------------------------------
