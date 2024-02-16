@@ -566,7 +566,7 @@ for (town in unique(upload_data_prepped$township_code)) {
   message("Now processing: ", town_convert(town))
 
   upload_data_fil <- upload_data_prepped %>%
-    filter(township_code == town, MV != 0) %>%
+    filter(township_code == town, MV > 0, !is.na(MV)) %>%
     select(-township_code)
 
   readr::write_csv(
