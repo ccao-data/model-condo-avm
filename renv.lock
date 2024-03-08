@@ -283,7 +283,7 @@
       "RemoteUsername": "ccao-data",
       "RemoteRepo": "ccao",
       "RemoteRef": "master",
-      "RemoteSha": "6bdb2f2cab811c3450d91726a784804bd8bca971",
+      "RemoteSha": "fe992f9bb6e75c97a0c8fa742106096adbabb642",
       "Remotes": "ccao-data/assessr",
       "Requirements": [
         "R",
@@ -293,7 +293,7 @@
         "rlang",
         "tidyr"
       ],
-      "Hash": "9e1f71bb457d8d8514ca553610fa0bfc"
+      "Hash": "4f649d828fea30e11c2b65acb3ec778a"
     },
     "class": {
       "Package": "class",
@@ -310,14 +310,14 @@
     },
     "cli": {
       "Package": "cli",
-      "Version": "3.6.2",
+      "Version": "3.6.1",
       "Source": "Repository",
-      "Repository": "CRAN",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "utils"
       ],
-      "Hash": "1216ac65ac55ec0058a6f75d7ca0fd52"
+      "Hash": "89e6d8219950eac806ae0c489052048a"
     },
     "clock": {
       "Package": "clock",
