@@ -226,15 +226,14 @@ values.
 
 The condo model is trained on a select number of “multisales” in
 addition to single-parcel sales. Multisales are sales that include more
-than one parcel and rarely reflect the accurate market price the
-included parcels would fetch if they were sold individually. In the case
-of condominiums, however, many units are sold bundled with deeded
-parking spaces that are separate parcels and these two-parcel sales are
-highly reflective of the unit’s actual market price. We split the total
-value of these two-parcel sales according to their relative percent of
-ownership before using them for training. For a \$100,000 sale of a unit
-(4% ownership) and a parking space (1% ownership), the sale would be
-adjusted to \$80,000:
+than one parcel and rarely reflect the market price the included parcels
+would fetch if they were sold individually. In the case of condominiums,
+however, many units are sold bundled with deeded parking spaces that are
+separate parcels and these two-parcel sales are highly reflective of the
+unit’s actual market price. We split the total value of these two-parcel
+sales according to their relative percent of ownership before using them
+for training. For a \$100,000 sale of a unit (4% ownership) and a
+parking space (1% ownership), the sale would be adjusted to \$80,000:
 
 $$\frac{0.04}{0.04 + 0.01} * \$100,000 = \$80,000$$
 
