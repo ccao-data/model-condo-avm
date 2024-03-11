@@ -235,6 +235,7 @@ value of these two-parcel sales according to their relative percent of
 ownership before using them for training. For example, a \$100,000 sale
 of a unit (4% ownership) and a parking space (1% ownership), the sale is
 adjusted to \$80,000:
+
 $$\frac{0.04}{0.04 + 0.01} * \$100,000 = \$80,000$$
 
 ## Condo Strata
