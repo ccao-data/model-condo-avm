@@ -37,6 +37,16 @@ assessment_pin <- dbGetQuery(
   ")
 )
 
+# Pull prior final model's values for comparison
+assessment_pin_old <- dbGetQuery(
+  conn = AWS_ATHENA_CONN_NOCTUA, glue("
+  SELECT year, meta_pin, pred_pin_final_fmv_round AS model_org_fmv
+  FROM model.assessment_pin
+  WHERE run_id = '2024-02-16-silly-billy'
+  AND meta_triad_code = '{params$export$triad_code}'
+  ")
+)
+
 # Pull card-level data only for all PINs. Needed for upload, since values are
 # tracked by card, even though they're presented by PIN
 assessment_card <- dbGetQuery(
@@ -79,6 +89,10 @@ message("Preparing data for Desk Review export")
 # Prep data with a few additional columns + put everything in the right
 # order for DR sheets
 assessment_pin_prepped <- assessment_pin %>%
+  left_join(
+    assessment_pin_old,
+    by = c("year", "meta_pin")
+  ) %>%
   mutate(
     prior_near_land_rate = round(
       prior_near_land / (char_land_sf * meta_tieback_proration_rate),
@@ -109,9 +123,8 @@ assessment_pin_prepped <- assessment_pin %>%
     char_type_resd = NA,
     valuations_note = NA,
     sale_ratio = NA,
-    model_org_fmv = NA,
-    model_org_fmv_nom_chg = NA,
-    model_org_fmv_pct_chg = NA
+    model_org_fmv_nom_chg = (pred_pin_final_fmv_round - model_org_fmv),
+    model_org_fmv_pct_chg = model_org_fmv_nom_chg / model_org_fmv
   ) %>%
   select(
     township_code, meta_pin, meta_class, meta_nbhd_code,
@@ -198,7 +211,7 @@ assessment_pin10_prepped <- assessment_pin_prepped %>%
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Write raw data to sheets for parcel details
-for (town in unique(assessment_pin_prepped$township_code)) {
+for (town in "75") {
   message("Now processing: ", town_convert(town))
 
   ## 4.1. PIN-Level ------------------------------------------------------------
@@ -348,13 +361,16 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   addFilter(wb, pin_sheet_name, 6, pin_col_range)
 
   # Format YoY % change column with a range of colors from low to high
-  conditionalFormatting(
-    wb, pin_sheet_name,
-    cols = c(24),
-    rows = pin_row_range,
-    style = c("#F8696B", "#FFFFFF", "#00B0F0"),
-    rule = c(-1, 0, 1),
-    type = "colourScale"
+  walk(
+    c(24, 55),
+    ~ conditionalFormatting(
+      wb, pin_sheet_name,
+      cols = .x,
+      rows = pin_row_range,
+      style = c("#F8696B", "#FFFFFF", "#00B0F0"),
+      rule = c(-1, 0, 1),
+      type = "colourScale"
+    )
   )
   # Format sale such that they are orange for adjusted multi-PIN sales
   conditionalFormatting(
