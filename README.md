@@ -7,6 +7,7 @@ Table of Contents
     Model](#differences-compared-to-the-residential-model)
     - [Features Used](#features-used)
     - [Valuation](#valuation)
+    - [Multisales](#multisales)
   - [Condo Strata](#condo-strata)
 - [Ongoing Issues](#ongoing-issues)
   - [Unit Heterogeneity](#unit-heterogeneity)
@@ -45,6 +46,7 @@ prior year models can be found at the following links:
 | 2021    | City     | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2021-assessment-year)                                                             |
 | 2022    | North    | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2022-assessment-year)                                                             |
 | 2023    | South    | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2023-assessment-year)                                                             |
+| 2024    | City     | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2024-assessment-year)                                                             |
 
 # Model Overview
 
@@ -59,26 +61,32 @@ contains:
 - [An outline of ongoing issues specific to condominium
   assessments](#ongoing-issues)
 
-The repository itself contains the [code](./pipeline) and
-[data](./input) for the Automated Valuation Model (AVM) used to generate
-initial assessed values for all condominium properties in Cook County.
-This system is effectively an advanced machine learning model (hereafter
-referred to as “the model”). It uses previous sales to generate
-estimated sale values (assessments) for all properties.
+The repository itself contains the [code](./pipeline) for the Automated
+Valuation Model (AVM) used to generate initial assessed values for all
+condominium properties in Cook County. This system is effectively an
+advanced machine learning model (hereafter referred to as “the model”).
+It uses previous sales to generate estimated sale values (assessments)
+for all properties.
 
 ## Differences Compared to the Residential Model
 
-The Cook County Assessor’s Office ***does not track characteristic data
-for condominiums***. Like most assessors nationwide, our office staff
-cannot enter buildings to observe property characteristics. For condos,
-this means we cannot observe amenities, quality, or any other interior
-characteristics.
+The Cook County Assessor’s Office has begun to track a limited number of
+characteristics (building-level square footage and unit-level square
+footage, bedrooms, and bathrooms) for condominiums, but the data we have
+***varies in both the characteristics available and their
+completeness*** between triads. Staffing limitations have forced the
+office to prioritizes smaller condo buildings less likely to have recent
+unit sales in certain parts of the county. Like most assessors
+nationwide, our office staff cannot enter buildings to observe property
+characteristics. For condos, this means we cannot observe amenities,
+quality, or any other interior characteristics which must instead be
+gathered from listings and a number of additional third-party sources.
 
-The only information our office has about individual condominium units
-is their age, location, sale date/price, and percentage of ownership.
-This makes modeling condos particularly challenging, as the number of
-usable features is quite small. Fortunately, condos have two qualities
-which make modeling a bit easier:
+The only complete information our office currently has about individual
+condominium units is their age, location, sale date/price, and
+percentage of ownership. This makes modeling condos particularly
+challenging, as the number of usable features is quite small.
+Fortunately, condos have two qualities which make modeling a bit easier:
 
 1.  Condos are more homogeneous than single/multi-family properties,
     i.e. the range of potential condo sale prices is much narrower.
@@ -89,18 +97,10 @@ We leverage these qualities to produce what we call ***strata***, a
 feature unique to the condo model. See [Condo Strata](#condo-strata) for
 more information about how strata is used and calculated.
 
-> :warning: **NOTE** :warning:
->
-> Recently, the CCAO has started to manually collect high-level
-> condominium data, including total building square footage and
-> estimated unit square footage/number of bedrooms. This data is sourced
-> from listings and a number of additional third-party sources and is
-> available for the North and South triads only.
-
 ### Features Used
 
-Because our office (mostly) cannot observe individual condo unit
-characteristics, we must rely on aggregate geospatial features, economic
+Because our individual condo unit characteristics are sparse and
+incomplete, we must rely on aggregate geospatial features, economic
 features, [strata](#condo-strata), and time of sale to determine condo
 assessed values. The features in the table below are the ones used in
 the 2023 assessment model.
@@ -117,8 +117,6 @@ the 2023 assessment model.
 | Condominium Unit Full Baths                                             | Characteristic | numeric   | X                     |
 | Condominium Building Is Mixed Use                                       | Characteristic | logical   | X                     |
 | Condominium % Ownership                                                 | Meta           | numeric   | X                     |
-| Condominium Building Strata 1                                           | Meta           | character | X                     |
-| Condominium Building Strata 2                                           | Meta           | character | X                     |
 | Land Square Feet                                                        | Characteristic | numeric   |                       |
 | Township Code                                                           | Meta           | character |                       |
 | Neighborhood Code                                                       | Meta           | character |                       |
@@ -133,7 +131,6 @@ the 2023 assessment model.
 | Percent Population Age, Under 19 Years Old                              | acs5           | numeric   |                       |
 | Percent Population Age, Over 65 Years Old                               | acs5           | numeric   |                       |
 | Median Population Age                                                   | acs5           | numeric   |                       |
-| Percent Population Mobility, In Same House 1 Year Ago                   | acs5           | numeric   |                       |
 | Percent Population Mobility, Moved From Other State in Past Year        | acs5           | numeric   |                       |
 | Percent Households Family, Married                                      | acs5           | numeric   |                       |
 | Percent Households Nonfamily, Living Alone                              | acs5           | numeric   |                       |
@@ -150,24 +147,23 @@ the 2023 assessment model.
 | Percent Occupied Households, Owner                                      | acs5           | numeric   |                       |
 | Percent Occupied Households, Total, One or More Selected Conditions     | acs5           | numeric   |                       |
 | Percent Population Mobility, Moved From Within Same County in Past Year | acs5           | numeric   |                       |
+| Corner Lot                                                              | ccao           | logical   |                       |
+| Active Homeowner Exemption                                              | ccao           | logical   |                       |
+| Number of Years Active Homeowner Exemption                              | ccao           | numeric   |                       |
 | Longitude                                                               | loc            | numeric   |                       |
 | Latitude                                                                | loc            | numeric   |                       |
-| Municipality Name                                                       | loc            | character |                       |
-| FEMA Special Flood Hazard Area                                          | loc            | logical   |                       |
+| Census Tract GEOID                                                      | loc            | character |                       |
 | First Street Factor                                                     | loc            | numeric   |                       |
-| First Street Risk Direction                                             | loc            | numeric   |                       |
 | School Elementary District GEOID                                        | loc            | character |                       |
 | School Secondary District GEOID                                         | loc            | character |                       |
+| Municipality Name                                                       | loc            | character |                       |
 | CMAP Walkability Score (No Transit)                                     | loc            | numeric   |                       |
 | CMAP Walkability Total Score                                            | loc            | numeric   |                       |
-| Airport Noise DNL                                                       | loc            | numeric   |                       |
 | Property Tax Bill Aggregate Rate                                        | other          | numeric   |                       |
 | Number of PINs in Half Mile                                             | prox           | numeric   |                       |
 | Number of Bus Stops in Half Mile                                        | prox           | numeric   |                       |
 | Number of Foreclosures Per 1000 PINs (Past 5 Years)                     | prox           | numeric   |                       |
 | Number of Schools in Half Mile                                          | prox           | numeric   |                       |
-| Number of Schools with Rating in Half Mile                              | prox           | numeric   |                       |
-| Average School Rating in Half Mile                                      | prox           | numeric   |                       |
 | Nearest Bike Trail Distance (Feet)                                      | prox           | numeric   |                       |
 | Nearest Cemetery Distance (Feet)                                        | prox           | numeric   |                       |
 | Nearest CTA Route Distance (Feet)                                       | prox           | numeric   |                       |
@@ -179,7 +175,12 @@ the 2023 assessment model.
 | Nearest Metra Stop Distance (Feet)                                      | prox           | numeric   |                       |
 | Nearest Park Distance (Feet)                                            | prox           | numeric   |                       |
 | Nearest Railroad Distance (Feet)                                        | prox           | numeric   |                       |
+| Nearest Secondary Road Distance (Feet)                                  | prox           | numeric   |                       |
+| Nearest University Distance (Feet)                                      | prox           | numeric   |                       |
+| Nearest Vacant Land Parcel Distance (Feet)                              | prox           | numeric   |                       |
 | Nearest Water Distance (Feet)                                           | prox           | numeric   |                       |
+| Nearest Golf Course Distance (Feet)                                     | prox           | numeric   |                       |
+| Total Airport Noise DNL                                                 | prox           | numeric   |                       |
 
 ### Valuation
 
@@ -211,9 +212,28 @@ Visually, this looks like:
 
 ![](docs/figures/valuation_perc_owner.png)
 
+For what the office terms “nonlivable” spaces, i.e. parking spaces,
+storage space, and common area, the breakout of value works differently.
+See [this excel sheet](docs/spreadsheets/condo_nonlivable_demo.xlsx) for
+an interactive example of how nonlivable spaces are valued based on the
+total value of a building’s livable space.
+
 Percentage of ownership is the single most important feature in the
 condo model. It determines almost all intra-building differences in unit
 values.
+
+### Multisales
+
+The condo model is trained on a select number of “multisales” in
+addition to single-parcel sales. Multisales are sales that include more
+than one parcel and rarely reflect the accurate market price the
+included parcels would fetch if they were sold individually. In the case
+of condominiums, however, many are sold bundled with deeded parking
+spaces (“nonlivable” parcels) that are separate parcels and these
+two-parcel sales are highly reflective of a livable parcel’s actual
+market price. We split the total value of these two-parcel sales
+according to their relative percent of ownership before using them for
+training.
 
 ## Condo Strata
 
@@ -397,6 +417,14 @@ running the model pipeline.
 - [condo_strata_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2023/condo_strata_data.parquet)
 - [land_nbhd_rate_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2023/land_nbhd_rate_data.parquet)
 - [training_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2023/training_data.parquet)
+
+#### 2024
+
+- [assessment_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/assessment_data.parquet)
+- [char_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/char_data.parquet)
+- [condo_strata_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/condo_strata_data.parquet)
+- [land_nbhd_rate_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/land_nbhd_rate_data.parquet)
+- [training_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/training_data.parquet)
 
 For other data from the CCAO, please visit the [Cook County Data
 Portal](https://datacatalog.cookcountyil.gov/).

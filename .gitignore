@@ -20,6 +20,7 @@ cache/
 *.zip
 *.csv
 *.xlsx
+!condo_nonlivable_demo.xlsx
 *.xlsm
 *.html
 *.rmarkdown
