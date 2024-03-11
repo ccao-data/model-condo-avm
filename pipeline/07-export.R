@@ -101,8 +101,15 @@ assessment_pin_prepped <- assessment_pin %>%
         prior_near_tot <= params$pv$nonlivable_threshold,
       0
     ),
+    across(
+      ends_with("added_later") & where(is.logical),
+      ~ as.numeric(.x)
+    ),
     char_type_resd = NA,
-    valuations_note = NA # Empty notes field for Valuations to fill out
+    valuations_note = NA,
+    model_org_fmv = NA,
+    model_org_fmv_nom_chg = NA,
+    model_org_fmv_pct_chg = NA
   ) %>%
   select(
     township_code, meta_pin, meta_class, meta_nbhd_code,
@@ -125,7 +132,9 @@ assessment_pin_prepped <- assessment_pin %>%
     flag_common_area, flag_proration_sum_not_1, flag_pin_is_multiland,
     flag_land_gte_95_percentile,
     flag_land_value_capped, flag_prior_near_to_pred_unchanged,
-    flag_prior_near_yoy_inc_gt_50_pct, flag_prior_near_yoy_dec_gt_5_pct
+    flag_prior_near_yoy_inc_gt_50_pct, flag_prior_near_yoy_dec_gt_5_pct,
+    sale_recent_1_sv_added_later, sale_recent_2_sv_added_later,
+    model_org_fmv, model_org_fmv_nom_chg, model_org_fmv_pct_chg
   ) %>%
   mutate(
     across(starts_with("flag_"), as.numeric),
@@ -235,7 +244,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   num_head <- 6
   pin_row_range <- (num_head + 1):(nrow(assessment_pin_filtered) + num_head)
   pin_row_range_w_header <- c(num_head, pin_row_range)
-  pin_col_range <- 1:51
+  pin_col_range <- 1:56
 
   # Calculate AVs so we can store them as separate, hidden columns for use
   # in the neighborhood breakouts pivot table
@@ -290,7 +299,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     wb, pin_sheet_name,
     style = style_price,
     rows = pin_row_range,
-    cols = c(9:11, 15:18, 23, 27, 32, 50, 51), gridExpand = TRUE
+    cols = c(9:11, 15:18, 23, 27, 32, 52, 53, 55, 56), gridExpand = TRUE
   )
   addStyle(
     wb, pin_sheet_name,
@@ -300,7 +309,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   addStyle(
     wb, pin_sheet_name,
     style = style_pct,
-    rows = pin_row_range, cols = c(8, 14, 22, 24), gridExpand = TRUE
+    rows = pin_row_range, cols = c(8, 14, 22, 24, 54), gridExpand = TRUE
   )
   addStyle(
     wb, pin_sheet_name,
@@ -362,6 +371,24 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     type = "expression"
   )
 
+  # Highlight sales that were later added to the model
+  conditionalFormatting(
+    wb, pin_sheet_name,
+    cols = 26,
+    rows = pin_row_range,
+    style = createStyle(bgFill = "#CF91FF"),
+    rule = "$AX7=1",
+    type = "expression"
+  )
+  conditionalFormatting(
+    wb, pin_sheet_name,
+    cols = 31,
+    rows = pin_row_range,
+    style = createStyle(bgFill = "#CF91FF"),
+    rule = "$AY7=1",
+    type = "expression"
+  )
+
   # Write PIN-level data to workbook
   writeData(
     wb, pin_sheet_name, assessment_pin_filtered,
@@ -402,18 +429,18 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   writeFormula(
     wb, pin_sheet_name,
     assessment_pin_avs$total_av,
-    startCol = 50,
+    startCol = 55,
     startRow = 7
   )
   writeFormula(
     wb, pin_sheet_name,
     assessment_pin_avs$av_difference,
-    startCol = 51,
+    startCol = 56,
     startRow = 7
   )
   setColWidths(
     wb, pin_sheet_name,
-    c(50, 51),
+    c(55, 56),
     widths = 1,
     hidden = c(TRUE, TRUE), ignoreMergedCells = FALSE
   )
