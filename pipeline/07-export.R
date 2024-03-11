@@ -211,7 +211,7 @@ assessment_pin10_prepped <- assessment_pin_prepped %>%
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Write raw data to sheets for parcel details
-for (town in "75") {
+for (town in unique(assessment_pin_prepped$township_code)) {
   message("Now processing: ", town_convert(town))
 
   ## 4.1. PIN-Level ------------------------------------------------------------
