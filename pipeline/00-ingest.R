@@ -64,6 +64,22 @@ training_data <- dbGetQuery(
 )
 tictoc::toc()
 
+# Raw sales document number data used to identify some sales accidentally
+# excluded from the original training runs. See
+# https://github.com/ccao-data/data-architecture/pull/334 for more info
+tictoc::tic("Sales data pulled")
+sales_data <- dbGetQuery(
+  conn = AWS_ATHENA_CONN_NOCTUA, glue("
+  SELECT DISTINCT
+      substr(saledt, 1, 4) AS year,
+      instruno AS doc_no_old,
+      NULLIF(REPLACE(instruno, 'D', ''), '') AS doc_no_new
+  FROM iasworld.sales
+  WHERE substr(saledt, 1, 4) >= '{params$input$min_sale_year}'
+  ")
+)
+tictoc::toc()
+
 # Pull all condo PIN input data for the assessment and prior year. We will only
 # use the assessment year to run the model, but the prior year can be used for
 # report generation
@@ -234,12 +250,25 @@ training_data_ms <- training_data %>%
   filter(!as.logical(as.numeric(ind_pin_is_multilline))) %>%
   select(-keep_unit_sale, -total_proration_rate)
 
+# Kludge to add an indicator for later-added sales
+training_data_klg <- training_data_ms %>%
+  left_join(
+    sales_data %>%
+      distinct(doc_no_new, .keep_all = TRUE),
+    by = c("meta_sale_document_num" = "doc_no_new", "year")
+  ) %>%
+  mutate(
+    sv_added_later = as.logical(endsWith(doc_no_old, "D")),
+    sv_added_later = replace_na(sv_added_later, FALSE)
+  ) %>%
+  select(-doc_no_old)
+
 # Multi-sale outlier detection / sales validation kludge. The main sales
 # validation logic cannot yet handle multi-sale properties, but they're a
 # significant minority of the total sales sample. We can borrow some
 # conservative thresholds from the main sales validation output to identify
 # likely non-arms-length sales. ONLY APPLIES to multi-sale properties
-training_data_fil <- training_data_ms %>%
+training_data_fil <- training_data_klg %>%
   mutate(
     sv_outlier_type = case_when(
       meta_sale_price < 50000 & meta_sale_num_parcels == 2 ~
@@ -251,6 +280,21 @@ training_data_fil <- training_data_ms %>%
     sv_is_outlier = ifelse(
       (meta_sale_price < 50000 & meta_sale_num_parcels == 2) |
         (meta_sale_price > 1700000 & meta_sale_num_parcels == 2),
+      TRUE,
+      sv_is_outlier
+    ),
+    # Kludge sale validation flags based on raw price for sales added later
+    # due to https://github.com/ccao-data/data-architecture/pull/334
+    sv_outlier_type = case_when(
+      meta_sale_price < 40000 & sv_added_later ~
+        "Low price (raw)",
+      meta_sale_price > 1500000 & sv_added_later ~
+        "High price (raw)",
+      TRUE ~ sv_outlier_type
+    ),
+    sv_is_outlier = ifelse(
+      (meta_sale_price < 40000 & sv_added_later) |
+        (meta_sale_price > 1500000 & sv_added_later),
       TRUE,
       sv_is_outlier
     )
