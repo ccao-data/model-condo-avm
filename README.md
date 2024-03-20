@@ -7,7 +7,7 @@ Table of Contents
     Model](#differences-compared-to-the-residential-model)
     - [Features Used](#features-used)
     - [Valuation](#valuation)
-    - [Multisales](#multisales)
+    - [Multi-sales](#multi-sales)
   - [Condo Strata](#condo-strata)
 - [Ongoing Issues](#ongoing-issues)
   - [Unit Heterogeneity](#unit-heterogeneity)
@@ -47,6 +47,7 @@ prior year models can be found at the following links:
 | 2022    | North    | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2022-assessment-year)                                                             |
 | 2023    | South    | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2023-assessment-year)                                                             |
 | 2024    | City     | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2024-assessment-year)                                                             |
+|         |          |                                             |                            |                                                                                                                                            |
 
 # Model Overview
 
@@ -70,12 +71,12 @@ for all properties.
 
 ## Differences Compared to the Residential Model
 
-The Cook County Assessor’s Office has begun to track a limited number of
-characteristics (building-level square footage and unit-level square
+The Cook County Assessor’s Office has started to track a limited number
+of characteristics (building-level square footage, unit-level square
 footage, bedrooms, and bathrooms) for condominiums, but the data we have
 ***varies in both the characteristics available and their
 completeness*** between triads. Staffing limitations have forced the
-office to prioritizes smaller condo buildings less likely to have recent
+office to prioritize smaller condo buildings less likely to have recent
 unit sales in certain parts of the county. Like most assessors
 nationwide, our office staff cannot enter buildings to observe property
 characteristics. For condos, this means we cannot observe amenities,
@@ -100,10 +101,10 @@ more information about how strata is used and calculated.
 ### Features Used
 
 Because our individual condo unit characteristics are sparse and
-incomplete, we must rely on aggregate geospatial features, economic
-features, [strata](#condo-strata), and time of sale to determine condo
-assessed values. The features in the table below are the ones used in
-the 2023 assessment model.
+incomplete, we primarily must rely on aggregate geospatial features,
+economic features, [strata](#condo-strata), and time of sale to
+determine condo assessed values. The features in the table below are the
+ones used in the 2023 assessment model.
 
 | Feature Name                                                            | Category       | Type      | Notes                                                                                                                                                 | Unique to Condo Model |
 |:------------------------------------------------------------------------|:---------------|:----------|:------------------------------------------------------------------------------------------------------------------------------------------------------|:----------------------|
@@ -219,28 +220,27 @@ Visually, this looks like:
 
 ![](docs/figures/valuation_perc_owner.png)
 
-For what the office terms “nonlivable” spaces, i.e. parking spaces,
-storage space, and common area, the breakout of value works differently.
-See [this excel sheet](docs/spreadsheets/condo_nonlivable_demo.xlsx) for
-an interactive example of how nonlivable spaces are valued based on the
+For what the office terms “nonlivable” spaces — parking spaces, storage
+space, and common area — the breakout of value works differently. See
+[this excel sheet](docs/spreadsheets/condo_nonlivable_demo.xlsx) for an
+interactive example of how nonlivable spaces are valued based on the
 total value of a building’s livable space.
 
 Percentage of ownership is the single most important feature in the
 condo model. It determines almost all intra-building differences in unit
 values.
 
-### Multisales
+### Multi-sales
 
-The condo model is trained on a select number of “multisales” in
-addition to single-parcel sales. Multisales are sales that include more
-than one parcel and rarely reflect the market price the included parcels
-would fetch if they were sold individually. In the case of condominiums,
-however, many units are sold bundled with deeded parking spaces that are
-separate parcels and these two-parcel sales are highly reflective of the
-unit’s actual market price. We split the total value of these two-parcel
-sales according to their relative percent of ownership before using them
-for training. For a \$100,000 sale of a unit (4% ownership) and a
-parking space (1% ownership), the sale would be adjusted to \$80,000:
+The condo model is trained on a select number of “multi-sales” in
+addition to single-parcel sales. Multi-sales are sales that include more
+than one parcel. In the case of condominiums, many units are sold
+bundled with deeded parking spaces that are separate parcels. These
+two-parcel sales are highly reflective of the unit’s actual market
+price. We split the total value of these two-parcel sales according to
+their relative percent of ownership before using them for training. For
+a \$100,000 sale of a unit (4% ownership) and a parking space (1%
+ownership), the sale would be adjusted to \$80,000:
 
 $$\frac{0.04}{0.04 + 0.01} * \$100,000 = \$80,000$$
 
