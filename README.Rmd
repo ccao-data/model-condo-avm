@@ -34,6 +34,8 @@ This repository contains code, data, and documentation for the Cook County Asses
 | 2021    | City     | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2021-assessment-year)                                  |
 | 2022    | North    | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2022-assessment-year)                                  |
 | 2023    | South    | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2023-assessment-year)                                  |
+| 2024    | City     | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2024-assessment-year)
+      |
 
 # Model Overview
 
@@ -42,52 +44,127 @@ The duty of the Cook County Assessor's Office is to value property in a fair, ac
 * [A description of the differences between the residential model and this (condominium)  model](#differences-compared-to-the-residential-model)
 * [An outline of ongoing issues specific to condominium assessments](#ongoing-issues)
 
-The repository itself contains the [code](./pipeline) and [data](./input) for the Automated Valuation Model (AVM) used to generate initial assessed values for all condominium properties in Cook County. This system is effectively an advanced machine learning model (hereafter referred to as "the model"). It uses previous sales to generate estimated sale values (assessments) for all properties.
+The repository itself contains the [code](./pipeline) for the Automated Valuation Model (AVM) used to generate initial assessed values for all condominium properties in Cook County. This system is effectively an advanced machine learning model (hereafter referred to as "the model"). It uses previous sales to generate estimated sale values (assessments) for all properties.
 
 ## Differences Compared to the Residential Model
 
-The Cook County Assessor's Office ***does not track characteristic data for condominiums***. Like most assessors nationwide, our office staff cannot enter buildings to observe property characteristics. For condos, this means we cannot observe amenities, quality, or any other interior characteristics.
+The Cook County Assessor's Office has started to track a limited number of characteristics (building-level square footage, unit-level square footage, bedrooms, and bathrooms) for condominiums, but the data we have ***varies in both the characteristics available and their completeness*** between triads. Staffing limitations have forced the office to prioritize smaller condo buildings less likely to have recent unit sales in certain parts of the county. Like most assessors nationwide, our office staff cannot enter buildings to observe property characteristics. For condos, this means we cannot observe amenities, quality, or any other interior characteristics which must instead be gathered from listings and a number of additional third-party sources.
 
-The only information our office has about individual condominium units is their age, location, sale date/price, and percentage of ownership. This makes modeling condos particularly challenging, as the number of usable features is quite small. Fortunately, condos have two qualities which make modeling a bit easier:
+The only complete information our office currently has about individual condominium units is their age, location, sale date/price, and percentage of ownership. This makes modeling condos particularly challenging, as the number of usable features is quite small. Fortunately, condos have two qualities which make modeling a bit easier:
 
 1. Condos are more homogeneous than single/multi-family properties, i.e. the range of potential condo sale prices is much narrower.
 2. Condo are pre-grouped into clusters of like units (buildings), and units within the same building usually have similar sale prices.
 
 We leverage these qualities to produce what we call ***strata***, a feature unique to the condo model. See [Condo Strata](#condo-strata) for more information about how strata is used and calculated.
 
-> :warning: **NOTE** :warning:
->
-> Recently, the CCAO has started to manually collect high-level condominium data, including total building square footage and estimated unit square footage/number of bedrooms. This data is sourced from listings and a number of additional third-party sources and is available for the North and South triads only.
-
 ### Features Used
 
-Because our office (mostly) cannot observe individual condo unit characteristics, we must rely on aggregate geospatial features, economic features, [strata](#condo-strata), and time of sale to determine condo assessed values. The features in the table below are the ones used in the 2023 assessment model.
+Because our individual condo unit characteristics are sparse and incomplete, we primarily must rely on aggregate geospatial features, economic features, [strata](#condo-strata), and time of sale to determine condo assessed values. The features in the table below are the ones used in the 2023 assessment model.
 
 ```{r features_used, message=FALSE, echo=FALSE}
 library(dplyr)
+library(glue)
+library(jsonlite)
+library(purrr)
 library(tidyr)
 library(yaml)
 
 condo_params <- read_yaml("params.yaml")
-condo_preds <- condo_params$model$predictor$all
+condo_preds <- as_tibble(condo_params$model$predictor$all)
+
+# Some values are derived in the model itself, so they are not documented
+# in the dbt DAG and need to be documented here
+# nolint start
+hardcoded_descriptions <- tribble(
+  ~"column", ~"description",
+  "sale_year", "Sale year calculated as the number of years since 0 B.C.E",
+  "sale_day",
+  "Sale day calculated as the number of days since January 1st, 1997",
+  "sale_quarter_of_year", "Character encoding of quarter of year (Q1 - Q4)",
+  "sale_month_of_year", "Character encoding of month of year (Jan - Dec)",
+  "sale_day_of_year", "Numeric encoding of day of year (1 - 365)",
+  "sale_day_of_month", "Numeric encoding of day of month (1 - 31)",
+  "sale_day_of_week", "Numeric encoding of day of week (1 - 7)",
+  "sale_post_covid", "Indicator for whether sale occurred after COVID-19 was widely publicized (around March 15, 2020)",
+  "strata_1",
+  glue("Condominium Building Strata - {condo_params$input$strata$k_1} Levels"),
+  "strata_2",
+  glue("Condominium Building Strata - {condo_params$input$strata$k_2} Levels")
+)
+# nolint end
+
+# Load the dbt DAG from our prod docs site
+dbt_manifest <- fromJSON(
+  "https://ccao-data.github.io/data-architecture/manifest.json"
+)
+
+# nolint start: cyclomp_linter
+get_column_description <- function(colname, dag_nodes, hardcoded_descriptions) {
+  # Retrieve the description for a column `colname` either from a set of
+  # dbt DAG nodes (`dag_nodes`) or a set of hardcoded descriptions
+  # (`hardcoded_descriptions`). Column descriptions that come from dbt DAG nodes
+  # will be truncated starting from the first period to reflect the fact that
+  # we use periods in our dbt documentation to separate high-level column
+  # summaries from their detailed notes
+  #
+  # Prefer the hardcoded descriptions, if they exist
+  if (colname %in% hardcoded_descriptions$column) {
+    return(
+      hardcoded_descriptions[
+        match(colname, hardcoded_descriptions$column),
+      ]$description
+    )
+  }
+  # If no hardcoded description exists, fall back to checking the dbt DAG
+  for (node_name in ls(dag_nodes)) {
+    node <- dag_nodes[[node_name]]
+    for (column_name in ls(node$columns)) {
+      if (column_name == colname) {
+        description <- node$columns[[column_name]]$description
+        if (!is.null(description) && trimws(description) != "") {
+          # Strip everything after the first period, since we use the first
+          # period as a delimiter separating a column's high-level summary from
+          # its detailed notes in our dbt docs
+          summary_description <- strsplit(description, ".", fixed = TRUE)[[1]][1]
+          return(gsub("\n", " ", summary_description))
+        }
+      }
+    }
+  }
+  # No match in either the hardcoded descriptions or the dbt DAG, so fall
+  # back to an empty string
+  return("")
+}
+# nolint end
+
+# Make a vector of column descriptions that we can add to the param tibble
+# as a new column
+param_notes <- condo_preds$value %>%
+  ccao::vars_rename(names_from = "model", names_to = "athena") %>%
+  map(~ get_column_description(
+    .x, dbt_manifest$nodes, hardcoded_descriptions
+  )) %>%
+  unlist()
 
 res_params <- read_yaml(
   "https://raw.githubusercontent.com/ccao-data/model-res-avm/master/params.yaml"
 )
 res_preds <- res_params$model$predictor$all
 
-condo_unique_preds <- setdiff(condo_preds, res_preds)
+condo_unique_preds <- setdiff(condo_preds$value, res_preds)
 
-ccao::vars_dict %>%
-  inner_join(
-    as_tibble(condo_preds),
-    by = c("var_name_model" = "value")
+condo_preds %>%
+  mutate(description = param_notes) %>%
+  left_join(
+    ccao::vars_dict,
+    by = c("value" = "var_name_model")
   ) %>%
   distinct(
-    var_name_model,
     `Feature Name` = var_name_pretty,
     Category = var_type,
     Type = var_data_type,
+    Notes = description,
+    value,
   ) %>%
   mutate(
     Category = recode(
@@ -106,13 +183,13 @@ ccao::vars_dict %>%
     )
   ) %>%
   mutate(`Unique to Condo Model` = ifelse(
-    var_name_model %in% condo_unique_preds |
+    value %in% condo_unique_preds |
       `Feature Name` %in%
         c("Condominium Building Year Built", "Condominium % Ownership"),
     "X", ""
   )) %>%
   arrange(desc(`Unique to Condo Model`), Category) %>%
-  select(-var_name_model) %>%
+  select(-value) %>%
   knitr::kable(format = "markdown")
 ```
 
@@ -131,7 +208,15 @@ Visually, this looks like:
 
 ![](docs/figures/valuation_perc_owner.png)
 
+For what the office terms "nonlivable" spaces — parking spaces, storage space, and common area — the breakout of value works differently. See [this excel sheet](docs/spreadsheets/condo_nonlivable_demo.xlsx) for an interactive example of how nonlivable spaces are valued based on the total value of a building's livable space.
+
 Percentage of ownership is the single most important feature in the condo model. It determines almost all intra-building differences in unit values.
+
+### Multi-sales
+
+The condo model is trained on a select number of "multi-sales" in addition to single-parcel sales. Multi-sales are sales that include more than one parcel. In the case of condominiums, many units are sold bundled with deeded parking spaces that are separate parcels. These two-parcel sales are highly reflective of the unit's actual market price. We split the total value of these two-parcel sales according to their relative percent of ownership before using them for training. For a \$100,000 sale of a unit (4% ownership) and a parking space (1% ownership), the sale would be adjusted to \$80,000:
+
+$$\frac{0.04}{0.04 + 0.01} * \$100,000 = \$80,000$$
 
 ## Condo Strata
 
@@ -246,6 +331,14 @@ Public users can download data for each assessment year using the links below. E
 - [condo_strata_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2023/condo_strata_data.parquet)
 - [land_nbhd_rate_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2023/land_nbhd_rate_data.parquet)
 - [training_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2023/training_data.parquet)
+
+#### 2024
+
+- [assessment_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/assessment_data.parquet)
+- [char_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/char_data.parquet)
+- [condo_strata_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/condo_strata_data.parquet)
+- [land_nbhd_rate_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/land_nbhd_rate_data.parquet)
+- [training_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/training_data.parquet)
 
 For other data from the CCAO, please visit the [Cook County Data Portal](https://datacatalog.cookcountyil.gov/).
 
