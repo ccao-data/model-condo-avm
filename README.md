@@ -250,10 +250,10 @@ $$\frac{0.04}{0.04 + 0.01} * \$100,000 = \$80,000$$
 The condo model uses an engineered feature called *strata* to deliver
 much of its predictive power. Strata is the binned, time-weighted,
 5-year average sale price of the building. There are two strata features
-used in the model, one with 10 bins and one with
-`condo_params$input$strata$k_2` bins. Buildings are binned across each
-triad using either quantiles or 1-dimensional k-means. A visual
-representation of quantile-based strata binning looks like:
+used in the model, one with 10 bins and one with 100 bins. Buildings are
+binned across each triad using either quantiles or 1-dimensional
+k-means. A visual representation of quantile-based strata binning looks
+like:
 
 ![](docs/figures/strata.png)
 
