@@ -7,7 +7,7 @@ Table of Contents
     Model](#differences-compared-to-the-residential-model)
     - [Features Used](#features-used)
     - [Valuation](#valuation)
-    - [Multi-sales](#multi-sales)
+    - [Multi-PIN Sales](#multi-pin-sales)
   - [Condo Strata](#condo-strata)
 - [Ongoing Issues](#ongoing-issues)
   - [Unit Heterogeneity](#unit-heterogeneity)
@@ -47,7 +47,6 @@ prior year models can be found at the following links:
 | 2022    | North    | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2022-assessment-year)                                                             |
 | 2023    | South    | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2023-assessment-year)                                                             |
 | 2024    | City     | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2024-assessment-year)                                                             |
-|         |          |                                             |                            |                                                                                                                                            |
 
 # Model Overview
 
@@ -77,15 +76,17 @@ footage, bedrooms, and bathrooms) for condominiums, but the data we have
 ***varies in both the characteristics available and their
 completeness*** between triads. Staffing limitations have forced the
 office to prioritize smaller condo buildings less likely to have recent
-unit sales in certain parts of the county. Like most assessors
-nationwide, our office staff cannot enter buildings to observe property
-characteristics. For condos, this means we cannot observe amenities,
-quality, or any other interior characteristics which must instead be
-gathered from listings and a number of additional third-party sources.
+unit sales in certain parts of the county.
 
-The only complete information our office currently has about individual
-condominium units is their age, location, sale date/price, and
-percentage of ownership. This makes modeling condos particularly
+Like most assessors nationwide, our office staff cannot enter buildings
+to observe property characteristics. For condos, this means we cannot
+observe amenities, quality, or any other interior characteristics which
+must instead be gathered from listings and a number of additional
+third-party sources.
+
+The only *complete* information our office currently has about
+individual condominium units is their age, location, sale date/price,
+and percentage of ownership. This makes modeling condos particularly
 challenging, as the number of usable features is quite small.
 Fortunately, condos have two qualities which make modeling a bit easier:
 
@@ -104,7 +105,7 @@ Because our individual condo unit characteristics are sparse and
 incomplete, we primarily must rely on aggregate geospatial features,
 economic features, [strata](#condo-strata), and time of sale to
 determine condo assessed values. The features in the table below are the
-ones used in the 2023 assessment model.
+ones used in the 2024 assessment model.
 
 | Feature Name                                                            | Category       | Type      | Notes                                                                                                                                                 | Unique to Condo Model |
 |:------------------------------------------------------------------------|:---------------|:----------|:------------------------------------------------------------------------------------------------------------------------------------------------------|:----------------------|
@@ -125,9 +126,62 @@ ones used in the 2023 assessment model.
 | Condominium % Ownership                                                 | Meta           | numeric   | Proration rate applied to the PIN                                                                                                                     | X                     |
 | Condominium Building Strata 1                                           | Meta           | character | Condominium Building Strata - 10 Levels                                                                                                               | X                     |
 | Condominium Building Strata 2                                           | Meta           | character | Condominium Building Strata - 100 Levels                                                                                                              | X                     |
+| Percent Population Age, Under 19 Years Old                              | ACS5           | numeric   | Percent of the people 17 years or younger                                                                                                             |                       |
+| Percent Population Age, Over 65 Years Old                               | ACS5           | numeric   | Percent of the people 65 years or older                                                                                                               |                       |
+| Median Population Age                                                   | ACS5           | numeric   | Median age for whole population                                                                                                                       |                       |
+| Percent Population Mobility, Moved From Other State in Past Year        | ACS5           | numeric   | Percent of people (older than 1 year) who moved from another state in the past 12 months                                                              |                       |
+| Percent Households Family, Married                                      | ACS5           | numeric   | Percent of households that are family, married                                                                                                        |                       |
+| Percent Households Nonfamily, Living Alone                              | ACS5           | numeric   | Percent of households that are non-family, alone (single)                                                                                             |                       |
+| Percent Population Education, High School Degree                        | ACS5           | numeric   | Percent of people older than 25 who attained a high school degree                                                                                     |                       |
+| Percent Population Education, Bachelor Degree                           | ACS5           | numeric   | Percent of people older than 25 who attained a bachelor’s degree                                                                                      |                       |
+| Percent Population Education, Graduate Degree                           | ACS5           | numeric   | Percent of people older than 25 who attained a graduate degree                                                                                        |                       |
+| Percent Population Income, Below Poverty Level                          | ACS5           | numeric   | Percent of people above the poverty level in the last 12 months                                                                                       |                       |
+| Median Income, Household in Past Year                                   | ACS5           | numeric   | Median income per household in the past 12 months                                                                                                     |                       |
+| Median Income, Per Capita in Past Year                                  | ACS5           | numeric   | Median income per capita in the past 12 months                                                                                                        |                       |
+| Percent Population Income, Received SNAP in Past Year                   | ACS5           | numeric   | Percent of households that received SNAP in the past 12 months                                                                                        |                       |
+| Percent Population Employment, Unemployed                               | ACS5           | numeric   | Percent of people 16 years and older unemployed                                                                                                       |                       |
+| Median Occupied Household, Total, Year Built                            | ACS5           | numeric   | Median year built for all occupied households                                                                                                         |                       |
+| Median Occupied Household, Renter, Gross Rent                           | ACS5           | numeric   | Median gross rent for only renter-occupied units                                                                                                      |                       |
+| Percent Occupied Households, Owner                                      | ACS5           | numeric   | Percent of households that are owner-occupied                                                                                                         |                       |
+| Percent Occupied Households, Total, One or More Selected Conditions     | ACS5           | numeric   | Percent of occupied households with selected conditions                                                                                               |                       |
+| Percent Population Mobility, Moved From Within Same County in Past Year | ACS5           | numeric   | Percent of people (older than 1 year) who moved in county in the past 12 months                                                                       |                       |
 | Land Square Feet                                                        | Characteristic | numeric   | Square footage of the land (not just the building) of the property                                                                                    |                       |
+| Longitude                                                               | Location       | numeric   | X coordinate in degrees (global longitude)                                                                                                            |                       |
+| Latitude                                                                | Location       | numeric   | Y coordinate in degrees (global latitude)                                                                                                             |                       |
+| Census Tract GEOID                                                      | Location       | character | 11-digit ACS/Census tract GEOID                                                                                                                       |                       |
+| First Street Factor                                                     | Location       | numeric   | First Street flood factor The flood factor is a risk score, where 10 is the highest risk and 1 is the lowest risk                                     |                       |
+| School Elementary District GEOID                                        | Location       | character | School district (elementary) GEOID                                                                                                                    |                       |
+| School Secondary District GEOID                                         | Location       | character | School district (secondary) GEOID                                                                                                                     |                       |
+| CMAP Walkability Score (No Transit)                                     | Location       | numeric   | CMAP walkability score for a given PIN, excluding transit walkability                                                                                 |                       |
+| CMAP Walkability Total Score                                            | Location       | numeric   | CMAP walkability score for a given PIN, including transit walkability                                                                                 |                       |
+| Municipality Name                                                       | Location       | character | Taxing district name, as seen on Cook County tax bills                                                                                                |                       |
 | Township Code                                                           | Meta           | character | Cook County township code                                                                                                                             |                       |
 | Neighborhood Code                                                       | Meta           | character | Assessor neighborhood code                                                                                                                            |                       |
+| Property Tax Bill Aggregate Rate                                        | Other          | numeric   | Tax bill rate for the taxing district containing a given PIN                                                                                          |                       |
+| Active Homeowner Exemption                                              | Other          | logical   | Parcel has an active homeowner exemption                                                                                                              |                       |
+| Corner Lot                                                              | Other          | logical   | Corner lot indicator                                                                                                                                  |                       |
+| Number of Years Active Homeowner Exemption                              | Other          | numeric   | Number of years parcel has had an active homeowner exemption                                                                                          |                       |
+| Number of PINs in Half Mile                                             | Proximity      | numeric   | Number of PINs within half mile                                                                                                                       |                       |
+| Number of Bus Stops in Half Mile                                        | Proximity      | numeric   | Number of bus stops within half mile                                                                                                                  |                       |
+| Number of Foreclosures Per 1000 PINs (Past 5 Years)                     | Proximity      | numeric   | Number of foreclosures per 1000 PINs, within half mile (past 5 years)                                                                                 |                       |
+| Number of Schools in Half Mile                                          | Proximity      | numeric   | Number of schools (any kind) within half mile                                                                                                         |                       |
+| Total Airport Noise DNL                                                 | Proximity      | numeric   | Estimated DNL for a PIN, assuming a baseline DNL of 50 (“quiet suburban”) and adding predicted noise from O’Hare and Midway airports to that baseline |                       |
+| Nearest Bike Trail Distance (Feet)                                      | Proximity      | numeric   | Nearest bike trail distance (feet)                                                                                                                    |                       |
+| Nearest Cemetery Distance (Feet)                                        | Proximity      | numeric   | Nearest cemetery distance (feet)                                                                                                                      |                       |
+| Nearest CTA Route Distance (Feet)                                       | Proximity      | numeric   | Nearest CTA route distance (feet)                                                                                                                     |                       |
+| Nearest CTA Stop Distance (Feet)                                        | Proximity      | numeric   | Nearest CTA stop distance (feet)                                                                                                                      |                       |
+| Nearest Hospital Distance (Feet)                                        | Proximity      | numeric   | Nearest hospital distance (feet)                                                                                                                      |                       |
+| Lake Michigan Distance (Feet)                                           | Proximity      | numeric   | Distance to Lake Michigan shoreline (feet)                                                                                                            |                       |
+| Nearest Major Road Distance (Feet)                                      | Proximity      | numeric   | Nearest major road distance (feet)                                                                                                                    |                       |
+| Nearest Metra Route Distance (Feet)                                     | Proximity      | numeric   | Nearest Metra route distance (feet)                                                                                                                   |                       |
+| Nearest Metra Stop Distance (Feet)                                      | Proximity      | numeric   | Nearest Metra stop distance (feet)                                                                                                                    |                       |
+| Nearest Park Distance (Feet)                                            | Proximity      | numeric   | Nearest park distance (feet)                                                                                                                          |                       |
+| Nearest Railroad Distance (Feet)                                        | Proximity      | numeric   | Nearest railroad distance (feet)                                                                                                                      |                       |
+| Nearest Secondary Road Distance (Feet)                                  | Proximity      | numeric   | Nearest secondary road distance (feet)                                                                                                                |                       |
+| Nearest University Distance (Feet)                                      | Proximity      | numeric   | Nearest university distance (feet)                                                                                                                    |                       |
+| Nearest Vacant Land Parcel Distance (Feet)                              | Proximity      | numeric   | Nearest vacant land (class 100) parcel distance (feet)                                                                                                |                       |
+| Nearest Water Distance (Feet)                                           | Proximity      | numeric   | Nearest water distance (feet)                                                                                                                         |                       |
+| Nearest Golf Course Distance (Feet)                                     | Proximity      | numeric   | Nearest golf course distance (feet)                                                                                                                   |                       |
 | Sale Year                                                               | Time           | numeric   | Sale year calculated as the number of years since 0 B.C.E                                                                                             |                       |
 | Sale Day                                                                | Time           | numeric   | Sale day calculated as the number of days since January 1st, 1997                                                                                     |                       |
 | Sale Quarter of Year                                                    | Time           | character | Character encoding of quarter of year (Q1 - Q4)                                                                                                       |                       |
@@ -136,59 +190,6 @@ ones used in the 2023 assessment model.
 | Sale Day of Month                                                       | Time           | numeric   | Numeric encoding of day of month (1 - 31)                                                                                                             |                       |
 | Sale Day of Week                                                        | Time           | numeric   | Numeric encoding of day of week (1 - 7)                                                                                                               |                       |
 | Sale After COVID-19                                                     | Time           | logical   | Indicator for whether sale occurred after COVID-19 was widely publicized (around March 15, 2020)                                                      |                       |
-| Percent Population Age, Under 19 Years Old                              | acs5           | numeric   | Percent of the people 17 years or younger                                                                                                             |                       |
-| Percent Population Age, Over 65 Years Old                               | acs5           | numeric   | Percent of the people 65 years or older                                                                                                               |                       |
-| Median Population Age                                                   | acs5           | numeric   | Median age for whole population                                                                                                                       |                       |
-| Percent Population Mobility, Moved From Other State in Past Year        | acs5           | numeric   | Percent of people (older than 1 year) who moved from another state in the past 12 months                                                              |                       |
-| Percent Households Family, Married                                      | acs5           | numeric   | Percent of households that are family, married                                                                                                        |                       |
-| Percent Households Nonfamily, Living Alone                              | acs5           | numeric   | Percent of households that are non-family, alone (single)                                                                                             |                       |
-| Percent Population Education, High School Degree                        | acs5           | numeric   | Percent of people older than 25 who attained a high school degree                                                                                     |                       |
-| Percent Population Education, Bachelor Degree                           | acs5           | numeric   | Percent of people older than 25 who attained a bachelor’s degree                                                                                      |                       |
-| Percent Population Education, Graduate Degree                           | acs5           | numeric   | Percent of people older than 25 who attained a graduate degree                                                                                        |                       |
-| Percent Population Income, Below Poverty Level                          | acs5           | numeric   | Percent of people above the poverty level in the last 12 months                                                                                       |                       |
-| Median Income, Household in Past Year                                   | acs5           | numeric   | Median income per household in the past 12 months                                                                                                     |                       |
-| Median Income, Per Capita in Past Year                                  | acs5           | numeric   | Median income per capita in the past 12 months                                                                                                        |                       |
-| Percent Population Income, Received SNAP in Past Year                   | acs5           | numeric   | Percent of households that received SNAP in the past 12 months                                                                                        |                       |
-| Percent Population Employment, Unemployed                               | acs5           | numeric   | Percent of people 16 years and older unemployed                                                                                                       |                       |
-| Median Occupied Household, Total, Year Built                            | acs5           | numeric   | Median year built for all occupied households                                                                                                         |                       |
-| Median Occupied Household, Renter, Gross Rent                           | acs5           | numeric   | Median gross rent for only renter-occupied units                                                                                                      |                       |
-| Percent Occupied Households, Owner                                      | acs5           | numeric   | Percent of households that are owner-occupied                                                                                                         |                       |
-| Percent Occupied Households, Total, One or More Selected Conditions     | acs5           | numeric   | Percent of occupied households with selected conditions                                                                                               |                       |
-| Percent Population Mobility, Moved From Within Same County in Past Year | acs5           | numeric   | Percent of people (older than 1 year) who moved in county in the past 12 months                                                                       |                       |
-| Active Homeowner Exemption                                              | ccao           | logical   | Parcel has an active homeowner exemption                                                                                                              |                       |
-| Corner Lot                                                              | ccao           | logical   | Corner lot indicator                                                                                                                                  |                       |
-| Number of Years Active Homeowner Exemption                              | ccao           | numeric   | Number of years parcel has had an active homeowner exemption                                                                                          |                       |
-| Longitude                                                               | loc            | numeric   | X coordinate in degrees (global longitude)                                                                                                            |                       |
-| Latitude                                                                | loc            | numeric   | Y coordinate in degrees (global latitude)                                                                                                             |                       |
-| Census Tract GEOID                                                      | loc            | character | 11-digit ACS/Census tract GEOID                                                                                                                       |                       |
-| First Street Factor                                                     | loc            | numeric   | First Street flood factor The flood factor is a risk score, where 10 is the highest risk and 1 is the lowest risk                                     |                       |
-| School Elementary District GEOID                                        | loc            | character | School district (elementary) GEOID                                                                                                                    |                       |
-| School Secondary District GEOID                                         | loc            | character | School district (secondary) GEOID                                                                                                                     |                       |
-| CMAP Walkability Score (No Transit)                                     | loc            | numeric   | CMAP walkability score for a given PIN, excluding transit walkability                                                                                 |                       |
-| CMAP Walkability Total Score                                            | loc            | numeric   | CMAP walkability score for a given PIN, including transit walkability                                                                                 |                       |
-| Municipality Name                                                       | loc            | character | Taxing district name, as seen on Cook County tax bills                                                                                                |                       |
-| Property Tax Bill Aggregate Rate                                        | other          | numeric   | Tax bill rate for the taxing district containing a given PIN                                                                                          |                       |
-| Number of PINs in Half Mile                                             | prox           | numeric   | Number of PINs within half mile                                                                                                                       |                       |
-| Number of Bus Stops in Half Mile                                        | prox           | numeric   | Number of bus stops within half mile                                                                                                                  |                       |
-| Number of Foreclosures Per 1000 PINs (Past 5 Years)                     | prox           | numeric   | Number of foreclosures per 1000 PINs, within half mile (past 5 years)                                                                                 |                       |
-| Number of Schools in Half Mile                                          | prox           | numeric   | Number of schools (any kind) within half mile                                                                                                         |                       |
-| Total Airport Noise DNL                                                 | prox           | numeric   | Estimated DNL for a PIN, assuming a baseline DNL of 50 (“quiet suburban”) and adding predicted noise from O’Hare and Midway airports to that baseline |                       |
-| Nearest Bike Trail Distance (Feet)                                      | prox           | numeric   | Nearest bike trail distance (feet)                                                                                                                    |                       |
-| Nearest Cemetery Distance (Feet)                                        | prox           | numeric   | Nearest cemetery distance (feet)                                                                                                                      |                       |
-| Nearest CTA Route Distance (Feet)                                       | prox           | numeric   | Nearest CTA route distance (feet)                                                                                                                     |                       |
-| Nearest CTA Stop Distance (Feet)                                        | prox           | numeric   | Nearest CTA stop distance (feet)                                                                                                                      |                       |
-| Nearest Hospital Distance (Feet)                                        | prox           | numeric   | Nearest hospital distance (feet)                                                                                                                      |                       |
-| Lake Michigan Distance (Feet)                                           | prox           | numeric   | Distance to Lake Michigan shoreline (feet)                                                                                                            |                       |
-| Nearest Major Road Distance (Feet)                                      | prox           | numeric   | Nearest major road distance (feet)                                                                                                                    |                       |
-| Nearest Metra Route Distance (Feet)                                     | prox           | numeric   | Nearest Metra route distance (feet)                                                                                                                   |                       |
-| Nearest Metra Stop Distance (Feet)                                      | prox           | numeric   | Nearest Metra stop distance (feet)                                                                                                                    |                       |
-| Nearest Park Distance (Feet)                                            | prox           | numeric   | Nearest park distance (feet)                                                                                                                          |                       |
-| Nearest Railroad Distance (Feet)                                        | prox           | numeric   | Nearest railroad distance (feet)                                                                                                                      |                       |
-| Nearest Secondary Road Distance (Feet)                                  | prox           | numeric   | Nearest secondary road distance (feet)                                                                                                                |                       |
-| Nearest University Distance (Feet)                                      | prox           | numeric   | Nearest university distance (feet)                                                                                                                    |                       |
-| Nearest Vacant Land Parcel Distance (Feet)                              | prox           | numeric   | Nearest vacant land (class 100) parcel distance (feet)                                                                                                |                       |
-| Nearest Water Distance (Feet)                                           | prox           | numeric   | Nearest water distance (feet)                                                                                                                         |                       |
-| Nearest Golf Course Distance (Feet)                                     | prox           | numeric   | Nearest golf course distance (feet)                                                                                                                   |                       |
 
 ### Valuation
 
@@ -207,7 +208,7 @@ the proportion of the building’s overall value held by a unit. It is
 created when a condominium declaration is filed with the County (usually
 by the developer of the building). The critical assumption underlying
 the condo valuation process is that percentage of ownership correlates
-with current market value.
+with the relative market value differences between units.
 
 Percentage of ownership is used in two ways:
 
@@ -230,17 +231,17 @@ Percentage of ownership is the single most important feature in the
 condo model. It determines almost all intra-building differences in unit
 values.
 
-### Multi-sales
+### Multi-PIN Sales
 
-The condo model is trained on a select number of “multi-sales” in
-addition to single-parcel sales. Multi-sales are sales that include more
-than one parcel. In the case of condominiums, many units are sold
-bundled with deeded parking spaces that are separate parcels. These
-two-parcel sales are highly reflective of the unit’s actual market
-price. We split the total value of these two-parcel sales according to
-their relative percent of ownership before using them for training. For
-a \$100,000 sale of a unit (4% ownership) and a parking space (1%
-ownership), the sale would be adjusted to \$80,000:
+The condo model is trained on a select number of “multi-PIN sales” (or
+“multi-sales”) in addition to single-parcel sales. Multi-sales are sales
+that include more than one parcel. In the case of condominiums, many
+units are sold bundled with deeded parking spaces that are separate
+parcels. These two-parcel sales are highly reflective of the unit’s
+actual market price. We split the total value of these two-parcel sales
+according to their relative percent of ownership before using them for
+training. For example, for a \$100,000 sale of a unit (4% ownership) and
+a parking space (1% ownership), the sale would be adjusted to \$80,000:
 
 $$\frac{0.04}{0.04 + 0.01} * \$100,000 = \$80,000$$
 
@@ -249,10 +250,10 @@ $$\frac{0.04}{0.04 + 0.01} * \$100,000 = \$80,000$$
 The condo model uses an engineered feature called *strata* to deliver
 much of its predictive power. Strata is the binned, time-weighted,
 5-year average sale price of the building. There are two strata features
-used in the model, one with 10 bins and one with 300 bins. Buildings are
-binned across each triad using either quantiles or 1-dimensional
-k-means. A visual representation of quantile-based strata binning looks
-like:
+used in the model, one with 10 bins and one with
+`condo_params$input$strata$k_2` bins. Buildings are binned across each
+triad using either quantiles or 1-dimensional k-means. A visual
+representation of quantile-based strata binning looks like:
 
 ![](docs/figures/strata.png)
 
@@ -429,11 +430,33 @@ running the model pipeline.
 
 #### 2024
 
-- [assessment_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/assessment_data.parquet)
-- [char_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/char_data.parquet)
-- [condo_strata_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/condo_strata_data.parquet)
-- [land_nbhd_rate_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/land_nbhd_rate_data.parquet)
-- [training_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/training_data.parquet)
+Due to a [data
+issue](https://github.com/ccao-data/data-architecture/pull/334) with the
+initial 2024 model run, there are actually *two* final 2024 models. The
+run `2024-02-16-silly-billy` was used for Rogers Park only, while the
+run `2024-03-11-pensive-manasi` was used for all subsequent City of
+Chicago townships.
+
+The data issue caused some sales to be omitted from the
+`2024-02-16-silly-billy` training set, however the actual impact on
+predicted values was *extremely* minimal. We chose to update the data
+and create a second final model out of an abundance of caution.
+
+##### 2024-02-16-silly-billy
+
+- [assessment_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-02-16-silly-billy/assessment_data.parquet)
+- [char_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-02-16-silly-billy/char_data.parquet)
+- [condo_strata_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-02-16-silly-billy/condo_strata_data.parquet)
+- [land_nbhd_rate_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-02-16-silly-billy/land_nbhd_rate_data.parquet)
+- [training_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-02-16-silly-billy/training_data.parquet)
+
+##### 2024-03-11-pensive-manasi (final)
+
+- [assessment_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-03-11-pensive-manasi/assessment_data.parquet)
+- [char_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-03-11-pensive-manasi/char_data.parquet)
+- [condo_strata_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-03-11-pensive-manasi/condo_strata_data.parquet)
+- [land_nbhd_rate_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-03-11-pensive-manasi/land_nbhd_rate_data.parquet)
+- [training_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-03-11-pensive-manasi/training_data.parquet)
 
 For other data from the CCAO, please visit the [Cook County Data
 Portal](https://datacatalog.cookcountyil.gov/).

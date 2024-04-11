@@ -31,11 +31,10 @@ This repository contains code, data, and documentation for the Cook County Asses
 | 2018    | City     | N/A                                         | N/A                        | Not available. Values provided by vendor                                                                                                   |
 | 2019    | North    | Linear regression or GBM model per township | R (Base)                   | [Link](https://gitlab.com/ccao-data-science---modeling/ccao_sf_cama_dev)                                                                   |
 | 2020    | South    | Linear regression or GBM model per township | R (Base)                   | [Link](https://gitlab.com/ccao-data-science---modeling/ccao_sf_cama_dev)                                                                   |
-| 2021    | City     | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2021-assessment-year)                                  |
-| 2022    | North    | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2022-assessment-year)                                  |
-| 2023    | South    | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2023-assessment-year)                                  |
-| 2024    | City     | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2024-assessment-year)
-      |
+| 2021    | City     | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2021-assessment-year)                                                             |
+| 2022    | North    | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2022-assessment-year)                                                             |
+| 2023    | South    | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2023-assessment-year)                                                             |
+| 2024    | City     | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2024-assessment-year)                                                             |
 
 # Model Overview
 
@@ -48,9 +47,11 @@ The repository itself contains the [code](./pipeline) for the Automated Valuatio
 
 ## Differences Compared to the Residential Model
 
-The Cook County Assessor's Office has started to track a limited number of characteristics (building-level square footage, unit-level square footage, bedrooms, and bathrooms) for condominiums, but the data we have ***varies in both the characteristics available and their completeness*** between triads. Staffing limitations have forced the office to prioritize smaller condo buildings less likely to have recent unit sales in certain parts of the county. Like most assessors nationwide, our office staff cannot enter buildings to observe property characteristics. For condos, this means we cannot observe amenities, quality, or any other interior characteristics which must instead be gathered from listings and a number of additional third-party sources.
+The Cook County Assessor's Office has started to track a limited number of characteristics (building-level square footage, unit-level square footage, bedrooms, and bathrooms) for condominiums, but the data we have ***varies in both the characteristics available and their completeness*** between triads. Staffing limitations have forced the office to prioritize smaller condo buildings less likely to have recent unit sales in certain parts of the county.
 
-The only complete information our office currently has about individual condominium units is their age, location, sale date/price, and percentage of ownership. This makes modeling condos particularly challenging, as the number of usable features is quite small. Fortunately, condos have two qualities which make modeling a bit easier:
+Like most assessors nationwide, our office staff cannot enter buildings to observe property characteristics. For condos, this means we cannot observe amenities, quality, or any other interior characteristics which must instead be gathered from listings and a number of additional third-party sources.
+
+The only _complete_ information our office currently has about individual condominium units is their age, location, sale date/price, and percentage of ownership. This makes modeling condos particularly challenging, as the number of usable features is quite small. Fortunately, condos have two qualities which make modeling a bit easier:
 
 1. Condos are more homogeneous than single/multi-family properties, i.e. the range of potential condo sale prices is much narrower.
 2. Condo are pre-grouped into clusters of like units (buildings), and units within the same building usually have similar sale prices.
@@ -59,7 +60,7 @@ We leverage these qualities to produce what we call ***strata***, a feature uniq
 
 ### Features Used
 
-Because our individual condo unit characteristics are sparse and incomplete, we primarily must rely on aggregate geospatial features, economic features, [strata](#condo-strata), and time of sale to determine condo assessed values. The features in the table below are the ones used in the 2023 assessment model.
+Because our individual condo unit characteristics are sparse and incomplete, we primarily must rely on aggregate geospatial features, economic features, [strata](#condo-strata), and time of sale to determine condo assessed values. The features in the table below are the ones used in the 2024 assessment model.
 
 ```{r features_used, message=FALSE, echo=FALSE}
 library(dplyr)
@@ -164,17 +165,14 @@ condo_preds %>%
     Category = var_type,
     Type = var_data_type,
     Notes = description,
-    value,
+    value
   ) %>%
   mutate(
     Category = recode(
       Category,
-      char = "Characteristic",
-      econ = "Economic",
-      geo = "Geospatial",
-      ind = "Indicator",
-      time = "Time",
-      meta = "Meta"
+      char = "Characteristic", acs5 = "ACS5", loc = "Location",
+      prox = "Proximity", ind = "Indicator", time = "Time",
+      meta = "Meta", other = "Other", ccao = "Other"
     ),
     `Feature Name` = recode(
       `Feature Name`,
@@ -197,7 +195,7 @@ condo_preds %>%
 
 For the most part, condos are valued the same way as single- and multi-family residential property. We [train a model](https://github.com/ccao-data/model-res-avm#how-it-works) using individual condo unit sales, predict the value of all units, and then apply any [post-modeling adjustment](https://github.com/ccao-data/model-res-avm#post-modeling).
 
-However, because the CCAO has so [little information about individual units](#differences-compared-to-the-residential-model), we must rely on the [condominium percentage of ownership](#features-used) to differentiate between units in a building. This feature is effectively the proportion of the building's overall value held by a unit. It is created when a condominium declaration is filed with the County (usually by the developer of the building). The critical assumption underlying the condo valuation process is that percentage of ownership correlates with current market value.
+However, because the CCAO has so [little information about individual units](#differences-compared-to-the-residential-model), we must rely on the [condominium percentage of ownership](#features-used) to differentiate between units in a building. This feature is effectively the proportion of the building's overall value held by a unit. It is created when a condominium declaration is filed with the County (usually by the developer of the building). The critical assumption underlying the condo valuation process is that percentage of ownership correlates with the relative market value differences between units.
 
 Percentage of ownership is used in two ways:
 
@@ -212,15 +210,15 @@ For what the office terms "nonlivable" spaces — parking spaces, storage space,
 
 Percentage of ownership is the single most important feature in the condo model. It determines almost all intra-building differences in unit values.
 
-### Multi-sales
+### Multi-PIN Sales
 
-The condo model is trained on a select number of "multi-sales" in addition to single-parcel sales. Multi-sales are sales that include more than one parcel. In the case of condominiums, many units are sold bundled with deeded parking spaces that are separate parcels. These two-parcel sales are highly reflective of the unit's actual market price. We split the total value of these two-parcel sales according to their relative percent of ownership before using them for training. For a \$100,000 sale of a unit (4% ownership) and a parking space (1% ownership), the sale would be adjusted to \$80,000:
+The condo model is trained on a select number of "multi-PIN sales" (or "multi-sales") in addition to single-parcel sales. Multi-sales are sales that include more than one parcel. In the case of condominiums, many units are sold bundled with deeded parking spaces that are separate parcels. These two-parcel sales are highly reflective of the unit's actual market price. We split the total value of these two-parcel sales according to their relative percent of ownership before using them for training. For example, for a \$100,000 sale of a unit (4% ownership) and a parking space (1% ownership), the sale would be adjusted to \$80,000:
 
 $$\frac{0.04}{0.04 + 0.01} * \$100,000 = \$80,000$$
 
 ## Condo Strata
 
-The condo model uses an engineered feature called *strata* to deliver much of its predictive power. Strata is the binned, time-weighted, 5-year average sale price of the building. There are two strata features used in the model, one with 10 bins and one with 300 bins. Buildings are binned across each triad using either quantiles or 1-dimensional k-means. A visual representation of quantile-based strata binning looks like:
+The condo model uses an engineered feature called *strata* to deliver much of its predictive power. Strata is the binned, time-weighted, 5-year average sale price of the building. There are two strata features used in the model, one with `r condo_params$input$strata$k_1` bins and one with `condo_params$input$strata$k_2` bins. Buildings are binned across each triad using either quantiles or 1-dimensional k-means. A visual representation of quantile-based strata binning looks like:
 
 ![](docs/figures/strata.png)
 
@@ -244,7 +242,7 @@ Some additional notes on strata:
 
 - Strata is calculated in the [ingest stage](./pipeline/00-ingest.R) of this repository.
 - Calculating the 5-year average sale price of a building requires at least 1 sale. Buildings with no sales have their strata imputed via KNN (using year built, number of units, and location as features).
-- Number of bins (10 and 100) was chosen based on model performance. These numbers yielded the lowest root mean-squared error (RMSE).
+- Number of bins (`r condo_params$input$strata$k_1` and `r condo_params$input$strata$k_2`) was chosen based on model performance. These numbers yielded the lowest root mean-squared error (RMSE).
 
 # Ongoing Issues
 
@@ -334,11 +332,25 @@ Public users can download data for each assessment year using the links below. E
 
 #### 2024
 
-- [assessment_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/assessment_data.parquet)
-- [char_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/char_data.parquet)
-- [condo_strata_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/condo_strata_data.parquet)
-- [land_nbhd_rate_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/land_nbhd_rate_data.parquet)
-- [training_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/training_data.parquet)
+Due to a [data issue](https://github.com/ccao-data/data-architecture/pull/334) with the initial 2024 model run, there are actually _two_ final 2024 models. The run `2024-02-16-silly-billy` was used for Rogers Park only, while the run `2024-03-11-pensive-manasi` was used for all subsequent City of Chicago townships.
+
+The data issue caused some sales to be omitted from the `2024-02-16-silly-billy` training set, however the actual impact on predicted values was _extremely_ minimal. We chose to update the data and create a second final model out of an abundance of caution.
+
+##### 2024-02-16-silly-billy
+
+- [assessment_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-02-16-silly-billy/assessment_data.parquet)
+- [char_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-02-16-silly-billy/char_data.parquet)
+- [condo_strata_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-02-16-silly-billy/condo_strata_data.parquet)
+- [land_nbhd_rate_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-02-16-silly-billy/land_nbhd_rate_data.parquet)
+- [training_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-02-16-silly-billy/training_data.parquet)
+
+##### 2024-03-11-pensive-manasi (final)
+
+- [assessment_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-03-11-pensive-manasi/assessment_data.parquet)
+- [char_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-03-11-pensive-manasi/char_data.parquet)
+- [condo_strata_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-03-11-pensive-manasi/condo_strata_data.parquet)
+- [land_nbhd_rate_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-03-11-pensive-manasi/land_nbhd_rate_data.parquet)
+- [training_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-03-11-pensive-manasi/training_data.parquet)
 
 For other data from the CCAO, please visit the [Cook County Data Portal](https://datacatalog.cookcountyil.gov/).
 
