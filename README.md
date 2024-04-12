@@ -440,7 +440,9 @@ Chicago townships.
 The data issue caused some sales to be omitted from the
 `2024-02-16-silly-billy` training set, however the actual impact on
 predicted values was *extremely* minimal. We chose to update the data
-and create a second final model out of an abundance of caution.
+and create a second final model out of an abundance of caution, and,
+given low transaction volume in 2023, to include as many arms-length
+transactions in the training set as possible.
 
 ##### 2024-02-16-silly-billy
 
