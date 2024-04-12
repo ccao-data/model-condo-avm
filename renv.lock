@@ -161,16 +161,16 @@
       "Version": "0.6.0",
       "Source": "GitHub",
       "RemoteType": "github",
-      "RemoteHost": "api.github.com",
       "RemoteUsername": "ccao-data",
       "RemoteRepo": "assessr",
       "RemoteRef": "master",
-      "RemoteSha": "de392fb4cfa22f531a913c22d76fee8e717a028e",
+      "RemoteSha": "3c0172c47da0adf48be9084be141564f06872220",
+      "RemoteHost": "api.github.com",
       "Requirements": [
         "R",
         "stats"
       ],
-      "Hash": "530136430459d930e44278cda4a57bd6"
+      "Hash": "7229107fa32f9570d4be09258478845a"
     },
     "aws.ec2metadata": {
       "Package": "aws.ec2metadata",
@@ -283,7 +283,7 @@
       "RemoteUsername": "ccao-data",
       "RemoteRepo": "ccao",
       "RemoteRef": "master",
-      "RemoteSha": "fe992f9bb6e75c97a0c8fa742106096adbabb642",
+      "RemoteSha": "969dae702ed420ba9f9d252e5a0459c63b991e80",
       "Remotes": "ccao-data/assessr",
       "Requirements": [
         "R",
@@ -293,7 +293,7 @@
         "rlang",
         "tidyr"
       ],
-      "Hash": "4f649d828fea30e11c2b65acb3ec778a"
+      "Hash": "5671f4961440940aa4772beb925e9813"
     },
     "class": {
       "Package": "class",
