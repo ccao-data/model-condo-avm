@@ -650,7 +650,6 @@ local({
     auto <- Sys.getenv("RENV_PATHS_PREFIX_AUTO", unset = NA)
     if (is.na(auto) && getRversion() >= "4.4.0")
       auto <- "TRUE"
-
     if (auto %in% c("TRUE", "True", "true", "1"))
       return(renv_bootstrap_platform_prefix_auto())
 
@@ -847,13 +846,11 @@ local({
       paste("rstudio/renv", description[["RemoteSha"]], sep = "@")
     else
       paste("renv", description[["Version"]], sep = "@")
-
     # display both loaded version + sha if available
     friendly <- renv_bootstrap_version_friendly(
       version = description[["Version"]],
       sha     = if (dev) description[["RemoteSha"]]
     )
-
     fmt <- heredoc("
       renv %1$s was loaded from project library, but this project is configured to use renv %2$s.
       - Use `renv::record(\"%3$s\")` to record renv %1$s in the lockfile.
@@ -1080,7 +1077,6 @@ local({
 
     # if jsonlite is loaded, use that instead
     if ("jsonlite" %in% loadedNamespaces()) {
-
       json <- tryCatch(renv_json_read_jsonlite(file, text), error = identity)
       if (!inherits(json, "error"))
         return(json)
@@ -1159,7 +1155,6 @@ local({
 
     # remap strings in object
     remapped <- renv_json_read_remap(json, map)
-
     # evaluate
     eval(remapped, envir = baseenv())
 

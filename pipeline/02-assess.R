@@ -105,17 +105,7 @@ assessment_data_bldg <- assessment_data_pred %>%
       na.rm = TRUE
     ),
     pred_pin_final_fmv = bldg_total_value_livable *
-      (adj_pro_rate / bldg_total_proration_rate_livable),
-    # For certain units (common areas), we want to have a consistent low value
-    # across time (usually $10)
-    pred_pin_final_fmv = case_when(
-      meta_modeling_group == "NONLIVABLE" &
-        (meta_mailed_tot * 10) <= params$pv$nonlivable_threshold ~
-        meta_mailed_tot * 10,
-      meta_modeling_group == "NONLIVABLE" &
-        is.na(meta_mailed_tot) ~ 10,
-      TRUE ~ pred_pin_final_fmv
-    )
+      (adj_pro_rate / bldg_total_proration_rate_livable)
   ) %>%
   ungroup()
 
