@@ -337,10 +337,6 @@ model:
 
 # Parameters used in the assess stage to finalize the intial model predictions
 pv:
-  # For nonlivable units, anything below this value gets the same value as the
-  # prior year
-  nonlivable_threshold: 1000
-
   # Cap the proportion of the PIN's total value dedicated to land. This is
   # necessary since sometimes the model provides low predictions relative to the
   # land rates created by Valuations

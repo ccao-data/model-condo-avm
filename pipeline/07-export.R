@@ -110,11 +110,6 @@ assessment_pin_prepped <- assessment_pin %>%
       ", ", loc_property_zip
     ),
     meta_pin10 = str_sub(meta_pin, 1, 10),
-    flag_common_area = replace_na(
-      as.logical(as.numeric(flag_prior_near_to_pred_unchanged)) &
-        prior_near_tot <= params$pv$nonlivable_threshold,
-      0
-    ),
     across(
       ends_with("added_later") & where(is.logical),
       ~ as.numeric(.x)

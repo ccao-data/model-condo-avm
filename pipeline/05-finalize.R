@@ -97,7 +97,6 @@ metadata <- tibble::tibble(
   cv_no_improve = params$cv$no_improve,
   cv_split_prop = params$cv$split_prop,
   cv_best_metric = params$cv$best_metric,
-  pv_nonlivable_threshold = params$pv$nonlivable_threshold,
   pv_land_pct_of_total_cap = params$pv$land_pct_of_total_cap,
   pv_round_break = list(params$pv$round_break),
   pv_round_to_nearest = list(params$pv$round_to_nearest),
