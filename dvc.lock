@@ -2,6 +2,11 @@ schema: '2.0'
 stages:
   ingest:
     cmd: Rscript pipeline/00-ingest.R
+    deps:
+    - path: pipeline/00-ingest.R
+    - hash: md5
+    - md5: 619bb9bd092a8c4621e3db3b627dff87
+    - size: 22476
     params:
       params.yaml:
         assessment:
@@ -47,6 +52,10 @@ stages:
   train:
     cmd: Rscript pipeline/01-train.R
     deps:
+    - path: pipeline01-train.R
+      hash: md5
+      md5: 3cdf7f4f1dc9eb8056b7a133685d7d74
+      size: 17278
     - path: input/training_data.parquet
       hash: md5
       md5: 97b6ced3adb788e20fb2fc3758cd38a2
@@ -289,6 +298,10 @@ stages:
   assess:
     cmd: Rscript pipeline/02-assess.R
     deps:
+    - path: pipeline/02-assess.R
+      hash: md5
+      md5: ba0db4ff672a9c77f9128011d7fe7bb6
+      size: 16471
     - path: input/assessment_data.parquet
       hash: md5
       md5: 9f1a4cb2c2b1533e568b936404913d44
@@ -449,6 +462,10 @@ stages:
   evaluate:
     cmd: Rscript pipeline/03-evaluate.R
     deps:
+    - path: pipeline/03-evaluate.R
+      hash: md5
+      md5: a31744208569a1e9291925bca0692d23
+      size: 16548
     - path: output/assessment_pin/model_assessment_pin.parquet
       hash: md5
       md5: 065b46c0158865a29a788da0a9b78f7f
@@ -506,6 +523,10 @@ stages:
   interpret:
     cmd: Rscript pipeline/04-interpret.R
     deps:
+    - path: pipeline/04-interpret.R
+      hash: md5
+      md5: 51795fcf45dabc142f57c7b6e524b74b
+      size: 4194
     - path: input/assessment_data.parquet
       md5: 3b8adac7ba0cee457e18dd7e74adf3c9
       size: 61672563
@@ -601,6 +622,9 @@ stages:
   finalize:
     cmd: Rscript pipeline/05-finalize.R
     deps:
+    - path: pipeline/05-finalize.R
+      md5: aa842d2c4b1bf01c4cc3f612ec446cba
+      size: 8976
     - path: output/assessment_card/model_assessment_card.parquet
       md5: 10b3ccdde1a7ca2c02c4df6fa4edacfa
       size: 35032879
@@ -890,6 +914,11 @@ stages:
       size: 5222
   export:
     cmd: Rscript pipeline/06-export.R
+    deps:
+    - path: pipeline/06-export.R
+      hash: md5
+      md5: 3440859f9c14e551514bfcda854cb94f
+      size: 11293
     params:
       params.yaml:
         assessment:
