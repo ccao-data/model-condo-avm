@@ -300,8 +300,8 @@ stages:
     deps:
     - path: pipeline/02-assess.R
       hash: md5
-      md5: ba0db4ff672a9c77f9128011d7fe7bb6
-      size: 16471
+      md5: 7e16d29d9529dc3f171d73b9b711c6b5
+      size: 16063
     - path: input/assessment_data.parquet
       hash: md5
       md5: 9f1a4cb2c2b1533e568b936404913d44
@@ -623,8 +623,8 @@ stages:
     cmd: Rscript pipeline/05-finalize.R
     deps:
     - path: pipeline/05-finalize.R
-      md5: aa842d2c4b1bf01c4cc3f612ec446cba
-      size: 8976
+      md5: 09bd4bdac9a929cfd7328b5fd8bb9874
+      size: 8916
     - path: output/assessment_card/model_assessment_card.parquet
       md5: 10b3ccdde1a7ca2c02c4df6fa4edacfa
       size: 35032879
