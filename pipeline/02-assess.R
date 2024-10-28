@@ -202,16 +202,14 @@ sales_data_two_most_recent <- sales_data %>%
   distinct(
     meta_pin, meta_year,
     meta_sale_price, meta_sale_date, meta_sale_document_num,
-    sv_outlier_type, meta_sale_num_parcels, sv_added_later
+    sv_outlier_reason1, sv_outlier_reason2, sv_outlier_reason3,
+    meta_sale_num_parcels, sv_added_later
   ) %>%
   # Include outliers, since these data are used for desk review and
   # not for modeling
-  rename(meta_sale_outlier_type = sv_outlier_type) %>%
-  mutate(
-    meta_sale_outlier_type = ifelse(
-      meta_sale_outlier_type == "Not outlier", NA, meta_sale_outlier_type
-    )
-  ) %>%
+  rename(meta_sale_outlier_reason1 = sv_outlier_reason1,
+         meta_sale_outlier_reason2 = sv_outlier_reason2,
+         meta_sale_outlier_reason3 = sv_outlier_reason3) %>%
   group_by(meta_pin) %>%
   slice_max(meta_sale_date, n = 2) %>%
   mutate(mr = paste0("sale_recent_", row_number())) %>%
@@ -222,7 +220,9 @@ sales_data_two_most_recent <- sales_data %>%
       meta_sale_date,
       meta_sale_price,
       meta_sale_document_num,
-      meta_sale_outlier_type,
+      meta_sale_outlier_reason1,
+      meta_sale_outlier_reason2,
+      meta_sale_outlier_reason3,
       meta_sale_num_parcels,
       sv_added_later
     ),
@@ -271,7 +271,7 @@ assessment_data_pin <- assessment_data_merged %>%
     meta_pin_num_landlines, char_yrblt,
 
     # Keep overall building square footage
-    char_total_bldg_sf = char_building_sf,
+    chtotal_bldg_sf = char_building_sf,
     char_unit_sf, char_land_sf,
 
     # Keep locations, prior year values, and indicators

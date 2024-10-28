@@ -45,7 +45,9 @@ training_data <- dbGetQuery(
       sale.buyer_name AS meta_sale_buyer_name,
       sale.num_parcels_sale AS meta_sale_num_parcels,
       sale.sv_is_outlier,
-      sale.sv_outlier_type,
+      sale.sv_outlier_reason1,
+      sale.sv_outlier_reason2,
+      sale.sv_outlier_reason3,
       condo.*
   FROM model.vw_pin_condo_input condo
   INNER JOIN default.vw_pin_sale sale
@@ -118,7 +120,6 @@ tictoc::toc()
 # Close connection to Athena
 dbDisconnect(AWS_ATHENA_CONN_NOCTUA)
 rm(AWS_ATHENA_CONN_NOCTUA)
-
 
 
 
@@ -270,12 +271,12 @@ training_data_klg <- training_data_ms %>%
 # likely non-arms-length sales. ONLY APPLIES to multi-sale properties
 training_data_fil <- training_data_klg %>%
   mutate(
-    sv_outlier_type = case_when(
+    sv_outlier_reason1 = case_when(
       meta_sale_price < 50000 & meta_sale_num_parcels == 2 ~
         "Low price (multi)",
       meta_sale_price > 1700000 & meta_sale_num_parcels == 2 ~
         "High price (multi)",
-      TRUE ~ sv_outlier_type
+      TRUE ~ sv_outlier_reason1
     ),
     sv_is_outlier = ifelse(
       (meta_sale_price < 50000 & meta_sale_num_parcels == 2) |
@@ -285,12 +286,12 @@ training_data_fil <- training_data_klg %>%
     ),
     # Kludge sale validation flags based on raw price for sales added later
     # due to https://github.com/ccao-data/data-architecture/pull/334
-    sv_outlier_type = case_when(
+    sv_outlier_reason1 = case_when(
       meta_sale_price < 40000 & sv_added_later ~
         "Low price (raw)",
       meta_sale_price > 1500000 & sv_added_later ~
         "High price (raw)",
-      TRUE ~ sv_outlier_type
+      TRUE ~ sv_outlier_reason1
     ),
     sv_is_outlier = ifelse(
       (meta_sale_price < 40000 & sv_added_later) |
@@ -322,17 +323,25 @@ training_data_clean <- training_data_fil %>%
       TRUE,
       sv_is_outlier
     ),
-    sv_outlier_type = ifelse(
-      meta_modeling_group == "NONLIVABLE",
-      "Non-livable area",
-      sv_outlier_type
+    # Assign 'Non-livable area' to the first available outlier reason column
+    # as to not replace
+    sv_outlier_reason1 = case_when(
+      meta_modeling_group == "NONLIVABLE" & is.na(sv_outlier_reason1) ~ "Non-livable area",
+      TRUE ~ sv_outlier_reason1
+    ),
+    sv_outlier_reason2 = case_when(
+      meta_modeling_group == "NONLIVABLE" & is.na(sv_outlier_reason1) & is.na(sv_outlier_reason2) ~ "Non-livable area",
+      TRUE ~ sv_outlier_reason2
+    ),
+    sv_outlier_reason3 = case_when(
+      meta_modeling_group == "NONLIVABLE" & is.na(sv_outlier_reason1) & is.na(sv_outlier_reason2) & is.na(sv_outlier_reason3) ~ "Non-livable area",
+      TRUE ~ sv_outlier_reason3
     )
   ) %>%
   # Only exclude explicit outliers from training. Sales with missing validation
   # outcomes will be considered non-outliers
   mutate(
-    sv_is_outlier = replace_na(sv_is_outlier, FALSE),
-    sv_outlier_type = replace_na(sv_outlier_type, "Not outlier")
+    sv_is_outlier = replace_na(sv_is_outlier, FALSE)
   ) %>%
   # Some Athena columns are stored as arrays but are converted to string on
   # ingest. In such cases, take the first element and clean the string
@@ -472,7 +481,7 @@ message("Calculating condo strata")
 bldg_5yr_sales_avg <- training_data_clean %>%
   filter(
     meta_sale_date > make_date(as.numeric(params$input$max_sale_year) - 4),
-    !sv_is_outlier
+    !sv_outlier_reason1 %in% c("Non-livable area", "High price (multi)", "Low price (multi)")
   ) %>%
   select(
     meta_pin10, meta_sale_price, meta_sale_date,

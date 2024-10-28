@@ -12,7 +12,6 @@ tictoc::tic("Evaluate")
 # Load libraries, helpers, and recipes from files
 purrr::walk(list.files("R/", "\\.R$", full.names = TRUE), source)
 
-# Enable parallel backend for generating stats more quickly
 plan(multisession, workers = num_threads)
 
 # Renaming dictionary for input columns. We want the actual value of the column
@@ -351,7 +350,7 @@ pwalk(
       function(geo, cls) {
         gen_agg_stats(
           data = test_data_card,
-          truth = meta_sale_price,
+          truth= meta_sale_price,
           estimate = !!pred,
           bldg_sqft = char_unit_sf,
           rsn_col = prior_near_tot,
