@@ -592,6 +592,12 @@ training_data_w_strata <- training_data_clean %>%
     c(starts_with("meta_strata"), meta_pin10_5yr_num_sale),
     .before = starts_with("ind_")
   ) %>%
+  mutate(sv_is_outlier = if_else(
+    sv_outlier_reason1 %in% c("Non-livable area", "High price (multi)", "Low price (multi)"),
+    TRUE,
+    FALSE
+    )
+  ) %>%
   write_parquet(paths$input$training$local)
 
 assessment_data_w_strata <- assessment_data_clean %>%
