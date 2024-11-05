@@ -13,16 +13,13 @@ tictoc::tic("Evaluate")
 purrr::walk(list.files("R/", "\\.R$", full.names = TRUE), source)
 
 # Enable parallel backend for generating stats faster.
-# In the past we used the 'multisession' parallelization strategy, but this
-# strategy exhibits diminishing returns (and eventually worse performance) past
-# 5 workers on the server, and it's not particularly fast either (~10 mins to
-# complete this stage). The 'multicore' strategy has a higher risk of hogging
-# server resources for the duration of execution, but it executes much faster
-# than the multisession strategy (~80 seconds to complete this stage), so
-# ultimately we think it's worth the risk; plus, we only use half the available
-# cores in order to ensure we don't block execution of other important tasks on
-# the server.
-plan(multicore, workers = ceiling(num_threads / 2))
+if (supportsMulticore()) {
+  # Limit to half the available cores to avoid hogging resources
+  plan(multicore, workers = ceiling(num_threads / 2))
+} else {
+  # Multisession performance begins to degrade beyond 5 workers
+  plan(multisession, workers = 5)
+}
 
 # Renaming dictionary for input columns. We want the actual value of the column
 # to become geography_id and the NAME of the column to become geography_name
