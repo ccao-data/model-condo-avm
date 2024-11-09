@@ -388,13 +388,14 @@ stats_median_yoy_delta %>%
 ```
 
 ## Strata
+Strata refers to the department's grouping of 
 
 ::: panel-tabset
 
 ```{r}
 strata <- assessment_data %>%
   filter(meta_modeling_group != "NONLIVABLE") %>%
-  select(meta_pin, meta_strata_1, meta_mailed_tot) %>%
+  select(meta_pin, meta_strata_1, meta_mailed_tot, township = meta_township_name) %>%
   left_join(training_data %>% select(meta_pin, meta_sale_price), by = "meta_pin") %>%
   group_by(meta_strata_1) %>%
   mutate(meta_strata_1 = as.numeric(meta_strata_1),
@@ -444,7 +445,8 @@ strata_descriptive <- strata %>%
     meta_mailed_tot_max = max(meta_mailed_tot, na.rm = TRUE),
     meta_sale_price_max = max(meta_sale_price, na.rm = TRUE)
   ) %>%
-  rename_with(~ sub("^meta_", "", .x)) %>%
+  rename_with(~ sub("^meta_", "", .x),
+              strata = "strata_1") %>%
   mutate(
     across(2:ncol(.), ~ dollar(round(., 2))) # Ignore strata in the formatting
   )
@@ -455,3 +457,44 @@ datatable(strata_descriptive, options = list(pageLength = 20, autoWidth = TRUE, 
 
 ```
 :::
+
+
+## Strata Sale Prices vs Mailed Values
+
+```{r}
+strata_groups <- strata %>%
+  filter(!is.na(meta_sale_price)) %>%
+  split(.$meta_strata_1)
+
+plots <- map(strata_groups, ~ {
+  p <- ggplot(.x, aes(x = meta_mailed_tot, y = meta_sale_price, 
+                      color = township,
+                      text = paste("PIN:", meta_pin, 
+                                   "<br>Sale Price:", dollar(meta_sale_price), 
+                                   "<br>Assessed Value:", dollar(meta_mailed_tot),
+                                   "<br>Township:", township))) +
+    geom_point() +
+    labs(x = "Mailed Total * 10", 
+         y = "Sale Price", 
+         title = paste("Scatter Plot of Mailed Total vs. Sale Price - Strata", unique(.x$meta_strata_1))) +
+    scale_x_continuous(limits = c(0, 2000000), labels = dollar) +  # Cap x-axis and format as dollars
+    scale_y_continuous(limits = c(0, 2000000), labels = dollar) +  # Cap y-axis and format as dollars
+    theme_minimal()
+  
+  ggplotly(p, tooltip = "text")  # Make plot interactive with custom tooltip
+})
+```
+
+```{r strata_scatterplot, results='asis'}
+iwalk(plots, ~ {
+  cat("## ", .y, "\n\n")
+
+  print(.x)
+
+  cat("\n\n")
+})
+```
+
+:::
+```
+
