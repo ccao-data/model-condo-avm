@@ -25,4 +25,6 @@ test_join <- baked_predictors %>%
   inner_join(assessment_data_pred, by = "meta_pin") %>%
   select(meta_pin, meta_strata_1, meta_strata_2, test1, test2)
 
-# Ideally all kept values of meta_strata_1 and test_1 should match
+# In the output file, all meta_strata_1 and test_1 match (with 1 = 0
+# and 10 = 1). But, strata_2 and test_2 are all slightly off kilter.
+# I'm not sure that's a priority, but seems useful to investigate.
