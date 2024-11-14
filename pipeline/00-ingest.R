@@ -326,15 +326,21 @@ training_data_clean <- training_data_fil %>%
     # Assign 'Non-livable area' to the first available outlier reason column
     # as to not replace
     sv_outlier_reason1 = case_when(
-      meta_modeling_group == "NONLIVABLE" & is.na(sv_outlier_reason1) ~ "Non-livable area",
+      meta_modeling_group == "NONLIVABLE" &
+      is.na(sv_outlier_reason1) ~ "Non-livable area",
       TRUE ~ sv_outlier_reason1
     ),
     sv_outlier_reason2 = case_when(
-      meta_modeling_group == "NONLIVABLE" & is.na(sv_outlier_reason1) & is.na(sv_outlier_reason2) ~ "Non-livable area",
+      meta_modeling_group == "NONLIVABLE" &
+      is.na(sv_outlier_reason1) &
+      is.na(sv_outlier_reason2) ~ "Non-livable area",
       TRUE ~ sv_outlier_reason2
     ),
     sv_outlier_reason3 = case_when(
-      meta_modeling_group == "NONLIVABLE" & is.na(sv_outlier_reason1) & is.na(sv_outlier_reason2) & is.na(sv_outlier_reason3) ~ "Non-livable area",
+      meta_modeling_group == "NONLIVABLE" &
+      is.na(sv_outlier_reason1) &
+      is.na(sv_outlier_reason2) &
+      is.na(sv_outlier_reason3) ~ "Non-livable area",
       TRUE ~ sv_outlier_reason3
     )
   ) %>%
@@ -593,7 +599,11 @@ training_data_w_strata <- training_data_clean %>%
     .before = starts_with("ind_")
   ) %>%
   mutate(sv_is_outlier = if_else(
-    sv_outlier_reason1 %in% c("Non-livable area", "High price (multi)", "Low price (multi)"),
+    sv_outlier_reason1 %in% c(
+      "Non-livable area",
+      "High price (multi)",
+      "Low price (multi)"
+    ),
     TRUE,
     FALSE
   )) %>%
