@@ -327,20 +327,20 @@ training_data_clean <- training_data_fil %>%
     # as to not replace
     sv_outlier_reason1 = case_when(
       meta_modeling_group == "NONLIVABLE" &
-      is.na(sv_outlier_reason1) ~ "Non-livable area",
+        is.na(sv_outlier_reason1) ~ "Non-livable area",
       TRUE ~ sv_outlier_reason1
     ),
     sv_outlier_reason2 = case_when(
       meta_modeling_group == "NONLIVABLE" &
-      is.na(sv_outlier_reason1) &
-      is.na(sv_outlier_reason2) ~ "Non-livable area",
+        is.na(sv_outlier_reason1) &
+        is.na(sv_outlier_reason2) ~ "Non-livable area",
       TRUE ~ sv_outlier_reason2
     ),
     sv_outlier_reason3 = case_when(
       meta_modeling_group == "NONLIVABLE" &
-      is.na(sv_outlier_reason1) &
-      is.na(sv_outlier_reason2) &
-      is.na(sv_outlier_reason3) ~ "Non-livable area",
+        is.na(sv_outlier_reason1) &
+        is.na(sv_outlier_reason2) &
+        is.na(sv_outlier_reason3) ~ "Non-livable area",
       TRUE ~ sv_outlier_reason3
     )
   ) %>%
