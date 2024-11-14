@@ -350,7 +350,7 @@ pwalk(
       function(geo, cls) {
         gen_agg_stats(
           data = test_data_card,
-          truth= meta_sale_price,
+          truth = meta_sale_price,
           estimate = !!pred,
           bldg_sqft = char_unit_sf,
           rsn_col = prior_near_tot,

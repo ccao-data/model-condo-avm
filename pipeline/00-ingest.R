@@ -481,7 +481,7 @@ message("Calculating condo strata")
 bldg_5yr_sales_avg <- training_data_clean %>%
   filter(
     meta_sale_date > make_date(as.numeric(params$input$max_sale_year) - 4),
-    !sv_outlier_reason1 %in% c("Non-livable area", "High price (multi)", "Low price (multi)")
+    !sv_is_outlier
   ) %>%
   select(
     meta_pin10, meta_sale_price, meta_sale_date,

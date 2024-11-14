@@ -271,7 +271,7 @@ assessment_data_pin <- assessment_data_merged %>%
     meta_pin_num_landlines, char_yrblt,
 
     # Keep overall building square footage
-    chtotal_bldg_sf = char_building_sf,
+    char_total_bldg_sf = char_building_sf,
     char_unit_sf, char_land_sf,
 
     # Keep locations, prior year values, and indicators
