@@ -32,7 +32,7 @@ params:
 
 {{< include _sales.qmd >}}
 
-<!-- {{< include _outliers.qmd >}} -->
+{{< include _outliers.qmd >}}
 
 ```{r, results='asis'}
 # Dynamically render shap code based on whether they are enabled for model run
