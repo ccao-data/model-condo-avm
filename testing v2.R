@@ -43,3 +43,6 @@ comparison_result <- assessment_data_pred %>%
   select(meta_pin, pred_card_initial_fmv_v2, pred_card_initial_fmv_v1, match_pred_card_initial_fmv) %>%
   mutate(difference = pred_card_initial_fmv_v2 - pred_card_initial_fmv_v1) %>%
   filter(difference != 0)
+
+# My output has 2,460 rows which don't match. Out of a dataset of ~450,000 it's not a huge number, but
+# is confusing.
