@@ -44,13 +44,14 @@ lgbm_final_full_recipe <- readRDS(paths$output$workflow_recipe$local)
 assessment_data_pred <- read_parquet(paths$input$assessment$local) %>%
   as_tibble() %>%
   # Bake the data first and extract meta strata columns
-  { baked_data <- bake(lgbm_final_full_recipe, new_data = ., all_predictors());
-  mutate(
-    .,
-    pred_card_initial_fmv = as.numeric(predict(lgbm_final_full_fit, new_data = baked_data)$.pred),
-    temp_strata_1 = baked_data$meta_strata_1,
-    temp_strata_2 = baked_data$meta_strata_2
-  )
+  {
+    baked_data <- bake(lgbm_final_full_recipe, new_data = ., all_predictors())
+    mutate(
+      .,
+      pred_card_initial_fmv = as.numeric(predict(lgbm_final_full_fit, new_data = baked_data)$.pred),
+      temp_strata_1 = baked_data$meta_strata_1,
+      temp_strata_2 = baked_data$meta_strata_2
+    )
   }
 
 mapping_1 <- assessment_data_pred %>%
