@@ -56,12 +56,6 @@ assessment_data_pred_old <- read_parquet(paths$input$assessment$local) %>%
       )
     )$.pred
   )
-toc()
-
-
-toc()
-# Join the two datasets based on meta_pin
-library(dplyr)
 
 # Perform the comparison
 comparison_result <- assessment_data_pred %>%
