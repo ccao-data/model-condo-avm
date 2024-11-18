@@ -62,27 +62,40 @@ toc()
 toc()
 # Join the two datasets based on meta_pin
 comparison_result <- assessment_data_pred %>%
-  inner_join(assessment_data_pred_old, by = "meta_pin", suffix = c("_new", "_old")) %>%
-  mutate(
-    match_pred_card_initial_fmv = pred_card_initial_fmv_new == pred_card_initial_fmv_old,
-    match_meta_strata_1 = ifelse(!is.na(meta_strata_1_new) & !is.na(meta_strata_1_old),
-                                 meta_strata_1_new == meta_strata_1_old,
-                                 NA),
-    match_meta_strata_2 = ifelse(!is.na(meta_strata_2_new) & !is.na(meta_strata_2_old),
-                                 meta_strata_2_new == meta_strata_2_old,
-                                 NA)
+  inner_join(assessment_data_pred_old,
+    by =
+      "meta_pin", suffix = c("_new", "_old")
   ) %>%
-  select(meta_pin, meta_strata_1_new, meta_strata_1_old,
-         meta_strata_2_new, meta_strata_2_old,
-         pred_card_initial_fmv_new, pred_card_initial_fmv_old)
+  mutate(
+    match_pred_card_initial_fmv =
+      pred_card_initial_fmv_new == pred_card_initial_fmv_old,
+    match_meta_strata_1 =
+      ifelse(!is.na(meta_strata_1_new) & !is.na(meta_strata_1_old),
+        meta_strata_1_new == meta_strata_1_old,
+        NA
+      ),
+    match_meta_strata_2 =
+      ifelse(!is.na(meta_strata_2_new) & !is.na(meta_strata_2_old),
+        meta_strata_2_new == meta_strata_2_old,
+        NA
+      )
+  ) %>%
+  select(
+    meta_pin, meta_strata_1_new, meta_strata_1_old,
+    meta_strata_2_new, meta_strata_2_old,
+    pred_card_initial_fmv_new, pred_card_initial_fmv_old
+  )
 
 
 # Check if all non-NA values match
 all_match <- comparison_result %>%
   summarise(
-    all_pred_card_initial_fmv_match = all(match_pred_card_initial_fmv, na.rm = TRUE),
-    all_meta_strata_1_match = all(match_meta_strata_1, na.rm = TRUE),
-    all_meta_strata_2_match = all(match_meta_strata_2, na.rm = TRUE)
+    all_pred_card_initial_fmv_match =
+      all(match_pred_card_initial_fmv, na.rm = TRUE),
+    all_meta_strata_1_match =
+      all(match_meta_strata_1, na.rm = TRUE),
+    all_meta_strata_2_match =
+      all(match_meta_strata_2, na.rm = TRUE)
   )
 
 print(all_match)
