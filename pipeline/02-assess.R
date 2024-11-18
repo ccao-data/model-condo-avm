@@ -48,42 +48,32 @@ assessment_data_pred <- read_parquet(paths$input$assessment$local) %>%
   mutate(
     .,
     pred_card_initial_fmv = as.numeric(predict(lgbm_final_full_fit, new_data = baked_data)$.pred),
-    new_strata_1 = baked_data$meta_strata_1,
-    new_strata_2 = baked_data$meta_strata_2
+    temp_strata_1 = baked_data$meta_strata_1,
+    temp_strata_2 = baked_data$meta_strata_2
   )
   }
 
 mapping_1 <- assessment_data_pred %>%
-  select(new_strata_1, meta_strata_1) %>%
-  distinct() %>%
   filter(!is.na(meta_strata_1)) %>%
-  arrange(new_strata_1)
+  distinct(temp_strata_1, meta_strata_1)
 
 mapping_2 <- assessment_data_pred %>%
-  select(new_strata_2, meta_strata_2) %>%
-  distinct() %>%
   filter(!is.na(meta_strata_2)) %>%
-  arrange(new_strata_2)
+  distinct(temp_strata_2, meta_strata_2)
 
+strata_mapping_1 <- setNames(mapping_1$meta_strata_1, mapping_1$temp_strata_1)
+strata_mapping_2 <- setNames(mapping_2$meta_strata_2, mapping_2$temp_strata_2)
 
-# The imputing stage does not change any existing values. However, for the lightgbm
-# model, values have to be encoded to a base of 0. Because of this, the output does
-# not match the input. Since these are 1:1 matches, we map the new column to the old.
-strata_mapping_1 <- setNames(mapping_1$meta_strata_1, mapping_1$new_strata_1)
-strata_mapping_2 <- setNames(mapping_2$meta_strata_2, mapping_2$new_strata_2)
-
-# Apply the mappings in the pipeline.
+# Apply mappings
 assessment_data_pred <- assessment_data_pred %>%
   mutate(
     # Binary variable to identify condos which have imputed strata
     meta_strata_is_imputed = ifelse(is.na(meta_strata_1), 1, 0),
     # Use mappings to replace meta_strata_1 and meta_strata_2 directly
-    meta_strata_1 = strata_mapping_1[as.character(new_strata_1)],
-    meta_strata_2 = strata_mapping_2[as.character(new_strata_2)]
+    meta_strata_1 = strata_mapping_1[as.character(temp_strata_1)],
+    meta_strata_2 = strata_mapping_2[as.character(temp_strata_2)]
   ) %>%
-  select(-c("new_strata_1", "new_strata_2"))
-toc()
-
+  select(-temp_strata_1, -temp_strata_2)
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 3. Post-Modeling Adjustments -------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -296,7 +286,8 @@ assessment_data_pin <- assessment_data_merged %>%
     meta_year, meta_pin, meta_pin10, meta_triad_code, meta_township_code,
     meta_nbhd_code, meta_tax_code, meta_class, meta_tieback_key_pin,
     meta_tieback_proration_rate, meta_cdu, meta_modeling_group,
-    meta_pin_num_landlines, char_yrblt,
+    meta_pin_num_landlines, char_yrblt, meta_strata_1, meta_strata_2,
+    meta_strata_is_imputed,
 
     # Keep overall building square footage
     char_total_bldg_sf = char_building_sf,
