@@ -86,17 +86,3 @@ comparison_result <- assessment_data_pred %>%
     pred_card_initial_fmv_new, pred_card_initial_fmv_old
   )
 
-
-# Check if all non-NA values match
-all_match <- comparison_result %>%
-  summarise(
-    all_pred_card_initial_fmv_match =
-      all(match_pred_card_initial_fmv, na.rm = TRUE),
-    all_meta_strata_1_match =
-      all(match_meta_strata_1, na.rm = TRUE),
-    all_meta_strata_2_match =
-      all(match_meta_strata_2, na.rm = TRUE)
-  )
-
-print(all_match)
-View(comparison_result)
