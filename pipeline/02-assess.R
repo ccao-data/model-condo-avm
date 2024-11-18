@@ -75,11 +75,12 @@ strata_mapping_1 <- setNames(mapping_1$meta_strata_1, mapping_1$temp_strata_1)
 strata_mapping_2 <- setNames(mapping_2$meta_strata_2, mapping_2$temp_strata_2)
 
 # Apply mappings
-assessment_data_pred_temp <- assessment_data_pred %>%
+assessment_data_pred <- assessment_data_pred %>%
   mutate(
     # Binary variable to identify condos which have imputed strata
     meta_strata_is_imputed = ifelse(is.na(meta_strata_1), 1, 0),
     # Use mappings to replace meta_strata_1 and meta_strata_2 directly
+    # Unname removes the previously encoded information for clarity
     meta_strata_1 = unname(strata_mapping_1[as.character(temp_strata_1)]),
     meta_strata_2 = unname(strata_mapping_2[as.character(temp_strata_2)])
   ) %>%
@@ -178,7 +179,7 @@ message("Saving card-level data")
 # Keep only card-level variables of interest, including: ID variables (run_id,
 # pin, card), characteristics, and predictions. For condos card and PIN are the
 # same
-test <-assessment_data_merged %>%
+assessment_data_merged %>%
   select(
     meta_year, meta_pin, meta_class, meta_card_num, meta_lline_num,
     meta_modeling_group, ends_with("_num_sale"), pred_card_initial_fmv,
