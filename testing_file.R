@@ -61,28 +61,31 @@ toc()
 
 toc()
 # Join the two datasets based on meta_pin
+library(dplyr)
+
+# Perform the comparison
 comparison_result <- assessment_data_pred %>%
-  inner_join(assessment_data_pred_old,
-    by =
-      "meta_pin", suffix = c("_new", "_old")
-  ) %>%
+  inner_join(assessment_data_pred_old, by = "meta_pin", suffix = c("_new", "_old")) %>%
   mutate(
-    match_pred_card_initial_fmv =
-      pred_card_initial_fmv_new == pred_card_initial_fmv_old,
-    match_meta_strata_1 =
-      ifelse(!is.na(meta_strata_1_new) & !is.na(meta_strata_1_old),
-        meta_strata_1_new == meta_strata_1_old,
-        NA
-      ),
-    match_meta_strata_2 =
-      ifelse(!is.na(meta_strata_2_new) & !is.na(meta_strata_2_old),
-        meta_strata_2_new == meta_strata_2_old,
-        NA
-      )
+    match_pred_card_initial_fmv = pred_card_initial_fmv_new == pred_card_initial_fmv_old,
+    match_meta_strata_1 = ifelse(
+      !is.na(meta_strata_1_new) & !is.na(meta_strata_1_old),
+      meta_strata_1_new == meta_strata_1_old,
+      NA
+    ),
+    match_meta_strata_2 = ifelse(
+      !is.na(meta_strata_2_new) & !is.na(meta_strata_2_old),
+      meta_strata_2_new == meta_strata_2_old,
+      NA
+    )
   ) %>%
   select(
     meta_pin, meta_strata_1_new, meta_strata_1_old,
     meta_strata_2_new, meta_strata_2_old,
-    pred_card_initial_fmv_new, pred_card_initial_fmv_old
+    pred_card_initial_fmv_new, pred_card_initial_fmv_old,
+    match_pred_card_initial_fmv, match_meta_strata_1, match_meta_strata_2
   )
+
+# Print the result
+print(comparison_result)
 
