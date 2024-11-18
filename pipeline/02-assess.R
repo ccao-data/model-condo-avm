@@ -59,10 +59,11 @@ assessment_data_pred <- read_parquet(paths$input$assessment$local) %>%
     )
   }
 
-# For the lightgbm model, values are recoded to a 0 based scale.
-# This means that these values are a 1:1 match with values of a
-# different scale. Because of this, we map values to our original
-# calculations for continuity.
+# The trained model encodes categorical values as base-0 integers.
+# However, here we want to recover the original (unencoded) values
+# of our strata variables. To do so, we create a mapping of the
+# encoded to unencoded values and use the to recover both the original
+# strata values and those imputed by step_impute_knn (in R/recipes.R)
 mapping_1 <- assessment_data_pred %>%
   filter(!is.na(meta_strata_1)) %>%
   distinct(temp_strata_1, meta_strata_1)
