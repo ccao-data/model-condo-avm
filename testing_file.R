@@ -1,5 +1,7 @@
 assessment_data_pred <- read_parquet(paths$input$assessment$local) %>%
   as_tibble() %>%
+  # To speed up test if wanted
+  # slice(1:10000) %>%
   # Bake the data first and extract meta strata columns
   {
     baked_data <- bake(lgbm_final_full_recipe, new_data = ., all_predictors())
@@ -46,6 +48,8 @@ assessment_data_pred <- assessment_data_pred %>%
 
 assessment_data_pred_old <- read_parquet(paths$input$assessment$local) %>%
   as_tibble() %>%
+  # To speed up test if wanted
+  # slice(1:10000) %>%
   mutate(
     pred_card_initial_fmv = predict(
       lgbm_final_full_fit,
@@ -68,7 +72,8 @@ comparison_result <- assessment_data_pred %>%
       NA
     ),
     match_meta_strata_2 = ifelse(
-      !is.na(meta_strata_2_new) & !is.na(meta_strata_2_old),
+      !is.na(meta_strata_2_new) &
+        !is.na(meta_strata_2_old),
       meta_strata_2_new == meta_strata_2_old,
       NA
     )
@@ -77,9 +82,9 @@ comparison_result <- assessment_data_pred %>%
     meta_pin, meta_strata_1_new, meta_strata_1_old,
     meta_strata_2_new, meta_strata_2_old,
     pred_card_initial_fmv_new, pred_card_initial_fmv_old,
-    match_pred_card_initial_fmv, match_meta_strata_1, match_meta_strata_2
+    match_pred_card_initial_fmv,
+    match_meta_strata_1, match_meta_strata_2
   )
 
 # Print the result
 print(comparison_result)
-

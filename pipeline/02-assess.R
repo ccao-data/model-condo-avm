@@ -79,7 +79,7 @@ strata_mapping_2 <- setNames(mapping_2$meta_strata_2, mapping_2$temp_strata_2)
 assessment_data_pred <- assessment_data_pred %>%
   mutate(
     # Binary variable to identify condos which have imputed strata
-    meta_strata_is_imputed = ifelse(is.na(meta_strata_1), 1, 0),
+    flag_strata_is_imputed = ifelse(is.na(meta_strata_1), 1, 0),
     # Use mappings to replace meta_strata_1 and meta_strata_2 directly
     # Unname removes the previously encoded information for clarity
     meta_strata_1 = unname(strata_mapping_1[as.character(temp_strata_1)]),
@@ -185,7 +185,7 @@ assessment_data_merged %>%
     meta_year, meta_pin, meta_class, meta_card_num, meta_lline_num,
     meta_modeling_group, ends_with("_num_sale"), pred_card_initial_fmv,
     all_of(params$model$predictor$all),
-    meta_strata_is_imputed, township_code
+    flag_strata_is_imputed, township_code
   ) %>%
   mutate(
     ccao_n_years_exe_homeowner = as.integer(ccao_n_years_exe_homeowner)
@@ -300,7 +300,7 @@ assessment_data_pin <- assessment_data_merged %>%
     meta_nbhd_code, meta_tax_code, meta_class, meta_tieback_key_pin,
     meta_tieback_proration_rate, meta_cdu, meta_modeling_group,
     meta_pin_num_landlines, char_yrblt, meta_strata_1, meta_strata_2,
-    meta_strata_is_imputed,
+    flag_strata_is_imputed,
 
     # Keep overall building square footage
     char_total_bldg_sf = char_building_sf,
