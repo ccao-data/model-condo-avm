@@ -63,9 +63,11 @@ assessment_data_pred_old <- read_parquet(paths$input$assessment$local) %>%
 
 # Perform the comparison
 comparison_result <- assessment_data_pred %>%
-  inner_join(assessment_data_pred_old, by = "meta_pin", suffix = c("_new", "_old")) %>%
+  inner_join(assessment_data_pred_old,
+             by = "meta_pin", suffix = c("_new", "_old")) %>%
   mutate(
-    match_pred_card_initial_fmv = pred_card_initial_fmv_new == pred_card_initial_fmv_old,
+    match_pred_card_initial_fmv =
+      pred_card_initial_fmv_new == pred_card_initial_fmv_old,
     match_meta_strata_1 = ifelse(
       !is.na(meta_strata_1_new) & !is.na(meta_strata_1_old),
       meta_strata_1_new == meta_strata_1_old,
