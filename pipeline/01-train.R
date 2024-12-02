@@ -27,7 +27,7 @@ message("Preparing model training data")
 # Load the full set of training data, then arrange by sale date in order to
 # facilitate out-of-time sampling/validation
 training_data_full <- read_parquet(paths$input$training$local) %>%
-  filter(sv_is_outlier != TRUE) %>%
+  filter(!sv_is_outlier) %>%
   arrange(meta_sale_date)
 
 # Create train/test split by time, with most recent observations in the test set
