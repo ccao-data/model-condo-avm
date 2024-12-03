@@ -43,20 +43,53 @@ lgbm_final_full_recipe <- readRDS(paths$output$workflow_recipe$local)
 # FMV per unit
 assessment_data_pred <- read_parquet(paths$input$assessment$local) %>%
   as_tibble() %>%
+  # Bake the data first and extract meta strata columns
+  {
+    baked_data <- bake(lgbm_final_full_recipe, new_data = ., all_predictors())
+    mutate(
+      .,
+      pred_card_initial_fmv = as.numeric(predict(
+        lgbm_final_full_fit,
+        new_data = baked_data
+      )$.pred),
+      # Some strata are imputed during the baking process
+      # so we extract all values.
+      temp_strata_1 = baked_data$meta_strata_1,
+      temp_strata_2 = baked_data$meta_strata_2
+    )
+  }
+
+# The trained model encodes categorical values as base-0 integers.
+# However, here we want to recover the original (unencoded) values
+# of our strata variables. To do so, we create a mapping of the
+# encoded to unencoded values and use the to recover both the original
+# strata values and those imputed by step_impute_knn (in R/recipes.R)
+mapping_1 <- assessment_data_pred %>%
+  filter(!is.na(meta_strata_1)) %>%
+  distinct(temp_strata_1, meta_strata_1) %>%
+  {
+    set_names(.$meta_strata_1, .$temp_strata_1)
+  }
+
+mapping_2 <- assessment_data_pred %>%
+  filter(!is.na(meta_strata_2)) %>%
+  distinct(temp_strata_2, meta_strata_2) %>%
+  {
+    set_names(.$meta_strata_2, .$temp_strata_2)
+  }
+
+# Apply mappings
+assessment_data_pred <- assessment_data_pred %>%
   mutate(
-    pred_card_initial_fmv = predict(
-      lgbm_final_full_fit,
-      new_data = bake(
-        lgbm_final_full_recipe,
-        new_data = .,
-        all_predictors()
-      )
-    )$.pred
-  )
-
-
-
-
+    # Binary variable to identify condos which have imputed strata
+    flag_strata_is_imputed = ifelse(is.na(meta_strata_1), TRUE, FALSE),
+    # Use mappings to replace meta_strata_1 and meta_strata_2 directly
+    # Unname removes the previously encoded information for clarity
+    meta_strata_1 = unname(strata_mapping_1[as.character(temp_strata_1)]),
+    meta_strata_2 = unname(strata_mapping_2[as.character(temp_strata_2)])
+  ) %>%
+  # Remove duplicated columns
+  select(-temp_strata_1, -temp_strata_2)
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 3. Post-Modeling Adjustments -------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -154,7 +187,8 @@ assessment_data_merged %>%
   select(
     meta_year, meta_pin, meta_class, meta_card_num, meta_lline_num,
     meta_modeling_group, ends_with("_num_sale"), pred_card_initial_fmv,
-    all_of(params$model$predictor$all), township_code
+    all_of(params$model$predictor$all),
+    flag_strata_is_imputed, township_code
   ) %>%
   mutate(
     ccao_n_years_exe_homeowner = as.integer(ccao_n_years_exe_homeowner)
@@ -268,7 +302,8 @@ assessment_data_pin <- assessment_data_merged %>%
     meta_year, meta_pin, meta_pin10, meta_triad_code, meta_township_code,
     meta_nbhd_code, meta_tax_code, meta_class, meta_tieback_key_pin,
     meta_tieback_proration_rate, meta_cdu, meta_modeling_group,
-    meta_pin_num_landlines, char_yrblt,
+    meta_pin_num_landlines, char_yrblt, meta_strata_1, meta_strata_2,
+    flag_strata_is_imputed,
 
     # Keep overall building square footage
     char_total_bldg_sf = char_building_sf,

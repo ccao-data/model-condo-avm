@@ -31,7 +31,10 @@ model_main_recipe <- function(data, pred_vars, cat_vars,
     # Remove any variables not an outcome var or in the pred_vars vector
     step_rm(-all_outcomes(), -all_predictors(), -has_role("ID")) %>%
     # Impute missing values using KNN. Specific to condo model, usually used to
-    # impute missing condo building strata
+    # impute missing condo building strata. Within step_impute_knn, an estimated
+    # node value is called with the sample(). This is not deterministic, meaning
+    # different runs of the model will have different imputed values, and thus
+    # different FMVs.
     step_impute_knn(
       all_of(knn_vars),
       neighbors = tune(),
