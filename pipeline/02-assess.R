@@ -66,20 +66,23 @@ assessment_data_pred <- read_parquet(paths$input$assessment$local) %>%
 # strata values and those imputed by step_impute_knn (in R/recipes.R)
 mapping_1 <- assessment_data_pred %>%
   filter(!is.na(meta_strata_1)) %>%
-  distinct(temp_strata_1, meta_strata_1)
+  distinct(temp_strata_1, meta_strata_1) %>%
+  {
+    set_names(.$meta_strata_1, .$temp_strata_1)
+  }
 
 mapping_2 <- assessment_data_pred %>%
   filter(!is.na(meta_strata_2)) %>%
-  distinct(temp_strata_2, meta_strata_2)
-
-strata_mapping_1 <- setNames(mapping_1$meta_strata_1, mapping_1$temp_strata_1)
-strata_mapping_2 <- setNames(mapping_2$meta_strata_2, mapping_2$temp_strata_2)
+  distinct(temp_strata_2, meta_strata_2) %>%
+  {
+    set_names(.$meta_strata_2, .$temp_strata_2)
+  }
 
 # Apply mappings
 assessment_data_pred <- assessment_data_pred %>%
   mutate(
     # Binary variable to identify condos which have imputed strata
-    flag_strata_is_imputed = ifelse(is.na(meta_strata_1), 1, 0),
+    flag_strata_is_imputed = ifelse(is.na(meta_strata_1), TRUE, FALSE),
     # Use mappings to replace meta_strata_1 and meta_strata_2 directly
     # Unname removes the previously encoded information for clarity
     meta_strata_1 = unname(strata_mapping_1[as.character(temp_strata_1)]),
