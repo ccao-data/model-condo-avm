@@ -287,9 +287,9 @@ training_data_fil <- training_data_klg %>%
     # due to https://github.com/ccao-data/data-architecture/pull/334
     sv_outlier_type = case_when(
       meta_sale_price < 40000 & sv_added_later ~
-        "Low price (raw)",
+        "Low price",
       meta_sale_price > 1500000 & sv_added_later ~
-        "High price (raw)",
+        "High price",
       TRUE ~ sv_outlier_type
     ),
     sv_is_outlier = ifelse(
