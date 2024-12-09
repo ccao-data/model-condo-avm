@@ -8,32 +8,35 @@ This section examines flagged, non-arms-length sales, hereafter called "outliers
 
 ::: panel-tabset
 
-### Count by Type
-
 As of 12/6/2024 we have three columns that represent distinct outlier reasons.
 Sales are classified as outliers only if they have certain price-related outlier
 reasons. That is, if they are a certain number of standard deviations away
 from the mean of a group of properties. We are going to look strictly at the
 price reasons that invoke outlier status.
 
+### Count by Type
+
 ```{r _outliers_type_breakdown}
 # Make new column for a few cells of the outliers section
 training_data <- training_data %>%
   mutate(price_outlier_reason = case_when(
-    str_detect(sv_outlier_reason1, regex("price", ignore_case = TRUE)) ~ sv_outlier_reason1,
+    # Also grabs outlier reason Non-livable computed in 00-ingest.R
+    str_detect(sv_outlier_reason1, regex("price|Non-livable", ignore_case = TRUE)) ~ sv_outlier_reason1,
     str_detect(sv_outlier_reason2, regex("price", ignore_case = TRUE)) ~ sv_outlier_reason2,
     str_detect(sv_outlier_reason3, regex("price", ignore_case = TRUE)) ~ sv_outlier_reason3,
     TRUE ~ NA_character_
   ))
 
 # Determine the axis limit
-y_lim_axis_outlier_breakdown <- price_data %>%
+y_lim_axis_outlier_breakdown <- training_data %>%
+  filter(sv_is_outlier) %>% 
   count(price_outlier_reason) %>%
   summarise(max_value = max(n)) %>%
   pull(max_value)
 
 
 training_data %>%
+  filter(sv_is_outlier) %>% 
   count(price_outlier_reason) %>%
   ggplot(aes(x = reorder(price_outlier_reason, -n), y = n)) +
   geom_bar(stat = "identity") +
@@ -53,16 +56,13 @@ training_data %>%
 
 ### Count by Type and Year
 
-This table also isolated the outlier reasons to the first reason that
-makes the sale an outlier.
-
 ```{r _outliers_type_breakdown_table}
 training_data %>%
   filter(sv_is_outlier) %>%
-  group_by(meta_year, sv_outlier_reason1) %>%
+  group_by(meta_year, price_outlier_reason) %>%
   summarise(n = n()) %>%
   rename(Year = meta_year) %>%
-  pivot_wider(id_cols = Year, names_from = sv_outlier_reason1, values_from = n) %>%
+  pivot_wider(id_cols = Year, names_from = price_outlier_reason, values_from = n) %>%
   kable() %>%
   kable_styling("striped")
 
@@ -342,7 +342,7 @@ outliers_table_township_summary %>%
 
 ```{r _outliers_table_class_summary}
 outliers_table_class_summary <- training_data %>%
-  filter(meta_class != "200" & meta_triad_name == "North")
+  filter(meta_class != "200" & meta_triad_name == run_triad)
 
 outliers_table_class_summary <- outliers_table_class_summary %>%
   filter(sv_is_outlier) %>%
@@ -427,7 +427,6 @@ training_data %>%
     panel.grid.major.x = element_blank()
   )
 ```
-<!-- TODO: Perhaps incorporate all the other types here? -->
 
 ### Outlier Types in Top Decile
 
