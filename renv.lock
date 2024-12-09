@@ -284,7 +284,6 @@
       "RemoteRef": "master",
       "RemoteSha": "6445f79e6b4207a174c22d7a139511cf8e2516b6",
       "RemoteHost": "api.github.com",
-      "Remotes": "ccao-data/assessr",
       "Requirements": [
         "R",
         "assessr",
@@ -945,7 +944,7 @@
     },
     "lubridate": {
       "Package": "lubridate",
-      "Version": "1.9.4",
+      "Version": "1.9.3",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -954,7 +953,7 @@
         "methods",
         "timechange"
       ],
-      "Hash": "be38bc740fc51783a78edb5a157e4104"
+      "Hash": "680ad542fbcf801442c83a6ac5a2126c"
     },
     "magrittr": {
       "Package": "magrittr",
