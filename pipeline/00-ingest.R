@@ -291,7 +291,7 @@ training_data_fil <- training_data_klg %>%
         "Low price",
       meta_sale_price > 1500000 & sv_added_later ~
         "High price",
-      TRUE ~ sv_outlier_type
+      TRUE ~ sv_outlier_reason1
     ),
     sv_is_outlier = ifelse(
       (meta_sale_price < 40000 & sv_added_later) |
