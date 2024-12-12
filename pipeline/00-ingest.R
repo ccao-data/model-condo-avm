@@ -323,24 +323,18 @@ training_data_clean <- training_data_fil %>%
       TRUE,
       sv_is_outlier
     ),
-    # Assign 'Non-livable area' to the first available outlier reason column
-    # as to not replace
+    # Assign 'Non-livable area' to the first outlier reason and
+    # set the other two outlier reason columns to NA
     sv_outlier_reason1 = case_when(
-      meta_modeling_group == "NONLIVABLE" &
-        is.na(sv_outlier_reason1) ~ "Non-livable area",
+      meta_modeling_group == "NONLIVABLE" ~ "Non-livable area",
       TRUE ~ sv_outlier_reason1
     ),
     sv_outlier_reason2 = case_when(
-      meta_modeling_group == "NONLIVABLE" &
-        is.na(sv_outlier_reason1) &
-        is.na(sv_outlier_reason2) ~ "Non-livable area",
+      meta_modeling_group == "NONLIVABLE" ~ NA_character_,
       TRUE ~ sv_outlier_reason2
     ),
     sv_outlier_reason3 = case_when(
-      meta_modeling_group == "NONLIVABLE" &
-        is.na(sv_outlier_reason1) &
-        is.na(sv_outlier_reason2) &
-        is.na(sv_outlier_reason3) ~ "Non-livable area",
+      meta_modeling_group == "NONLIVABLE" ~ NA_character_,
       TRUE ~ sv_outlier_reason3
     )
   ) %>%
