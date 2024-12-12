@@ -303,7 +303,7 @@ stages:
       size: 40842
     - path: input/land_nbhd_rate_data.parquet
       hash: md5
-      md5: 6c1baaf2acbcba9869025bb336f4ad25
+      md5: e508daf5790982c303d6503fe1cb8e2b
       size: 4413
     - path: input/training_data.parquet
       hash: md5
@@ -609,7 +609,6 @@ stages:
     outs:
     - path: output/feature_importance/model_feature_importance.parquet
       hash: md5
-
       md5: 61db6f11d2ea7aa53d6990445b5d9cd2
       size: 8582
     - path: output/intermediate/timing/model_timing_interpret.parquet
@@ -873,8 +872,8 @@ stages:
           - loc_school_elementary_district_geoid
           - loc_school_secondary_district_geoid
           - loc_school_unified_district_geoid
-        run_note: "Test run for updated 2024 model pipeline. Remove CCAO collected\
-          \ characteristics.\n"
+        run_note: "Test run for updated 2024 model pipeline. Remove CCAO collected
+          characteristics.\n"
         toggle:
           cv_enable: false
           shap_enable: false
