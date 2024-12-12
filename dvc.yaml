@@ -97,7 +97,7 @@ stages:
         cache: false
     - output/performance_quantile/model_performance_quantile_test.parquet:
         cache: false
-    frozen: true
+    frozen: false
 
   interpret:
     cmd: Rscript pipeline/04-interpret.R
@@ -118,7 +118,7 @@ stages:
         cache: false
     - output/shap/model_shap.parquet:
         cache: false
-    frozen: true
+    frozen: false
   finalize:
     cmd: Rscript pipeline/05-finalize.R
     desc: >
@@ -147,7 +147,7 @@ stages:
     - reports/performance/performance.html:
         cache: false
 
-    frozen: true
+    frozen: false
   upload:
     cmd: Rscript pipeline/06-upload.R
     desc: >
