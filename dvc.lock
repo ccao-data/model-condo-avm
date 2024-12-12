@@ -26,24 +26,24 @@ stages:
     outs:
     - path: input/assessment_data.parquet
       hash: md5
-      md5: c0eef92396d05747f8bbea4a2e59a767
-      size: 85504480
+      md5: c2f59a38e8e4889d609ff176ce9e2db9
+      size: 85357786
     - path: input/char_data.parquet
       hash: md5
-      md5: b46d24200795d4ee11fb9f5ae7e56ca3
-      size: 159297661
+      md5: f9bb65c955a7607175dab15a1b888152
+      size: 159754989
     - path: input/condo_strata_data.parquet
       hash: md5
-      md5: c323d1e15f67d25be8fd165fd64f9766
-      size: 40848
+      md5: 1b5df2bac684078f4c5ab6320237fede
+      size: 40808
     - path: input/land_nbhd_rate_data.parquet
       hash: md5
       md5: 6c1baaf2acbcba9869025bb336f4ad25
       size: 4413
     - path: input/training_data.parquet
       hash: md5
-      md5: 1e7723ef954279eab0f5f89c72071942
-      size: 79906188
+      md5: 6d2f13139eec7b3f134353accb077ebb
+      size: 79945516
   train:
     cmd: Rscript pipeline/01-train.R
     deps:
