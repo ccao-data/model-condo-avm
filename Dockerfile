@@ -21,7 +21,7 @@ RUN apt-get update && \
 
 # Install Quarto
 RUN curl -o quarto-linux-amd64.deb -L \
-    https://github.com/quarto-dev/quarto-cli/releases/download/v1.3.450/quarto-1.3.450-linux-amd64.deb
+    https://github.com/quarto-dev/quarto-cli/releases/download/v1.6.39/quarto-1.6.39-linux-amd64.deb
 RUN gdebi -n quarto-linux-amd64.deb
 
 # Install pipeline Python dependencies globally
