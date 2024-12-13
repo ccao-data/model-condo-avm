@@ -266,7 +266,7 @@ gen_agg_stats_quantile <- function(data, truth, estimate,
     summarize(
       num_sale = sum(!is.na({{ truth }})),
       median_ratio = median(({{ estimate }} / {{ truth }}), na.rm = TRUE),
-        # Suppress warnings resulting from groups of size 0 or 1
+      # Suppress warnings resulting from groups of size 0 or 1
       lower_bound = suppressWarnings(min({{ truth }}, na.rm = TRUE)),
       upper_bound = suppressWarnings(max({{ truth }}, na.rm = TRUE)),
       prior_near_yoy_pct_chg_median = median(
