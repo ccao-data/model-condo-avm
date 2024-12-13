@@ -8,11 +8,12 @@ This section examines flagged, non-arms-length sales, hereafter called "outliers
 
 ::: panel-tabset
 
-As of 12/6/2024 we have three columns that represent distinct outlier reasons.
-Sales are classified as outliers only if they have certain price-related outlier
-reasons. That is, if they are a certain number of standard deviations away
-from the mean of a group of properties. We are going to look strictly at the
-price reasons that invoke outlier status.
+As of 12/6/2024, we have three columns that represent distinct outlier reasons.
+
+Sales are considered outliers only if they meet specific price-related
+criteria. Namely, if their price falls a certain number of standard deviations
+away from the average price within a comparable property group. We will focus
+exclusively on these price-based factors that determine outlier status.
 
 ### Count by Type
 
@@ -299,7 +300,6 @@ outliers_table_township_summary <- training_data %>%
   filter(meta_class != "200" & meta_triad_name == run_triad)
 
 outliers_table_township_summary <- outliers_table_township_summary %>%
-  # Proceed as before, but now using price_outlier_reason
   filter(sv_is_outlier) %>%
   summarise(
     `Min. Sale Price` = min(meta_sale_price, na.rm = TRUE),
@@ -435,7 +435,7 @@ outlier_decile_breakout <- function(data, dec) {
   outlier_decile_y_axis_lim <- data %>%
     arrange(meta_sale_price) %>%
     mutate(decile = ntile(meta_sale_price, 10)) %>%
-    filter(decile == dec & sv_is_outlier == TRUE) %>%
+    filter(decile == dec & sv_is_outlier) %>%
     group_by(price_outlier_reason) %>%
     summarise(count = n()) %>%
     ungroup() %>%
@@ -445,7 +445,7 @@ outlier_decile_breakout <- function(data, dec) {
   data %>%
     arrange(meta_sale_price) %>%
     mutate(decile = ntile(meta_sale_price, 10)) %>%
-    filter(decile == dec & sv_is_outlier == TRUE) %>%
+    filter(decile == dec & sv_is_outlier) %>%
     summarise(count = n(), .by = price_outlier_reason) %>%
     ggplot(aes(x = reorder(price_outlier_reason, -count), y = count)) +
     labs(
