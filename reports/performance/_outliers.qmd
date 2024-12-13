@@ -30,14 +30,14 @@ training_data <- training_data %>%
 
 # Determine the axis limit
 y_lim_axis_outlier_breakdown <- training_data %>%
-  filter(sv_is_outlier) %>% 
+  filter(sv_is_outlier) %>%
   count(price_outlier_reason) %>%
   summarise(max_value = max(n)) %>%
   pull(max_value)
 
 
 training_data %>%
-  filter(sv_is_outlier) %>% 
+  filter(sv_is_outlier) %>%
   count(price_outlier_reason) %>%
   ggplot(aes(x = reorder(price_outlier_reason, -n), y = n)) +
   geom_bar(stat = "identity") +
@@ -51,8 +51,6 @@ training_data %>%
     axis.title.y = element_blank(),
     axis.title.x = element_blank()
   )
-
-
 ```
 
 ### Count by Type and Year
@@ -76,7 +74,6 @@ training_data %>%
   pivot_wider(id_cols = Year, names_from = price_outlier_reason, values_from = n) %>%
   kable() %>%
   kable_styling("striped")
-
 ```
 
 ### Percentage by Class
