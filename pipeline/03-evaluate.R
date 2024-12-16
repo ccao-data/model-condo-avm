@@ -12,8 +12,14 @@ tictoc::tic("Evaluate")
 # Load libraries, helpers, and recipes from files
 purrr::walk(list.files("R/", "\\.R$", full.names = TRUE), source)
 
-# Enable parallel backend for generating stats more quickly
-plan(multisession, workers = num_threads)
+# Enable parallel backend for generating stats faster.
+if (supportsMulticore()) {
+  # Limit to half the available cores to avoid hogging resources
+  plan(multicore, workers = ceiling(num_threads / 2))
+} else {
+  # Multisession performance begins to degrade beyond 5 workers
+  plan(multisession, workers = 5)
+}
 
 # Renaming dictionary for input columns. We want the actual value of the column
 # to become geography_id and the NAME of the column to become geography_name
@@ -104,7 +110,9 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
   )
   ys_fns_list <- list(
     rmse        = rmse_vec,
-    r_squared   = rsq_vec,
+    # Necessary because sometimes all sales in a group will be the same,
+    # resulting in a std. dev. of 0 (and thus a warning)
+    r_squared   = \(y, x) suppressWarnings(rsq_vec(y, x)),
     mae         = mae_vec,
     mpe         = mpe_vec,
     mape        = mape_vec,
@@ -162,13 +170,13 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
 
       # Yardstick (ML-specific) performance stats
       ys_lst = ys_fns_list %>%
-        map(., \(f) exec(f, {{ truth }}, {{ estimate }})) %>%
+        map(., \(f) gte_n({{ truth }}, 2, exec(f, {{ truth }}, {{ estimate }}), NA_real_)) %>% # nolint
         list(),
 
       # Summary stats of sale price and sale price per sqft
       sum_sale_lst = sum_fns_list %>%
         set_names(paste0("sale_fmv_", names(.))) %>%
-        map(., \(f) exec(f, {{ truth }})) %>%
+        map(., \(f) suppressWarnings(exec(f, {{ truth }}))) %>%
         list(),
       sum_sale_sf_lst = sum_sqft_fns_list %>%
         set_names(paste0("sale_fmv_per_sqft_", names(.))) %>%
@@ -179,15 +187,15 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
       prior_far_num_missing = sum(is.na({{ rsf_col }})),
       sum_rsf_lst = sum_fns_list %>%
         set_names(paste0("prior_far_fmv_", names(.))) %>%
-        map(., \(f) exec(f, {{ rsf_col }})) %>%
+        map(., \(f) suppressWarnings(exec(f, {{ rsf_col }}))) %>%
         list(),
       sum_rsf_sf_lst = sum_sqft_fns_list %>%
         set_names(paste0("prior_far_fmv_per_sqft_", names(.))) %>%
-        map(., \(f) exec(f, {{ rsf_col }}, {{ bldg_sqft }})) %>%
+        map(., \(f) suppressWarnings(exec(f, {{ rsf_col }}, {{ bldg_sqft }}))) %>% # nolint
         list(),
       yoy_rsf_lst = yoy_fns_list %>%
         set_names(paste0("prior_far_yoy_pct_chg_", names(.))) %>%
-        map(., \(f) exec(f, {{ estimate }}, {{ rsf_col }})) %>%
+        map(., \(f) suppressWarnings(exec(f, {{ estimate }}, {{ rsf_col }}))) %>% # nolint
         list(),
       prior_near_num_missing = sum(is.na({{ rsn_col }})),
       sum_rsn_lst = sum_fns_list %>%
@@ -258,8 +266,9 @@ gen_agg_stats_quantile <- function(data, truth, estimate,
     summarize(
       num_sale = sum(!is.na({{ truth }})),
       median_ratio = median(({{ estimate }} / {{ truth }}), na.rm = TRUE),
-      lower_bound = min({{ truth }}, na.rm = TRUE),
-      upper_bound = max({{ truth }}, na.rm = TRUE),
+      # Suppress warnings resulting from groups of size 0 or 1
+      lower_bound = suppressWarnings(min({{ truth }}, na.rm = TRUE)),
+      upper_bound = suppressWarnings(max({{ truth }}, na.rm = TRUE)),
       prior_near_yoy_pct_chg_median = median(
         ({{ estimate }} - {{ rsn_col }}) / {{ rsn_col }},
         na.rm = TRUE
