@@ -48,7 +48,9 @@ training_data <- dbGetQuery(
       sale.buyer_name AS meta_sale_buyer_name,
       sale.num_parcels_sale AS meta_sale_num_parcels,
       sale.sv_is_outlier,
-      sale.sv_outlier_type,
+      sale.sv_outlier_reason1,
+      sale.sv_outlier_reason2,
+      sale.sv_outlier_reason3,
       condo.*
   FROM model.vw_pin_condo_input condo
   INNER JOIN default.vw_pin_sale sale
@@ -253,51 +255,23 @@ training_data_ms <- training_data %>%
   filter(!as.logical(as.numeric(ind_pin_is_multilline))) %>%
   select(-keep_unit_sale, -total_proration_rate)
 
-# Kludge to add an indicator for later-added sales
-training_data_klg <- training_data_ms %>%
-  left_join(
-    sales_data %>%
-      distinct(doc_no_new, .keep_all = TRUE),
-    by = c("meta_sale_document_num" = "doc_no_new", "year")
-  ) %>%
-  mutate(
-    sv_added_later = as.logical(endsWith(doc_no_old, "D")),
-    sv_added_later = replace_na(sv_added_later, FALSE)
-  ) %>%
-  select(-doc_no_old)
-
 # Multi-sale outlier detection / sales validation kludge. The main sales
 # validation logic cannot yet handle multi-sale properties, but they're a
 # significant minority of the total sales sample. We can borrow some
 # conservative thresholds from the main sales validation output to identify
 # likely non-arms-length sales. ONLY APPLIES to multi-sale properties
-training_data_fil <- training_data_klg %>%
+training_data_fil <- training_data_ms %>%
   mutate(
-    sv_outlier_type = case_when(
+    sv_outlier_reason1 = case_when(
       meta_sale_price < 50000 & meta_sale_num_parcels == 2 ~
         "Low price (multi)",
       meta_sale_price > 1700000 & meta_sale_num_parcels == 2 ~
         "High price (multi)",
-      TRUE ~ sv_outlier_type
+      TRUE ~ sv_outlier_reason1
     ),
     sv_is_outlier = ifelse(
       (meta_sale_price < 50000 & meta_sale_num_parcels == 2) |
         (meta_sale_price > 1700000 & meta_sale_num_parcels == 2),
-      TRUE,
-      sv_is_outlier
-    ),
-    # Kludge sale validation flags based on raw price for sales added later
-    # due to https://github.com/ccao-data/data-architecture/pull/334
-    sv_outlier_type = case_when(
-      meta_sale_price < 40000 & sv_added_later ~
-        "Low price",
-      meta_sale_price > 1500000 & sv_added_later ~
-        "High price",
-      TRUE ~ sv_outlier_type
-    ),
-    sv_is_outlier = ifelse(
-      (meta_sale_price < 40000 & sv_added_later) |
-        (meta_sale_price > 1500000 & sv_added_later),
       TRUE,
       sv_is_outlier
     )
@@ -325,17 +299,28 @@ training_data_clean <- training_data_fil %>%
       TRUE,
       sv_is_outlier
     ),
-    sv_outlier_type = ifelse(
+    # Assign 'Non-livable area' to the first outlier reason and
+    # set the other two outlier reason columns to NA
+    sv_outlier_reason1 <- ifelse(
       meta_modeling_group == "NONLIVABLE",
       "Non-livable area",
-      sv_outlier_type
+      sv_outlier_reason1
+    ),
+    sv_outlier_reason2 <- ifelse(
+      meta_modeling_group == "NONLIVABLE",
+      NA_character_,
+      sv_outlier_reason2
+    ),
+    sv_outlier_reason3 <- ifelse(
+      meta_modeling_group == "NONLIVABLE",
+      NA_character_,
+      sv_outlier_reason3
     )
   ) %>%
   # Only exclude explicit outliers from training. Sales with missing validation
   # outcomes will be considered non-outliers
   mutate(
-    sv_is_outlier = replace_na(sv_is_outlier, FALSE),
-    sv_outlier_type = replace_na(sv_outlier_type, "Not outlier")
+    sv_is_outlier = replace_na(sv_is_outlier, FALSE)
   ) %>%
   # Some Athena columns are stored as arrays but are converted to string on
   # ingest. In such cases, take the first element and clean the string
