@@ -2,6 +2,11 @@ schema: '2.0'
 stages:
   ingest:
     cmd: Rscript pipeline/00-ingest.R
+    deps:
+    - path: pipeline/00-ingest.R
+      hash: md5
+      md5: 29292ee2bef109914c423c9259aa8879
+      size: 22847
     params:
       params.yaml:
         assessment:
@@ -26,24 +31,24 @@ stages:
     outs:
     - path: input/assessment_data.parquet
       hash: md5
-      md5: 605ee612ff45dca2edf5c508993a7f56
-      size: 69522635
+      md5: b49601e8a812659026c7358d84f5e16b
+      size: 85702121
     - path: input/char_data.parquet
       hash: md5
-      md5: ed7b8f4ed02eb491d0450920874a66c3
-      size: 131476800
+      md5: d1a30dd51db2985be57548c1498f2533
+      size: 160972976
     - path: input/condo_strata_data.parquet
       hash: md5
-      md5: 0a7462f0afccb09bdd94c58148a3ca8d
-      size: 40842
+      md5: 8fe86e0af29431ecb021f101f79789ee
+      size: 40481
     - path: input/land_nbhd_rate_data.parquet
       hash: md5
-      md5: e508daf5790982c303d6503fe1cb8e2b
-      size: 4413
+      md5: f3ec9627322bd271bf2957b7388aaa34
+      size: 3873
     - path: input/training_data.parquet
       hash: md5
-      md5: 51090aa4f5b5311b1441e62b81fd3827
-      size: 68987740
+      md5: 9b2510ac885e4fc77928661a012d8821
+      size: 79812730
   train:
     cmd: Rscript pipeline/01-train.R
     deps:
@@ -872,8 +877,8 @@ stages:
           - loc_school_elementary_district_geoid
           - loc_school_secondary_district_geoid
           - loc_school_unified_district_geoid
-        run_note: "Test run for updated 2024 model pipeline. Remove CCAO collected
-          characteristics.\n"
+        run_note: "Test run for updated 2024 model pipeline. Remove CCAO collected\
+          \ characteristics.\n"
         toggle:
           cv_enable: false
           shap_enable: false

@@ -19,6 +19,9 @@ suppressPackageStartupMessages({
   library(noctua)
 })
 
+# Adds arrow support to speed up ingest process
+noctua_options(unload = TRUE)
+
 # Establish Athena connection
 AWS_ATHENA_CONN_NOCTUA <- dbConnect(
   noctua::athena(),
@@ -139,8 +142,8 @@ col_type_dict <- ccao::vars_dict %>%
   drop_na(var_name)
 
 # Mini-function to ensure that columns are the correct type
-recode_column_type <- function(col, col_name, dict = col_type_dict) {
-  col_type <- dict %>%
+recode_column_type <- function(col, col_name, dictionary = col_type_dict) {
+  col_type <- dictionary %>%
     filter(var_name == col_name) %>%
     pull(var_type)
 
@@ -214,6 +217,30 @@ rescale <- function(x, min = 0, max = 1) {
 }
 
 
+# Mini function to deal with arrays
+# Some Athena columns are stored as arrays but are converted to string on
+# ingest. In such cases, we either keep the contents of the cell (if 1 unit),
+# collapse the array into a comma-separated string (if more than 1 unit),
+# or replace with NA if the array is empty
+process_array_columns <- function(data, selector) {
+  data %>%
+    mutate(
+      across(
+        !!enquo(selector),
+        ~ sapply(.x, function(cell) {
+          if (length(cell) > 1) {
+            paste(cell, collapse = ", ")
+          } else if (length(cell) == 1) {
+            as.character(cell) # Convert the single element to character
+          } else {
+            NA # Handle cases where the array is empty
+          }
+        })
+      )
+    )
+}
+
+
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -283,7 +310,7 @@ training_data_clean <- training_data_fil %>%
   # Recode factor variables using the definitions stored in ccao::vars_dict
   # This will remove any categories not stored in the dictionary and convert
   # them to NA (useful since there are a lot of misrecorded variables)
-  ccao::vars_recode(cols = starts_with("char_"), type = "code") %>%
+  ccao::vars_recode(cols = starts_with("char_"), code_type = "code") %>%
   # Coerce columns to the data types recorded in the dictionary. Necessary
   # because the SQL drivers will often coerce types on pull (boolean becomes
   # character)
@@ -324,10 +351,13 @@ training_data_clean <- training_data_fil %>%
   ) %>%
   # Some Athena columns are stored as arrays but are converted to string on
   # ingest. In such cases, take the first element and clean the string
+  # Apply the helper function to process array columns
+  process_array_columns(starts_with("loc_tax_")) %>%
   mutate(
-    across(starts_with("loc_tax_"), \(x) str_replace_all(x, "\\[|\\]", "")),
-    across(starts_with("loc_tax_"), \(x) str_trim(str_split_i(x, ",", 1))),
-    across(starts_with("loc_tax_"), \(x) na_if(x, "")),
+    loc_tax_municipality_name =
+      replace_na(loc_tax_municipality_name, "UNINCORPORATED")
+  ) %>%
+  mutate(
     # Miscellanous column-level cleanup
     ccao_is_corner_lot = replace_na(ccao_is_corner_lot, FALSE),
     ccao_is_active_exe_homeowner = replace_na(ccao_is_active_exe_homeowner, 0L),
@@ -377,16 +407,19 @@ training_data_clean <- training_data_fil %>%
 # used on. The cleaning steps are the same as above, with the exception of the
 # time variables
 assessment_data_clean <- assessment_data %>%
-  ccao::vars_recode(cols = starts_with("char_"), type = "code") %>%
+  ccao::vars_recode(cols = starts_with("char_"), code_type = "code") %>%
+  # Apply the helper function to process array columns
+  process_array_columns(starts_with("loc_tax_")) %>%
+  mutate(
+    loc_tax_municipality_name =
+      replace_na(loc_tax_municipality_name, "UNINCORPORATED")
+  ) %>%
   mutate(across(
     any_of(col_type_dict$var_name),
     ~ recode_column_type(.x, cur_column())
   )) %>%
   # Same Athena string cleaning and feature cleanup as the training data
   mutate(
-    across(starts_with("loc_tax_"), \(x) str_replace_all(x, "\\[|\\]", "")),
-    across(starts_with("loc_tax_"), \(x) str_trim(str_split_i(x, ",", 1))),
-    across(starts_with("loc_tax_"), \(x) na_if(x, "")),
     ccao_is_active_exe_homeowner = replace_na(ccao_is_active_exe_homeowner, 0L),
     ccao_n_years_exe_homeowner = replace_na(ccao_n_years_exe_homeowner, 0L),
     across(where(is.character), \(x) na_if(x, "")),
