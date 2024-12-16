@@ -26,24 +26,24 @@ stages:
     outs:
     - path: input/assessment_data.parquet
       hash: md5
-      md5: ce837f4c101bc89aeab154cbfb9fb689
-      size: 86537970
+      md5: 605ee612ff45dca2edf5c508993a7f56
+      size: 69522635
     - path: input/char_data.parquet
       hash: md5
-      md5: ca4c8fe6d1d1194f8e1a40c596772bc1
-      size: 162147664
+      md5: ed7b8f4ed02eb491d0450920874a66c3
+      size: 131476800
     - path: input/condo_strata_data.parquet
       hash: md5
-      md5: 5ea7f9b690096cb1221acff126957a4e
-      size: 40856
+      md5: 0a7462f0afccb09bdd94c58148a3ca8d
+      size: 40842
     - path: input/land_nbhd_rate_data.parquet
       hash: md5
-      md5: 6c1baaf2acbcba9869025bb336f4ad25
+      md5: e508daf5790982c303d6503fe1cb8e2b
       size: 4413
     - path: input/training_data.parquet
       hash: md5
-      md5: 3551c847db76a24daabca493a924364f
-      size: 79720991
+      md5: 51090aa4f5b5311b1441e62b81fd3827
+      size: 68987740
   train:
     cmd: Rscript pipeline/01-train.R
     deps:
@@ -51,7 +51,6 @@ stages:
       hash: md5
       md5: 51090aa4f5b5311b1441e62b81fd3827
       size: 68987740
-
     params:
       params.yaml:
         cv:
@@ -267,7 +266,6 @@ stages:
       hash: md5
       md5: 0b5c189c84736f99942b1aabe5582870
       size: 2879
-
     - path: output/parameter_final/model_parameter_final.parquet
       hash: md5
       md5: b234a91486b487642e8738306f87c25c
@@ -282,7 +280,6 @@ stages:
       size: 501
     - path: output/test_card/model_test_card.parquet
       hash: md5
-
       md5: e95956454d04a68669f04f5355af3b5e
       size: 1342825
     - path: output/workflow/fit/model_workflow_fit.zip
@@ -306,7 +303,7 @@ stages:
       size: 40842
     - path: input/land_nbhd_rate_data.parquet
       hash: md5
-      md5: 6c1baaf2acbcba9869025bb336f4ad25
+      md5: e508daf5790982c303d6503fe1cb8e2b
       size: 4413
     - path: input/training_data.parquet
       hash: md5
@@ -618,7 +615,6 @@ stages:
       hash: md5
       md5: 906ad56aba8f66c9a0b32c5ed9b2e5a7
       size: 2914
-
     - path: output/shap/model_shap.parquet
       hash: md5
       md5: 150000269b5873fa1b3eaeeff7887ce2
