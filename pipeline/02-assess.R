@@ -202,8 +202,8 @@ assessment_data_merged %>%
     ccao_n_years_exe_homeowner = as.integer(ccao_n_years_exe_homeowner)
   ) %>%
   ccao::vars_recode(
-    starts_with("char_"),
-    type = "long",
+    cols = starts_with("char_"),
+    code_type = "long",
     as_factor = FALSE
   ) %>%
   write_parquet(paths$output$assessment_card$local)
@@ -244,15 +244,15 @@ sales_data_two_most_recent <- sales_data %>%
   distinct(
     meta_pin, meta_year,
     meta_sale_price, meta_sale_date, meta_sale_document_num,
-    sv_outlier_type, meta_sale_num_parcels, sv_added_later
+    sv_outlier_reason1, sv_outlier_reason2, sv_outlier_reason3,
+    meta_sale_num_parcels, sv_added_later
   ) %>%
   # Include outliers, since these data are used for desk review and
   # not for modeling
-  rename(meta_sale_outlier_type = sv_outlier_type) %>%
-  mutate(
-    meta_sale_outlier_type = ifelse(
-      meta_sale_outlier_type == "Not outlier", NA, meta_sale_outlier_type
-    )
+  rename(
+    meta_sale_outlier_reason1 = sv_outlier_reason1,
+    meta_sale_outlier_reason2 = sv_outlier_reason2,
+    meta_sale_outlier_reason3 = sv_outlier_reason3
   ) %>%
   group_by(meta_pin) %>%
   slice_max(meta_sale_date, n = 2) %>%
@@ -264,7 +264,9 @@ sales_data_two_most_recent <- sales_data %>%
       meta_sale_date,
       meta_sale_price,
       meta_sale_document_num,
-      meta_sale_outlier_type,
+      meta_sale_outlier_reason1,
+      meta_sale_outlier_reason2,
+      meta_sale_outlier_reason3,
       meta_sale_num_parcels,
       sv_added_later
     ),
@@ -430,7 +432,7 @@ message("Saving final PIN-level data")
 assessment_data_pin_final %>%
   ccao::vars_recode(
     cols = starts_with("char_"),
-    type = "short",
+    code_type = "short",
     as_factor = FALSE
   ) %>%
   select(-meta_pin10) %>%

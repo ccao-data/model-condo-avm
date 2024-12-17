@@ -19,8 +19,14 @@ suppressPackageStartupMessages({
   library(noctua)
 })
 
+# Adds arrow support to speed up ingest process
+noctua_options(unload = TRUE)
+
 # Establish Athena connection
-AWS_ATHENA_CONN_NOCTUA <- dbConnect(noctua::athena())
+AWS_ATHENA_CONN_NOCTUA <- dbConnect(
+  noctua::athena(),
+  rstudio_conn_tab = FALSE
+)
 
 
 
@@ -45,7 +51,9 @@ training_data <- dbGetQuery(
       sale.buyer_name AS meta_sale_buyer_name,
       sale.num_parcels_sale AS meta_sale_num_parcels,
       sale.sv_is_outlier,
-      sale.sv_outlier_type,
+      sale.sv_outlier_reason1,
+      sale.sv_outlier_reason2,
+      sale.sv_outlier_reason3,
       condo.*
   FROM model.vw_pin_condo_input condo
   INNER JOIN default.vw_pin_sale sale
@@ -134,8 +142,8 @@ col_type_dict <- ccao::vars_dict %>%
   drop_na(var_name)
 
 # Mini-function to ensure that columns are the correct type
-recode_column_type <- function(col, col_name, dict = col_type_dict) {
-  col_type <- dict %>%
+recode_column_type <- function(col, col_name, dictionary = col_type_dict) {
+  col_type <- dictionary %>%
     filter(var_name == col_name) %>%
     pull(var_type)
 
@@ -209,6 +217,30 @@ rescale <- function(x, min = 0, max = 1) {
 }
 
 
+# Mini function to deal with arrays
+# Some Athena columns are stored as arrays but are converted to string on
+# ingest. In such cases, we either keep the contents of the cell (if 1 unit),
+# collapse the array into a comma-separated string (if more than 1 unit),
+# or replace with NA if the array is empty
+process_array_columns <- function(data, selector) {
+  data %>%
+    mutate(
+      across(
+        !!enquo(selector),
+        ~ sapply(.x, function(cell) {
+          if (length(cell) > 1) {
+            paste(cell, collapse = ", ")
+          } else if (length(cell) == 1) {
+            as.character(cell) # Convert the single element to character
+          } else {
+            NA # Handle cases where the array is empty
+          }
+        })
+      )
+    )
+}
+
+
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -250,51 +282,23 @@ training_data_ms <- training_data %>%
   filter(!as.logical(as.numeric(ind_pin_is_multilline))) %>%
   select(-keep_unit_sale, -total_proration_rate)
 
-# Kludge to add an indicator for later-added sales
-training_data_klg <- training_data_ms %>%
-  left_join(
-    sales_data %>%
-      distinct(doc_no_new, .keep_all = TRUE),
-    by = c("meta_sale_document_num" = "doc_no_new", "year")
-  ) %>%
-  mutate(
-    sv_added_later = as.logical(endsWith(doc_no_old, "D")),
-    sv_added_later = replace_na(sv_added_later, FALSE)
-  ) %>%
-  select(-doc_no_old)
-
 # Multi-sale outlier detection / sales validation kludge. The main sales
 # validation logic cannot yet handle multi-sale properties, but they're a
 # significant minority of the total sales sample. We can borrow some
 # conservative thresholds from the main sales validation output to identify
 # likely non-arms-length sales. ONLY APPLIES to multi-sale properties
-training_data_fil <- training_data_klg %>%
+training_data_fil <- training_data_ms %>%
   mutate(
-    sv_outlier_type = case_when(
+    sv_outlier_reason1 = case_when(
       meta_sale_price < 50000 & meta_sale_num_parcels == 2 ~
         "Low price (multi)",
       meta_sale_price > 1700000 & meta_sale_num_parcels == 2 ~
         "High price (multi)",
-      TRUE ~ sv_outlier_type
+      TRUE ~ sv_outlier_reason1
     ),
     sv_is_outlier = ifelse(
       (meta_sale_price < 50000 & meta_sale_num_parcels == 2) |
         (meta_sale_price > 1700000 & meta_sale_num_parcels == 2),
-      TRUE,
-      sv_is_outlier
-    ),
-    # Kludge sale validation flags based on raw price for sales added later
-    # due to https://github.com/ccao-data/data-architecture/pull/334
-    sv_outlier_type = case_when(
-      meta_sale_price < 40000 & sv_added_later ~
-        "Low price (raw)",
-      meta_sale_price > 1500000 & sv_added_later ~
-        "High price (raw)",
-      TRUE ~ sv_outlier_type
-    ),
-    sv_is_outlier = ifelse(
-      (meta_sale_price < 40000 & sv_added_later) |
-        (meta_sale_price > 1500000 & sv_added_later),
       TRUE,
       sv_is_outlier
     )
@@ -306,7 +310,7 @@ training_data_clean <- training_data_fil %>%
   # Recode factor variables using the definitions stored in ccao::vars_dict
   # This will remove any categories not stored in the dictionary and convert
   # them to NA (useful since there are a lot of misrecorded variables)
-  ccao::vars_recode(cols = starts_with("char_"), type = "code") %>%
+  ccao::vars_recode(cols = starts_with("char_"), code_type = "code") %>%
   # Coerce columns to the data types recorded in the dictionary. Necessary
   # because the SQL drivers will often coerce types on pull (boolean becomes
   # character)
@@ -322,24 +326,38 @@ training_data_clean <- training_data_fil %>%
       TRUE,
       sv_is_outlier
     ),
-    sv_outlier_type = ifelse(
+    # Assign 'Non-livable area' to the first outlier reason and
+    # set the other two outlier reason columns to NA
+    sv_outlier_reason1 <- ifelse(
       meta_modeling_group == "NONLIVABLE",
       "Non-livable area",
-      sv_outlier_type
+      sv_outlier_reason1
+    ),
+    sv_outlier_reason2 <- ifelse(
+      meta_modeling_group == "NONLIVABLE",
+      NA_character_,
+      sv_outlier_reason2
+    ),
+    sv_outlier_reason3 <- ifelse(
+      meta_modeling_group == "NONLIVABLE",
+      NA_character_,
+      sv_outlier_reason3
     )
   ) %>%
   # Only exclude explicit outliers from training. Sales with missing validation
   # outcomes will be considered non-outliers
   mutate(
-    sv_is_outlier = replace_na(sv_is_outlier, FALSE),
-    sv_outlier_type = replace_na(sv_outlier_type, "Not outlier")
+    sv_is_outlier = replace_na(sv_is_outlier, FALSE)
   ) %>%
   # Some Athena columns are stored as arrays but are converted to string on
   # ingest. In such cases, take the first element and clean the string
+  # Apply the helper function to process array columns
+  process_array_columns(starts_with("loc_tax_")) %>%
   mutate(
-    across(starts_with("loc_tax_"), \(x) str_replace_all(x, "\\[|\\]", "")),
-    across(starts_with("loc_tax_"), \(x) str_trim(str_split_i(x, ",", 1))),
-    across(starts_with("loc_tax_"), \(x) na_if(x, "")),
+    loc_tax_municipality_name =
+      replace_na(loc_tax_municipality_name, "UNINCORPORATED")
+  ) %>%
+  mutate(
     # Miscellanous column-level cleanup
     ccao_is_corner_lot = replace_na(ccao_is_corner_lot, FALSE),
     ccao_is_active_exe_homeowner = replace_na(ccao_is_active_exe_homeowner, 0L),
@@ -389,16 +407,19 @@ training_data_clean <- training_data_fil %>%
 # used on. The cleaning steps are the same as above, with the exception of the
 # time variables
 assessment_data_clean <- assessment_data %>%
-  ccao::vars_recode(cols = starts_with("char_"), type = "code") %>%
+  ccao::vars_recode(cols = starts_with("char_"), code_type = "code") %>%
+  # Apply the helper function to process array columns
+  process_array_columns(starts_with("loc_tax_")) %>%
+  mutate(
+    loc_tax_municipality_name =
+      replace_na(loc_tax_municipality_name, "UNINCORPORATED")
+  ) %>%
   mutate(across(
     any_of(col_type_dict$var_name),
     ~ recode_column_type(.x, cur_column())
   )) %>%
   # Same Athena string cleaning and feature cleanup as the training data
   mutate(
-    across(starts_with("loc_tax_"), \(x) str_replace_all(x, "\\[|\\]", "")),
-    across(starts_with("loc_tax_"), \(x) str_trim(str_split_i(x, ",", 1))),
-    across(starts_with("loc_tax_"), \(x) na_if(x, "")),
     ccao_is_active_exe_homeowner = replace_na(ccao_is_active_exe_homeowner, 0L),
     ccao_n_years_exe_homeowner = replace_na(ccao_n_years_exe_homeowner, 0L),
     across(where(is.character), \(x) na_if(x, "")),

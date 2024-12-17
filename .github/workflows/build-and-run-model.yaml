@@ -18,23 +18,18 @@ on:
         type: choice
         description: Run type or purpose
         options:
-        - junk
-        - rejected
-        - test
-        - baseline
-        - candidate
-        - final
+          - junk
+          - rejected
+          - test
+          - baseline
+          - candidate
+          - final
         default: test
         required: true
       run_note:
         type: string
         description: Note to include with run
         required: true
-      report_additional_pins:
-        type: string
-        description: Create reports for additional PINs
-        default: '13253180150000 05174150240000'
-        required: false
       upload_enable:
         type: boolean
         description: Upload results to S3
@@ -51,7 +46,7 @@ on:
         default: false
         required: true
   push:
-    branches: [master]
+    branches: [master, "*-assessment-year"]
 
 jobs:
   build-and-run-model:
@@ -82,7 +77,6 @@ jobs:
         UPLOAD_ENABLE_OVERRIDE=${{ inputs.upload_enable }}
         CV_ENABLE_OVERRIDE=${{ inputs.cv_enable }}
         SHAP_ENABLE_OVERRIDE=${{ inputs.shap_enable }}
-        REPORT_ADDITIONAL_PINS=${{ inputs.report_additional_pins }}
     secrets:
       AWS_IAM_ROLE_TO_ASSUME_ARN: ${{ secrets.AWS_IAM_ROLE_TO_ASSUME_ARN }}
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
