@@ -160,8 +160,8 @@ assessment_data_merged %>%
     ccao_n_years_exe_homeowner = as.integer(ccao_n_years_exe_homeowner)
   ) %>%
   ccao::vars_recode(
-    starts_with("char_"),
-    type = "long",
+    cols = starts_with("char_"),
+    code_type = "long",
     as_factor = FALSE
   ) %>%
   write_parquet(paths$output$assessment_card$local)
@@ -389,7 +389,7 @@ message("Saving final PIN-level data")
 assessment_data_pin_final %>%
   ccao::vars_recode(
     cols = starts_with("char_"),
-    type = "short",
+    code_type = "short",
     as_factor = FALSE
   ) %>%
   select(-meta_pin10) %>%
