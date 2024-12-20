@@ -259,12 +259,7 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
     ) %>%
     mutate(across(
       -(contains("_max") & contains("yoy")) & where(is.numeric),
-      ~ replace(.x, !is.finite(.x), NA),
-      geography_id = ifelse(
-        is.na(geography_id) & geography_type == "triad_code",
-        triad_code,
-        geography_id
-      )
+      ~ replace(.x, !is.finite(.x), NA)
     )) %>%
     add_triad_code()
 }
@@ -325,12 +320,7 @@ gen_agg_stats_quantile <- function(data, truth, estimate,
     ) %>%
     mutate(across(
       -(contains("_max") & contains("yoy")) & where(is.numeric),
-      ~ replace(.x, !is.finite(.x), NA),
-      geography_id = ifelse(
-        is.na(geography_id) & geography_type == "triad_code",
-        triad_code,
-        geography_id
-      )
+      ~ replace(.x, !is.finite(.x), NA)
     )) %>%
     add_triad_code()
 }
