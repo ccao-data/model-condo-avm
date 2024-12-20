@@ -74,6 +74,23 @@ assessment_data_pin <- read_parquet(paths$output$assessment_pin$local) %>%
     )
   )
 
+# Helper function to return NA when sale sample size is too small
+gte_n <- \(n_sales, min_n, fn, na_type) {
+  if (sum(!is.na(n_sales)) >= min_n) {
+    return(fn)
+  } else {
+    return(na_type)
+  }
+}
+
+# Helper function to add triad code as geography ID if it's not already present
+add_triad_code <- \(data) {
+  if (!"geography_id" %in% colnames(data)) {
+    data$geography_id <- data$triad_code
+  }
+  return(data)
+}
+
 
 
 
@@ -86,15 +103,6 @@ assessment_data_pin <- read_parquet(paths$output$assessment_pin$local) %>%
 gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
                           rsn_col, rsf_col, triad, geography,
                           class, col_dict, min_n) {
-  # Helper function to return NA when sale sample size is too small
-  gte_n <- \(n_sales, min_n, fn, na_type) {
-    if (sum(!is.na(n_sales)) >= min_n) {
-      return(fn)
-    } else {
-      return(na_type)
-    }
-  }
-
   # List of summary stat/performance functions applied within summarize() below
   # Each function is listed on the right while the name of the function is on
   # the left
@@ -251,8 +259,14 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
     ) %>%
     mutate(across(
       -(contains("_max") & contains("yoy")) & where(is.numeric),
-      ~ replace(.x, !is.finite(.x), NA)
-    ))
+      ~ replace(.x, !is.finite(.x), NA),
+      geography_id = ifelse(
+        is.na(geography_id) & geography_type == "triad_code",
+        triad_code,
+        geography_id
+      )
+    )) %>%
+    add_triad_code()
 }
 
 
@@ -311,8 +325,14 @@ gen_agg_stats_quantile <- function(data, truth, estimate,
     ) %>%
     mutate(across(
       -(contains("_max") & contains("yoy")) & where(is.numeric),
-      ~ replace(.x, !is.finite(.x), NA)
-    ))
+      ~ replace(.x, !is.finite(.x), NA),
+      geography_id = ifelse(
+        is.na(geography_id) & geography_type == "triad_code",
+        triad_code,
+        geography_id
+      )
+    )) %>%
+    add_triad_code()
 }
 
 
