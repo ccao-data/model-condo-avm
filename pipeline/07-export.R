@@ -140,10 +140,11 @@ assessment_pin_prepped <- assessment_pin %>%
     sale_recent_2_num_parcels,
     char_yrblt, char_total_bldg_sf, char_land_sf,
     char_unit_sf, flag_nonlivable_space, flag_pin10_5yr_num_sale,
-    flag_common_area, flag_proration_sum_not_1, flag_pin_is_multiland,
+    flag_proration_sum_not_1, flag_pin_is_multiland,
     flag_land_gte_95_percentile,
     flag_land_value_capped, flag_prior_near_to_pred_unchanged,
     flag_prior_near_yoy_inc_gt_50_pct, flag_prior_near_yoy_dec_gt_5_pct,
+    meta_strata_1, meta_strata_2, flag_strata_is_imputed,
     sale_recent_1_sv_added_later, sale_recent_2_sv_added_later,
     model_org_fmv, model_org_fmv_nom_chg, model_org_fmv_pct_chg
   ) %>%
