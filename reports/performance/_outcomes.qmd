@@ -388,24 +388,40 @@ stats_median_yoy_delta %>%
 ```
 
 ## Strata
-Strata refers to the department's grouping of 
+Because condo characteristics are sparse, and that condo units have similar characteristics, we group condos into strata. These are both directly calculated, as well as imputed through a KNN process during the ingest stage of modeling.
 
 ::: panel-tabset
 
-```{r}
+```{r _outcomes_imputed_cleaning}
+training_data_distinct <- training_data %>%
+  arrange(desc(meta_sale_date)) %>%
+  distinct(meta_pin, .keep_all = TRUE)
+
+
 strata <- assessment_pin %>%
-  select(meta_pin, meta_strata_1, pred_pin_final_fmv, sale_recent_1_price,
-    township = meta_township_code, imputed = flag_strata_is_imputed
+  select(
+    meta_pin,
+    meta_strata_1,
+    pred_pin_final_fmv,
+    sale_recent_1_price,
+    township = meta_township_code,
+    imputed = flag_strata_is_imputed
   ) %>%
-  left_join(training_data %>% select(meta_pin, meta_sale_price), by = "meta_pin") %>%
+  left_join(
+    training_data_distinct %>% select(meta_pin, meta_sale_price),
+    by = "meta_pin"
+  ) %>%
   group_by(meta_strata_1) %>%
-  mutate(meta_strata_1 = as.numeric(meta_strata_1)) %>%
+  mutate(
+    meta_strata_1 = as.numeric(meta_strata_1),
+    township = ccao::town_convert(township)
+  ) %>%
   filter(!is.na(pred_pin_final_fmv))
 ```
 
-### Mailed Values * 10
+### pred_pin_final_fmv
 
-```{r}
+```{r _outcomes_predicted_fmv_imputed, warning=FALSE}
 strata %>%
   ggplot(aes(x = factor(meta_strata_1), y = pred_pin_final_fmv, fill = imputed)) +
   geom_boxplot() +
@@ -421,7 +437,7 @@ strata %>%
 
 ### Sale Prices
 
-```{r}
+```{r _outcomes_sale_prices, warning=FALSE}
 strata %>%
   ggplot(aes(x = factor(meta_strata_1), y = sale_recent_1_price, fill = imputed)) +
   geom_boxplot() +
@@ -435,8 +451,8 @@ strata %>%
   theme(legend.position = "top")
 ```
 
-### Table of Descriptive Stats
-```{r}
+### Descriptive Stats
+```{r _outcomes_descriptive_stats}
 strata_descriptive <- strata %>%
   group_by(meta_strata_1) %>%
   summarize(
@@ -459,11 +475,36 @@ strata_descriptive <- strata %>%
 # Display with DT
 datatable(strata_descriptive, options = list(pageLength = 20, autoWidth = TRUE, scrollX = TRUE))
 ```
+### Descriptive Stats by Imputation Status
+
+```{r _outcomes_descriptive_stats_imputed}
+strata_descriptive <- strata %>%
+  group_by(meta_strata_1, imputed) %>%
+  summarize(
+    predicted_pin_min = min(pred_pin_final_fmv, na.rm = TRUE),
+    meta_sale_price_min = min(meta_sale_price, na.rm = TRUE),
+    predicted_pin_mean = mean(pred_pin_final_fmv, na.rm = TRUE),
+    meta_sale_price_mean = mean(meta_sale_price, na.rm = TRUE),
+    predicted_pin_median = median(pred_pin_final_fmv, na.rm = TRUE),
+    meta_sale_price_median = median(meta_sale_price, na.rm = TRUE),
+    predicted_pin_max = max(pred_pin_final_fmv, na.rm = TRUE),
+    meta_sale_price_max = max(meta_sale_price, na.rm = TRUE)
+  ) %>%
+  rename_with(~ sub("^meta_", "", .x)) %>%
+  mutate(
+    across(where(is.numeric), ~ dollar(round(., 2)))
+  )
+
+# Display with DT
+datatable(strata_descriptive, options = list(pageLength = 20, autoWidth = TRUE, scrollX = TRUE))
+```
+
+
 :::
 
 ## Strata Sale Prices vs Mailed Values
 
-```{r}
+```{r _outcomes_strata_plots}
 strata_groups <- strata %>%
   filter(!is.na(meta_sale_price)) %>%
   split(.$meta_strata_1)
@@ -476,14 +517,16 @@ plots <- map(strata_groups, ~ {
       "PIN:", meta_pin,
       "<br>Sale Price:", dollar(meta_sale_price),
       "<br>Assessed Value:", dollar(pred_pin_final_fmv),
-      "<br>Township:", township
+      "<br>Township:", township,
+      "<br>Imputed:", imputed
     )
   )) +
-    geom_point() +
+    geom_point(aes(shape = as.factor(imputed))) +
     labs(
-      x = "Mailed Total * 10",
+      x = "FMV",
       y = "Sale Price",
-      title = paste("Scatter Plot of Mailed Total vs. Sale Price - Strata", unique(.x$meta_strata_1))
+      title = paste("Strata", unique(.x$meta_strata_1)),
+      color = "Township"
     ) +
     scale_x_continuous(limits = c(0, 2000000), labels = dollar) + # Cap x-axis and format as dollars
     scale_y_continuous(limits = c(0, 2000000), labels = dollar) + # Cap y-axis and format as dollars
@@ -493,7 +536,7 @@ plots <- map(strata_groups, ~ {
 })
 ```
 
-```{r strata_scatterplot, results='asis'}
+```{r _outcomes_strata_scatterplot, results='asis'}
 iwalk(plots, ~ {
   cat("## ", .y, "\n\n")
 
