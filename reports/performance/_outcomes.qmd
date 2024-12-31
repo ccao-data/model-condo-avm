@@ -393,42 +393,47 @@ Strata refers to the department's grouping of
 ::: panel-tabset
 
 ```{r}
-strata <- assessment_data %>%
-  filter(meta_modeling_group != "NONLIVABLE") %>%
-  select(meta_pin, meta_strata_1, meta_mailed_tot, township = meta_township_name) %>%
+strata <- assessment_pin %>%
+  select(meta_pin, meta_strata_1, pred_pin_final_fmv, sale_recent_1_price,
+         township = meta_township_code, imputed = flag_strata_is_imputed) %>%
   left_join(training_data %>% select(meta_pin, meta_sale_price), by = "meta_pin") %>%
   group_by(meta_strata_1) %>%
-  mutate(meta_strata_1 = as.numeric(meta_strata_1),
-         meta_mailed_tot = meta_mailed_tot * 10)
+  mutate(meta_strata_1 = as.numeric(meta_strata_1)) %>%
+  filter(!is.na(pred_pin_final_fmv))
 ```
 
 ### Mailed Values * 10
 
 ```{r}
-ggplot(strata %>% filter(meta_mailed_tot <= 2000000), aes(x = factor(meta_strata_1), y = meta_mailed_tot)) +
+strata %>%
+  ggplot(aes(x = factor(meta_strata_1), y = pred_pin_final_fmv, fill = imputed)) +
   geom_boxplot() +
+  scale_y_continuous(limits = c(0, 2000000), labels = scales::dollar_format()) +
   labs(
-    title = "Box and Whisker Plot of FMV by Strata",
-    subtitle = "Display capped at $2,000,000",
     x = "Strata",
-    y = "Predicted Initial FMV"
+    y = "FMV",
+    fill = "Imputation Status"
   ) +
-  theme_minimal()
+  theme_minimal() +
+  theme(legend.position = "top")
 
 ```
 
 ### Sale Prices
 
 ```{r}
-ggplot(strata %>% filter(meta_sale_price < 2000000), aes(x = factor(meta_strata_1), y = meta_sale_price)) +
+strata %>%
+  ggplot(aes(x = factor(meta_strata_1), y = sale_recent_1_price, fill = imputed)) +
   geom_boxplot() +
+  scale_y_continuous(limits = c(0, 2000000), labels = scales::dollar_format()) +
   labs(
-    title = "Box and Whisker Plot of Sale Price by Strata",
-    subtitle = "Display capped at $2,000,000",
     x = "Strata",
-    y = "Sale Price"
+    y = "FMV",
+    fill = "Imputation Status"
   ) +
-  theme_minimal()
+  theme_minimal() +
+  theme(legend.position = "top")
+
 ```
 
 ### Table of Descriptive Stats
@@ -436,13 +441,13 @@ ggplot(strata %>% filter(meta_sale_price < 2000000), aes(x = factor(meta_strata_
 strata_descriptive <- strata %>%
   group_by(meta_strata_1) %>%
   summarize(
-    meta_mailed_tot_min = min(meta_mailed_tot, na.rm = TRUE),
+    predicted_pin_min = min(pred_pin_final_fmv, na.rm = TRUE),
     meta_sale_price_min = min(meta_sale_price, na.rm = TRUE),
-    meta_mailed_tot_mean = mean(meta_mailed_tot, na.rm = TRUE),
+    predicted_pin_mean = mean(pred_pin_final_fmv, na.rm = TRUE),
     meta_sale_price_mean = mean(meta_sale_price, na.rm = TRUE),
-    meta_mailed_tot_median = median(meta_mailed_tot, na.rm = TRUE),
+    predicted_pin_median = median(pred_pin_final_fmv, na.rm = TRUE),
     meta_sale_price_median = median(meta_sale_price, na.rm = TRUE),
-    meta_mailed_tot_max = max(meta_mailed_tot, na.rm = TRUE),
+    predicted_pin_max = max(pred_pin_final_fmv, na.rm = TRUE),
     meta_sale_price_max = max(meta_sale_price, na.rm = TRUE)
   ) %>%
   rename_with(~ sub("^meta_", "", .x),
@@ -458,7 +463,6 @@ datatable(strata_descriptive, options = list(pageLength = 20, autoWidth = TRUE, 
 ```
 :::
 
-
 ## Strata Sale Prices vs Mailed Values
 
 ```{r}
@@ -467,11 +471,11 @@ strata_groups <- strata %>%
   split(.$meta_strata_1)
 
 plots <- map(strata_groups, ~ {
-  p <- ggplot(.x, aes(x = meta_mailed_tot, y = meta_sale_price, 
+  p <- ggplot(.x, aes(x = pred_pin_final_fmv, y = meta_sale_price, 
                       color = township,
                       text = paste("PIN:", meta_pin, 
                                    "<br>Sale Price:", dollar(meta_sale_price), 
-                                   "<br>Assessed Value:", dollar(meta_mailed_tot),
+                                   "<br>Assessed Value:", dollar(pred_pin_final_fmv),
                                    "<br>Township:", township))) +
     geom_point() +
     labs(x = "Mailed Total * 10", 
@@ -481,7 +485,7 @@ plots <- map(strata_groups, ~ {
     scale_y_continuous(limits = c(0, 2000000), labels = dollar) +  # Cap y-axis and format as dollars
     theme_minimal()
   
-  ggplotly(p, tooltip = "text")  # Make plot interactive with custom tooltip
+  ggplotly(p, tooltip = "text")
 })
 ```
 
@@ -496,5 +500,3 @@ iwalk(plots, ~ {
 ```
 
 :::
-```
-
