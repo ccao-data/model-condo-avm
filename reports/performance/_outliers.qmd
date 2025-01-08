@@ -483,6 +483,7 @@ outlier_decile_breakout(training_data, 1)
 ::: panel-tabset
 
 ### Card Level
+
 ```{r _outliers_output_errors_card}
 assessment_card %>%
   summarize(
@@ -490,19 +491,4 @@ assessment_card %>%
     "Negative Card FMV" = sum(pred_card_initial_fmv < 0, na.rm = TRUE)
   ) %>%
   datatable()
-```
-
-### Pin Level
-```{r _outliers_output_errors_pin}
-assessment_pin %>%
-  summarize(
-    "NA Pin FMV" = sum(is.na(pred_pin_final_fmv)),
-    "Negative Pin FMV" = sum(pred_pin_final_fmv < 0, na.rm = TRUE),
-    "NA Building FMV" = sum(is.na(pred_pin_final_fmv_bldg)),
-    "Negative Building FMV" = sum(pred_pin_final_fmv_bldg < 0, na.rm = TRUE),
-    "NA Land FMV" = sum(is.na(pred_pin_final_fmv_land)),
-    "Negative Land FMV" = sum(pred_pin_final_fmv_land < 0, na.rm = TRUE)
-  ) %>%
-  datatable()
-```
 :::
