@@ -328,17 +328,17 @@ training_data_clean <- training_data_fil %>%
     ),
     # Assign 'Non-livable area' to the first outlier reason and
     # set the other two outlier reason columns to NA
-    sv_outlier_reason1 <- ifelse(
+    sv_outlier_reason1 = ifelse(
       meta_modeling_group == "NONLIVABLE",
       "Non-livable area",
       sv_outlier_reason1
     ),
-    sv_outlier_reason2 <- ifelse(
+    sv_outlier_reason2 = ifelse(
       meta_modeling_group == "NONLIVABLE",
       NA_character_,
       sv_outlier_reason2
     ),
-    sv_outlier_reason3 <- ifelse(
+    sv_outlier_reason3 = ifelse(
       meta_modeling_group == "NONLIVABLE",
       NA_character_,
       sv_outlier_reason3
