@@ -20,7 +20,7 @@ suppressPackageStartupMessages({
 })
 
 # Adds arrow support to speed up ingest process
-noctua_options(unload = FALSE)
+noctua_options(unload = TRUE)
 
 # Establish Athena connection
 AWS_ATHENA_CONN_NOCTUA <- dbConnect(
