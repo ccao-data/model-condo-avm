@@ -139,14 +139,14 @@ assessment_pin_prepped <- assessment_pin %>%
     sale_recent_2_outlier_type, sale_recent_2_document_num,
     sale_recent_2_num_parcels,
     char_yrblt, char_total_bldg_sf, char_land_sf,
-    char_unit_sf, flag_nonlivable_space, flag_pin10_5yr_num_sale,
-    flag_common_area, flag_proration_sum_not_1, flag_pin_is_multiland,
-    flag_land_gte_95_percentile,
+    char_unit_sf, meta_strata_1, meta_strata_2, flag_nonlivable_space,
+    flag_pin10_5yr_num_sale, flag_proration_sum_not_1,
+    flag_pin_is_multiland, flag_land_gte_95_percentile,
     flag_land_value_capped, flag_prior_near_to_pred_unchanged,
     flag_prior_near_yoy_inc_gt_50_pct, flag_prior_near_yoy_dec_gt_5_pct,
-    meta_strata_1, meta_strata_2, flag_strata_is_imputed,
-    sale_recent_1_sv_added_later, sale_recent_2_sv_added_later,
-    model_org_fmv, model_org_fmv_nom_chg, model_org_fmv_pct_chg
+    flag_strata_is_imputed, sale_recent_1_sv_added_later,
+    sale_recent_2_sv_added_later, model_org_fmv, model_org_fmv_nom_chg,
+    model_org_fmv_pct_chg
   ) %>%
   mutate(
     across(starts_with("flag_"), as.numeric),
@@ -200,7 +200,8 @@ assessment_pin10_prepped <- assessment_pin_prepped %>%
   arrange(meta_pin10)
 
 
-
+assessment_pin_prepped <- assessment_pin_prepped %>%
+  filter(township_code == 70)
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 4. Export Desk Review --------------------------------------------------------
@@ -256,7 +257,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   num_head <- 6
   pin_row_range <- (num_head + 1):(nrow(assessment_pin_filtered) + num_head)
   pin_row_range_w_header <- c(num_head, pin_row_range)
-  pin_col_range <- 1:57
+  pin_col_range <- 1:59
 
   assessment_pin_w_row_ids <- assessment_pin_filtered %>%
     tibble::rowid_to_column("row_id") %>%
@@ -327,7 +328,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     wb, pin_sheet_name,
     style = style_price,
     rows = pin_row_range,
-    cols = c(9:11, 15:18, 23, 28, 33, 53, 54, 56, 57), gridExpand = TRUE
+    cols = c(9:11, 15:18, 23, 28, 33, 55, 56, 58, 59), gridExpand = TRUE
   )
   addStyle(
     wb, pin_sheet_name,
@@ -342,7 +343,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   addStyle(
     wb, pin_sheet_name,
     style = style_pct,
-    rows = pin_row_range, cols = c(8, 14, 22, 24, 55), gridExpand = TRUE
+    rows = pin_row_range, cols = c(8, 14, 22, 24, 57), gridExpand = TRUE
   )
   addStyle(
     wb, pin_sheet_name,
@@ -358,7 +359,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
 
   # Format YoY % change column with a range of colors from low to high
   walk(
-    c(24, 55),
+    c(24, 57),
     ~ conditionalFormatting(
       wb, pin_sheet_name,
       cols = .x,
@@ -470,18 +471,18 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   writeFormula(
     wb, pin_sheet_name,
     assessment_pin_avs$total_av,
-    startCol = 56,
+    startCol = 58,
     startRow = 7
   )
   writeFormula(
     wb, pin_sheet_name,
     assessment_pin_avs$av_difference,
-    startCol = 57,
+    startCol = 59,
     startRow = 7
   )
   setColWidths(
     wb, pin_sheet_name,
-    c(56, 57),
+    c(58, 59),
     widths = 1,
     hidden = c(TRUE, TRUE), ignoreMergedCells = FALSE
   )
