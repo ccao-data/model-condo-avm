@@ -5,17 +5,17 @@ stages:
     deps:
     - path: pipeline/00-ingest.R
       hash: md5
-      md5: 29292ee2bef109914c423c9259aa8879
-      size: 22847
+      md5: 816b28ff1c68d17a9082d0dc839a85c0
+      size: 22844
     params:
       params.yaml:
         assessment:
           year: '2024'
           date: '2024-01-01'
-          triad: city
+          triad: north
           group: condo
           data_year: '2023'
-          working_year: '2024'
+          working_year: '2025'
         input:
           min_sale_year: '2015'
           max_sale_year: '2023'
@@ -31,24 +31,24 @@ stages:
     outs:
     - path: input/assessment_data.parquet
       hash: md5
-      md5: b49601e8a812659026c7358d84f5e16b
-      size: 85702121
+      md5: 1acef7f3c22353411bc15a03d7493164
+      size: 85643154
     - path: input/char_data.parquet
       hash: md5
-      md5: d1a30dd51db2985be57548c1498f2533
-      size: 160972976
+      md5: 5be564143ebae5a67e8f44eb93d839dd
+      size: 159013932
     - path: input/condo_strata_data.parquet
       hash: md5
-      md5: 8fe86e0af29431ecb021f101f79789ee
-      size: 40481
+      md5: b5a85462a7f4de94916b228be45ccd75
+      size: 40543
     - path: input/land_nbhd_rate_data.parquet
       hash: md5
       md5: f3ec9627322bd271bf2957b7388aaa34
       size: 3873
     - path: input/training_data.parquet
       hash: md5
-      md5: 9b2510ac885e4fc77928661a012d8821
-      size: 79812730
+      md5: e818848026f6dc6e3d6af9b8d6b34641
+      size: 79923460
   train:
     cmd: Rscript pipeline/01-train.R
     deps:
