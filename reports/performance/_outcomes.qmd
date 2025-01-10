@@ -527,8 +527,8 @@ plots <- map(strata_groups, ~ {
       title = paste("Strata", unique(.x$meta_strata_1)),
       color = "Township"
     ) +
-    scale_x_continuous(limits = c(0, 2000000), labels = dollar) + # Cap x-axis and format as dollars
-    scale_y_continuous(limits = c(0, 2000000), labels = dollar) + # Cap y-axis and format as dollars
+    scale_x_continuous(limits = c(0, 2000000), labels = dollar) +
+    scale_y_continuous(limits = c(0, 2000000), labels = dollar) +
     theme_minimal()
 
   ggplotly(p, tooltip = "text")
