@@ -393,13 +393,8 @@ Because condo characteristics are sparse, and that condo units have similar char
 ::: panel-tabset
 
 ```{r _outcomes_imputed_cleaning}
-training_data_distinct <- training_data %>%
-  arrange(desc(meta_sale_date)) %>%
-  distinct(meta_pin, .keep_all = TRUE)
-
-
-strata <- assessment_pin  %>%
-  filter(flag_nonlivable_space == 'FALSE') %>%
+strata <- assessment_pin %>%
+  filter(flag_nonlivable_space == "FALSE") %>%
   select(
     meta_pin,
     meta_strata_1,
@@ -410,7 +405,10 @@ strata <- assessment_pin  %>%
     flag_nonlivable_space
   ) %>%
   left_join(
-    training_data_distinct %>% select(meta_pin, meta_sale_price),
+    training_data %>%
+      arrange(desc(meta_sale_date)) %>%
+      distinct(meta_pin, .keep_all = TRUE) %>%
+      select(meta_pin, meta_sale_price),
     by = "meta_pin"
   ) %>%
   group_by(meta_strata_1) %>%
