@@ -398,14 +398,16 @@ training_data_distinct <- training_data %>%
   distinct(meta_pin, .keep_all = TRUE)
 
 
-strata <- assessment_pin %>%
+strata <- assessment_pin  %>%
+  filter(flag_nonlivable_space == 'FALSE') %>%
   select(
     meta_pin,
     meta_strata_1,
     pred_pin_final_fmv,
     sale_recent_1_price,
     township = meta_township_code,
-    imputed = flag_strata_is_imputed
+    imputed = flag_strata_is_imputed,
+    flag_nonlivable_space
   ) %>%
   left_join(
     training_data_distinct %>% select(meta_pin, meta_sale_price),
@@ -415,8 +417,7 @@ strata <- assessment_pin %>%
   mutate(
     meta_strata_1 = as.numeric(meta_strata_1),
     township = ccao::town_convert(township)
-  ) %>%
-  filter(!is.na(pred_pin_final_fmv))
+  )
 ```
 
 ### pred_pin_final_fmv
