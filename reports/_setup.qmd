@@ -1,4 +1,6 @@
 ---
+execute:
+  echo: FALSE
 params:
   run_id: "2024-02-08-dreamy-sam"
   year: "2024"
