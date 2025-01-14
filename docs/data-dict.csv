@@ -4,15 +4,10 @@ Total Condominium Building Livable Parcels,char_building_units,Count of livable 
 Total Condominium Building Non-Livable Parcels,char_building_non_units,Count of non-livable 14-digit PINs,Characteristic,numeric,TRUE
 Condominium Building Is Mixed Use,char_bldg_is_mixed_use,The 10-digit PIN (building) contains a 14-digit PIN that is neither class 299 nor 399,Characteristic,logical,TRUE
 Total Condominium Building Square Footage,char_building_sf,Square footage of the _building_ (PIN10) containing this unit,Characteristic,numeric,TRUE
-Building Square Footage,char_building_sf,Square footage of the _building_ (PIN10) containing this unit,Characteristic,numeric,TRUE
 Condominium Unit Square Footage,char_unit_sf,Square footage of the condominium unit associated with this PIN,Characteristic,numeric,TRUE
-Unit Square Footage,char_unit_sf,Square footage of the condominium unit associated with this PIN,Characteristic,numeric,TRUE
 Condominium Unit Bedrooms,char_bedrooms,Number of bedrooms in the building,Characteristic,numeric,TRUE
-Bedrooms,char_bedrooms,Number of bedrooms in the building,Characteristic,numeric,TRUE
 Condominium Unit Half Baths,char_half_baths,Number of half baths,Characteristic,numeric,TRUE
-Half Baths,char_half_baths,Number of half baths,Characteristic,numeric,TRUE
 Condominium Unit Full Baths,char_full_baths,Number of full bathrooms,Characteristic,numeric,TRUE
-Full Baths,char_full_baths,Number of full bathrooms,Characteristic,numeric,TRUE
 Condominium % Ownership,meta_tieback_proration_rate,Proration rate applied to the PIN,Meta,numeric,TRUE
 Condominium Building Strata 1,meta_strata_1,Condominium Building Strata - 10 Levels,Meta,character,TRUE
 Condominium Building Strata 2,meta_strata_2,Condominium Building Strata - 100 Levels,Meta,character,TRUE
