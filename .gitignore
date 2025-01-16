@@ -19,6 +19,7 @@ cache/
 *.rds
 *.zip
 *.csv
+!docs/data-dict.csv
 *.xlsx
 !condo_nonlivable_demo.xlsx
 *.xlsm
