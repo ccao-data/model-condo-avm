@@ -34,7 +34,7 @@ model_main_recipe <- function(data, pred_vars, cat_vars,
     # usually used to impute missing condo building strata.
     step_impute_bag(
       all_of(knn_vars),
-      trees = 25,
+      trees = 100,
       seed_val = params$input$strata$seed,
       impute_with = imp_vars(all_of(knn_imp_vars)),
       options = list(
