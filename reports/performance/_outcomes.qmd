@@ -390,13 +390,12 @@ stats_median_yoy_delta %>%
 ```
 
 ## Strata
-Because condo characteristics are sparse, and that condo units have similar characteristics, we group condos into strata. These are both directly calculated, as well as imputed through a KNN process during the ingest stage of modeling.
 
 ::: panel-tabset
 
 ```{r _outcomes_imputed_cleaning}
-strata <- assessment_pin %>%
-  filter(flag_nonlivable_space == "FALSE") %>%
+outcomes_strata <- assessment_pin %>%
+  filter(!flag_nonlivable_space) %>%
   select(
     meta_pin,
     meta_strata_1,
@@ -406,41 +405,42 @@ strata <- assessment_pin %>%
     imputed = flag_strata_is_imputed,
     flag_nonlivable_space
   ) %>%
-  left_join(
-    training_data %>%
-      arrange(desc(meta_sale_date)) %>%
-      distinct(meta_pin, .keep_all = TRUE) %>%
-      select(meta_pin, meta_sale_price),
-    by = "meta_pin"
-  ) %>%
-  group_by(meta_strata_1) %>%
   mutate(
     meta_strata_1 = as.numeric(meta_strata_1),
     township = ccao::town_convert(township)
   )
 ```
 
-### pred_pin_final_fmv
+### Estimated Final FMV (PIN)
 
-```{r _outcomes_predicted_fmv_imputed, warning=FALSE}
-strata %>%
-  ggplot(aes(x = factor(meta_strata_1), y = pred_pin_final_fmv, fill = imputed)) +
+```{r _outcomes_estimated_fmv_imputed, warning=FALSE}
+outcomes_strata %>%
+  ggplot(aes(
+    x = factor(meta_strata_1),
+    y = pred_pin_final_fmv,
+    fill = imputed
+  )) +
   geom_boxplot() +
-  scale_y_continuous(limits = c(0, 2000000), labels = scales::dollar_format()) +
+  scale_y_continuous(
+    limits = c(0, 2000000),
+    labels = scales::dollar_format(scale = 1 / 1000, suffix = "K")
+  ) +
   labs(
     x = "Strata",
-    y = "FMV",
+    y = "Estimated Final FMV (PIN)",
     fill = "Imputation Status"
   ) +
   theme_minimal() +
-  theme(legend.position = "top")
+  theme(legend.position = "bottom")
 ```
 
 ### Sale Prices
 
 ```{r _outcomes_sale_prices, warning=FALSE}
-strata %>%
-  ggplot(aes(x = factor(meta_strata_1), y = sale_recent_1_price, fill = imputed)) +
+outcomes_strata %>%
+  ggplot(
+    aes(x = factor(meta_strata_1), y = sale_recent_1_price, fill = imputed)
+  ) +
   geom_boxplot() +
   scale_y_continuous(limits = c(0, 2000000), labels = scales::dollar_format()) +
   labs(
@@ -453,70 +453,71 @@ strata %>%
 ```
 
 ### Descriptive Stats
+
 ```{r _outcomes_descriptive_stats}
-strata_descriptive <- strata %>%
+outcomes_strata_descriptive <- outcomes_strata %>%
   group_by(meta_strata_1) %>%
   summarize(
-    predicted_pin_min = min(pred_pin_final_fmv, na.rm = TRUE),
-    meta_sale_price_min = min(meta_sale_price, na.rm = TRUE),
-    predicted_pin_mean = mean(pred_pin_final_fmv, na.rm = TRUE),
-    meta_sale_price_mean = mean(meta_sale_price, na.rm = TRUE),
-    predicted_pin_median = median(pred_pin_final_fmv, na.rm = TRUE),
-    meta_sale_price_median = median(meta_sale_price, na.rm = TRUE),
-    predicted_pin_max = max(pred_pin_final_fmv, na.rm = TRUE),
-    meta_sale_price_max = max(meta_sale_price, na.rm = TRUE)
+    `Est. Min.` = min(pred_pin_final_fmv, na.rm = TRUE),
+    `Est. Mean` = mean(pred_pin_final_fmv, na.rm = TRUE),
+    `Est. Med.` = median(pred_pin_final_fmv, na.rm = TRUE),
+    `Est. Max.` = max(pred_pin_final_fmv, na.rm = TRUE),
+    `Sale Min.` = min(sale_recent_1_price, na.rm = TRUE),
+    `Sale Mean` = mean(sale_recent_1_price, na.rm = TRUE),
+    `Sale Med.` = median(sale_recent_1_price, na.rm = TRUE),
+    `Sale Max.` = max(sale_recent_1_price, na.rm = TRUE)
   ) %>%
-  rename_with(~ sub("^meta_", "", .x),
-    strata = "strata_1"
-  ) %>%
-  mutate(
-    across(2:ncol(.), ~ dollar(round(., 2))) # Ignore strata in the formatting
-  )
+  rename(`Strata 1` = meta_strata_1) %>%
+  mutate(across(`Est. Min.`:`Sale Max.`, ~ dollar(round(.x, 2))))
 
-# Display with DT
-datatable(strata_descriptive, options = list(pageLength = 20, autoWidth = TRUE, scrollX = TRUE))
+datatable(
+  outcomes_strata_descriptive,
+  options = list(pageLength = 20, autoWidth = TRUE, scrollX = TRUE)
+)
 ```
+
 ### Descriptive Stats by Imputation Status
 
 ```{r _outcomes_descriptive_stats_imputed}
-strata_descriptive <- strata %>%
+outcomes_strata_descriptive_imp <- outcomes_strata %>%
   group_by(meta_strata_1, imputed) %>%
   summarize(
-    predicted_pin_min = min(pred_pin_final_fmv, na.rm = TRUE),
-    meta_sale_price_min = min(meta_sale_price, na.rm = TRUE),
-    predicted_pin_mean = mean(pred_pin_final_fmv, na.rm = TRUE),
-    meta_sale_price_mean = mean(meta_sale_price, na.rm = TRUE),
-    predicted_pin_median = median(pred_pin_final_fmv, na.rm = TRUE),
-    meta_sale_price_median = median(meta_sale_price, na.rm = TRUE),
-    predicted_pin_max = max(pred_pin_final_fmv, na.rm = TRUE),
-    meta_sale_price_max = max(meta_sale_price, na.rm = TRUE)
+    `Est. Min.` = min(pred_pin_final_fmv, na.rm = TRUE),
+    `Est. Mean` = mean(pred_pin_final_fmv, na.rm = TRUE),
+    `Est. Med.` = median(pred_pin_final_fmv, na.rm = TRUE),
+    `Est. Max.` = max(pred_pin_final_fmv, na.rm = TRUE),
+    `Sale Min.` = min(sale_recent_1_price, na.rm = TRUE),
+    `Sale Mean` = mean(sale_recent_1_price, na.rm = TRUE),
+    `Sale Med.` = median(sale_recent_1_price, na.rm = TRUE),
+    `Sale Max.` = max(sale_recent_1_price, na.rm = TRUE)
   ) %>%
-  rename_with(~ sub("^meta_", "", .x)) %>%
-  mutate(
-    across(where(is.numeric), ~ dollar(round(., 2)))
-  )
+  rename(`Strata 1` = meta_strata_1, Imputed = imputed) %>%
+  mutate(across(`Est. Min.`:`Sale Max.`, ~ dollar(round(.x, 2))))
 
-# Display with DT
-datatable(strata_descriptive, options = list(pageLength = 20, autoWidth = TRUE, scrollX = TRUE))
+datatable(
+  outcomes_strata_descriptive_imp,
+  options = list(pageLength = 20, autoWidth = TRUE, scrollX = TRUE)
+)
 ```
-
 
 :::
 
 ## Strata Sale Prices vs Mailed Values
 
+::: panel-tabset
+
 ```{r _outcomes_strata_plots}
-strata_groups <- strata %>%
-  filter(!is.na(meta_sale_price)) %>%
+outcomes_strata_groups <- outcomes_strata %>%
+  filter(!is.na(sale_recent_1_price)) %>%
   split(.$meta_strata_1)
 
-plots <- map(strata_groups, ~ {
+outcomes_strata_plots <- map(outcomes_strata_groups, ~ {
   p <- ggplot(.x, aes(
-    x = pred_pin_final_fmv, y = meta_sale_price,
+    x = pred_pin_final_fmv, y = sale_recent_1_price,
     color = township,
     text = paste(
       "PIN:", meta_pin,
-      "<br>Sale Price:", dollar(meta_sale_price),
+      "<br>Sale Price:", dollar(sale_recent_1_price),
       "<br>Assessed Value:", dollar(pred_pin_final_fmv),
       "<br>Township:", township,
       "<br>Imputed:", imputed
@@ -538,8 +539,8 @@ plots <- map(strata_groups, ~ {
 ```
 
 ```{r _outcomes_strata_scatterplot, results='asis'}
-iwalk(plots, ~ {
-  cat("## ", .y, "\n\n")
+iwalk(outcomes_strata_plots, ~ {
+  cat("### ", .y, "\n\n")
 
   print(.x)
 
