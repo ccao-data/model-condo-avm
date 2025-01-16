@@ -35,7 +35,7 @@ model_main_recipe <- function(data, pred_vars, cat_vars,
     step_impute_bag(
       all_of(knn_vars),
       trees = 25,
-      seed_val = params$input$strata$seed
+      seed_val = params$input$strata$seed,
       impute_with = imp_vars(all_of(knn_imp_vars)),
       options = list(
         nthread = parallel::detectCores(logical = FALSE),
