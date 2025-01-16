@@ -1,9 +1,7 @@
 ---
-execute:
-  echo: FALSE
 params:
-  run_id: "2024-02-08-dreamy-sam"
-  year: "2024"
+  run_id: "2025-01-10-distracted-caroline"
+  year: "2025"
 ---
 
 ```{r}
