@@ -30,14 +30,12 @@ model_main_recipe <- function(data, pred_vars, cat_vars,
     update_role_requirements("NA", bake = FALSE) %>%
     # Remove any variables not an outcome var or in the pred_vars vector
     step_rm(-all_outcomes(), -all_predictors(), -has_role("ID")) %>%
-    # Impute missing values using KNN. Specific to condo model, usually used to
-    # impute missing condo building strata. Within step_impute_knn, an estimated
-    # node value is called with the sample(). This is not deterministic, meaning
-    # different runs of the model will have different imputed values, and thus
-    # different FMVs.
-    step_impute_knn(
+    # Impute missing values using a bagged tree. Specific to condo model,
+    # usually used to impute missing condo building strata.
+    step_impute_bag(
       all_of(knn_vars),
-      neighbors = tune(),
+      trees = 25,
+      seed_val = params$input$strata$seed
       impute_with = imp_vars(all_of(knn_imp_vars)),
       options = list(
         nthread = parallel::detectCores(logical = FALSE),
