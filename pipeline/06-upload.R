@@ -37,13 +37,15 @@ if (upload_enable) {
   # Upload lightgbm fit
   aws.s3::put_object(
     paths$output$workflow_fit$local,
-    paths$output$workflow_fit$s3
+    paths$output$workflow_fit$s3,
+    multipart = TRUE
   )
 
   # Upload Tidymodels recipe
   aws.s3::put_object(
     paths$output$workflow_recipe$local,
-    paths$output$workflow_recipe$s3
+    paths$output$workflow_recipe$s3,
+    multipart = TRUE
   )
 
   # Upload finalized run parameters
@@ -77,7 +79,8 @@ if (upload_enable) {
     # Upload the raw parameters object to S3 in case we need to use it later
     aws.s3::put_object(
       paths$output$parameter_raw$local,
-      paths$output$parameter_raw$s3
+      paths$output$parameter_raw$s3,
+      multipart = TRUE
     )
 
     # Upload the parameter ranges used for CV
@@ -211,19 +214,22 @@ if (upload_enable) {
   # Upload metadata
   aws.s3::put_object(
     paths$output$metadata$local,
-    paths$output$metadata$s3
+    paths$output$metadata$s3,
+    multipart = TRUE
   )
 
   # Upload finalized timings
   aws.s3::put_object(
     paths$output$timing$local,
-    paths$output$timing$s3
+    paths$output$timing$s3,
+    multipart = TRUE
   )
 
   # Upload performance report
   aws.s3::put_object(
     paths$output$report_performance$local,
-    paths$output$report_performance$s3
+    paths$output$report_performance$s3,
+    multipart = TRUE
   )
 }
 
