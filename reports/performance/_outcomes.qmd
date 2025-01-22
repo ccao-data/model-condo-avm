@@ -538,14 +538,123 @@ outcomes_strata_plots <- map(outcomes_strata_groups, ~ {
 })
 ```
 
-```{r _outcomes_strata_scatterplot, results='asis'}
-iwalk(outcomes_strata_plots, ~ {
-  cat("### ", .y, "\n\n")
-
-  print(.x)
-
-  cat("\n\n")
-})
+### Strata 1
+```{r results='asis'}
+outcomes_strata_plots$`1`
+```
+### Strata 2
+```{r results='asis'}
+outcomes_strata_plots$`2`
+```
+### Strata 3
+```{r results='asis'}
+outcomes_strata_plots$`3`
+```
+### Strata 4
+```{r results='asis'}
+outcomes_strata_plots$`4`
 ```
 
+### Strata 5
+```{r results='asis'}
+outcomes_strata_plots$`5`
+```
+### Strata 6
+```{r results='asis'}
+outcomes_strata_plots$`6`
+```
+### Strata 7
+```{r results='asis'}
+outcomes_strata_plots$`7`
+```
+### Strata 8
+```{r results='asis'}
+outcomes_strata_plots$`8`
+```
+### Strata 9
+```{r results='asis'}
+outcomes_strata_plots$`9`
+```
+### Strata 10
+```{r results='asis'}
+outcomes_strata_plots$`10`
+```
 :::
+
+
+```{r}
+  # In case of a multicard PIN, split the report out into tabsets, with one
+  # tabset for each card. We have to do this in raw bootstrap because Quarto
+  # tabsets aren't supported by htmltools::tagList, and we need tagList in order
+  # to render the leaflet map, which can't otherwise be rendered in the context
+  # of a `for` loop.
+
+  # This list will store the nav elements that control the tab contents
+  nav_tabs <- list()
+  # This list will store the tab contents
+  tab_contents <- list()
+
+  for (i in outcomes_strata_plots) {
+    # Filter the df for just the row representing the card at hand
+    assessment_card_df <- assessment_df %>% filter(meta_card_num == card_num)
+    # Filter for only this card's comps
+    comp_card_df <- comp_df %>% filter(card == card_num)
+
+    nav_tabs <- c(
+      nav_tabs,
+      withTags(
+        list(
+          li(
+            class = "nav-item",
+            role = "presentation",
+            a(
+              # Activate the first card's tab pane by default
+              class = ifelse(card_num == 1, "nav-link active", "nav-link"),
+              id = glue::glue("tabset-1-{card_num}-tab"),
+              "data-bs-toggle" = "tab",
+              "data-bs-target" = glue::glue("#tabset-1-{card_num}"),
+              role = "tab",
+              "aria-controls" = glue::glue("tabset-1-{card_num}"),
+              "aria-selected" = ifelse(card_num == 1, "true", "false"),
+              href = "",
+              paste0("Card ", card_num)
+            )
+          )
+        )
+      )
+    )
+
+    tab_contents <- c(
+      tab_contents,
+      withTags(
+        list(
+          div(
+            id = glue::glue("tabset-1-{card_num}"),
+            class = ifelse(card_num == 1, "tab-pane active", "tab-pane"),
+            role = "tabpanel",
+            "aria-labelledby" = glue::glue("tabset-1-{card_num}-tab"),
+            html_tags_for_report(assessment_card_df, comp_card_df, TRUE)
+          )
+        )
+      )
+    )
+  }
+
+  html_tags <- withTags(
+    list(
+      div(
+        class = "panel-tabset",
+        ul(
+          class = "nav nav-tabs",
+          role = "tablist",
+          nav_tabs
+        ),
+        div(
+          class = "tab-content",
+          tab_contents
+        )
+      )
+    )
+  )
+```
+
