@@ -371,9 +371,9 @@ stats_median_yoy_delta %>%
   ) %>%
   kable(
     "html",
-    escape = F, col.names = rep("", 7), align = c("l", rep("c", 6))
+    escape = FALSE, col.names = rep("", 7), align = c("l", rep("c", 6))
   ) %>%
-  kable_styling(full_width = F) %>%
+  kable_styling(full_width = FALSE) %>%
   add_header_above(c(
     "Township" = 1,
     "Ratio" = 1,
