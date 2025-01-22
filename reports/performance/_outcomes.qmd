@@ -554,7 +554,6 @@ outcomes_strata_plots$`3`
 ```{r results='asis'}
 outcomes_strata_plots$`4`
 ```
-
 ### Strata 5
 ```{r results='asis'}
 outcomes_strata_plots$`5`
@@ -581,80 +580,94 @@ outcomes_strata_plots$`10`
 ```
 :::
 
+## Strata
+::: panel-tabset
 
-```{r}
-  # In case of a multicard PIN, split the report out into tabsets, with one
-  # tabset for each card. We have to do this in raw bootstrap because Quarto
-  # tabsets aren't supported by htmltools::tagList, and we need tagList in order
-  # to render the leaflet map, which can't otherwise be rendered in the context
-  # of a `for` loop.
-
-  # This list will store the nav elements that control the tab contents
-  nav_tabs <- list()
-  # This list will store the tab contents
-  tab_contents <- list()
-
-  for (i in outcomes_strata_plots) {
-    # Filter the df for just the row representing the card at hand
-    assessment_card_df <- assessment_df %>% filter(meta_card_num == card_num)
-    # Filter for only this card's comps
-    comp_card_df <- comp_df %>% filter(card == card_num)
-
-    nav_tabs <- c(
-      nav_tabs,
-      withTags(
-        list(
-          li(
-            class = "nav-item",
-            role = "presentation",
-            a(
-              # Activate the first card's tab pane by default
-              class = ifelse(card_num == 1, "nav-link active", "nav-link"),
-              id = glue::glue("tabset-1-{card_num}-tab"),
-              "data-bs-toggle" = "tab",
-              "data-bs-target" = glue::glue("#tabset-1-{card_num}"),
-              role = "tab",
-              "aria-controls" = glue::glue("tabset-1-{card_num}"),
-              "aria-selected" = ifelse(card_num == 1, "true", "false"),
-              href = "",
-              paste0("Card ", card_num)
-            )
-          )
-        )
-      )
+```{r results='asis'}
+outcomes_strata_plots <- purrr::map(outcomes_strata_groups, ~ {
+  p <- ggplot(.x, aes(
+    x = pred_pin_final_fmv,
+    y = sale_recent_1_price,
+    color = township,
+    text = paste(
+      "PIN:", meta_pin,
+      "<br>Sale Price:", scales::dollar(sale_recent_1_price),
+      "<br>Assessed Value:", scales::dollar(pred_pin_final_fmv),
+      "<br>Township:", township,
+      "<br>Imputed:", imputed
     )
+  )) +
+    geom_point(aes(shape = imputed)) +
+    labs(
+      x = "FMV",
+      y = "Sale Price",
+      title = paste("Strata", unique(.x$meta_strata_1)),
+      color = "Township"
+    ) +
+    scale_x_continuous(limits = c(0, 2000000), labels = scales::dollar) +
+    scale_y_continuous(limits = c(0, 2000000), labels = scales::dollar) +
+    theme_minimal()
 
-    tab_contents <- c(
-      tab_contents,
-      withTags(
-        list(
-          div(
-            id = glue::glue("tabset-1-{card_num}"),
-            class = ifelse(card_num == 1, "tab-pane active", "tab-pane"),
-            role = "tabpanel",
-            "aria-labelledby" = glue::glue("tabset-1-{card_num}-tab"),
-            html_tags_for_report(assessment_card_df, comp_card_df, TRUE)
-          )
-        )
-      )
-    )
-  }
+  ggplotly(p, tooltip = "text")
+})
 
-  html_tags <- withTags(
-    list(
-      div(
-        class = "panel-tabset",
-        ul(
-          class = "nav nav-tabs",
-          role = "tablist",
-          nav_tabs
-        ),
-        div(
-          class = "tab-content",
-          tab_contents
+nav_tabs <- list()
+tab_contents <- list()
+
+for (idx in seq_along(outcomes_strata_plots)) {
+  tab_id <- paste0("tabset-strata-", idx)
+
+  nav_tabs <- c(
+    nav_tabs,
+    withTags(
+      li(
+        class = "nav-item",
+        role = "presentation",
+        a(
+          class = ifelse(idx == 1, "nav-link active", "nav-link"),
+          id = paste0(tab_id, "-tab"),
+          "data-bs-toggle" = "tab",
+          "data-bs-target" = paste0("#", tab_id),
+          role = "tab",
+          "aria-controls" = tab_id,
+          "aria-selected" = ifelse(idx == 1, "true", "false"),
+          href = "",
+          paste("Strata Plot", idx)
         )
       )
     )
   )
-```
 
+  # Build the tab content
+  tab_contents <- c(
+    tab_contents,
+    withTags(
+      div(
+        id = tab_id,
+        class = ifelse(idx == 1, "tab-pane active", "tab-pane"),
+        role = "tabpanel",
+        "aria-labelledby" = paste0(tab_id, "-tab"),
+        outcomes_strata_plots[[idx]]
+      )
+    )
+  )
+}
+
+html_tags <- withTags(
+  div(
+    class = "panel-tabset",
+    ul(
+      class = "nav nav-tabs",
+      role = "tablist",
+      nav_tabs
+    ),
+    div(
+      class = "tab-content",
+      tab_contents
+    )
+  )
+)
+
+html_tags
+```
+:::
