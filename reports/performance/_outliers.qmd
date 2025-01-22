@@ -63,7 +63,11 @@ training_data %>%
   group_by(meta_year, outlier_reasons_to_graph) %>%
   summarise(n = n()) %>%
   rename(Year = meta_year) %>%
-  pivot_wider(id_cols = Year, names_from = outlier_reasons_to_graph, values_from = n) %>%
+  pivot_wider(
+    id_cols = Year,
+    names_from = outlier_reasons_to_graph,
+    values_from = n
+  ) %>%
   kable() %>%
   kable_styling("striped")
 
@@ -72,7 +76,11 @@ training_data %>%
   group_by(meta_year, outlier_reasons_to_graph) %>%
   summarise(n = n(), .groups = "drop") %>%
   rename(Year = meta_year) %>%
-  pivot_wider(id_cols = Year, names_from = outlier_reasons_to_graph, values_from = n) %>%
+  pivot_wider(
+    id_cols = Year,
+    names_from = outlier_reasons_to_graph,
+    values_from = n
+  ) %>%
   kable() %>%
   kable_styling("striped")
 ```
