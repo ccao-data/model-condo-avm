@@ -32,8 +32,8 @@ assessment_pin <- dbGetQuery(
   conn = AWS_ATHENA_CONN_NOCTUA, glue("
   SELECT *
   FROM model.assessment_pin
-  WHERE run_id = '2025-01-10-distracted-caroline'
-  AND meta_triad_code = '3'
+  WHERE run_id = '{params$export$run_id}'
+  AND meta_triad_code = '{params$export$triad_code}'
   ")
 )
 
@@ -43,7 +43,7 @@ assessment_pin_old <- dbGetQuery(
   SELECT year, meta_pin, pred_pin_final_fmv_round AS model_org_fmv
   FROM model.assessment_pin
   WHERE run_id = '2024-02-16-silly-billy'
-  AND meta_triad_code = '3'
+  AND meta_triad_code = '{params$export$triad_code}'
   ")
 )
 
@@ -56,8 +56,8 @@ assessment_card <- dbGetQuery(
   INNER JOIN (
       SELECT *
       FROM model.assessment_pin
-      WHERE run_id = '2025-01-10-distracted-caroline'
-      AND meta_triad_code = '3'
+      WHERE run_id = '{params$export$run_id}'
+      AND meta_triad_code = '{params$export$triad_code}'
   ) p
   ON c.year = p.year
       AND c.run_id = p.run_id
@@ -74,10 +74,9 @@ land <- dbGetQuery(
       lline AS meta_line_num,
       sf AS meta_line_sf
   FROM iasworld.land
-  WHERE taxyr = '3'
+  WHERE taxyr = '{params$assessment$data_year}'
   ")
 )
-
 
 
 

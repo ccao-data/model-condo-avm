@@ -279,16 +279,11 @@
       "Version": "1.3.0",
       "Source": "GitHub",
       "RemoteType": "github",
-      "RemoteHost": "api.github.com",
       "RemoteUsername": "ccao-data",
       "RemoteRepo": "ccao",
       "RemoteRef": "master",
-<<<<<<< HEAD
-      "RemoteSha": "8b6f53e14c1732fcec5f6982fbc4bfb32f45f194",
-=======
       "RemoteSha": "a5449b9717323de3c51ee1948e4431175d6ccda0",
       "RemoteHost": "api.github.com",
->>>>>>> 21afae15ae7b8b2a7ae164fcf3b5339c55168dfc
       "Requirements": [
         "R",
         "assessr",
@@ -297,11 +292,7 @@
         "rlang",
         "tidyr"
       ],
-<<<<<<< HEAD
-      "Hash": "1663306aa228ded9892f07d65ec20db3"
-=======
       "Hash": "c29ff9f60bde4f122b8fe0bb75f02e8c"
->>>>>>> 21afae15ae7b8b2a7ae164fcf3b5339c55168dfc
     },
     "class": {
       "Package": "class",

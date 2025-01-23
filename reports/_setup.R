@@ -1,13 +1,3 @@
-<<<<<<< HEAD:reports/_setup.qmd
----
-params:
-  run_id: "2025-01-10-distracted-caroline"
-  year: "2025"
----
-
-```{r}
-=======
->>>>>>> 21afae15ae7b8b2a7ae164fcf3b5339c55168dfc:reports/_setup.R
 # This setup script is run at the top of each Quarto report subsection to load
 # libraries, data, and other objects needed for the report. It only loads
 # objects if they don't already exist in the environment, so it can be run
