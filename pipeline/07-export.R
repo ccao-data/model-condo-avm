@@ -199,8 +199,6 @@ assessment_pin10_prepped <- assessment_pin_prepped %>%
   arrange(meta_pin10)
 
 
-assessment_pin_prepped <- assessment_pin_prepped %>%
-  filter(township_code == 70)
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 4. Export Desk Review --------------------------------------------------------
