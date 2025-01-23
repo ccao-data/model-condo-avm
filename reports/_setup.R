@@ -59,12 +59,12 @@ if (!exists("chars_data")) {
 
 # Grab metadata to check output data <> params alignment
 metadata <- read_parquet(paths$output$metadata$local)
-# if (metadata$run_id != params$run_id) {
-#   stop(
-#     "Local run outputs are NOT equal to the requested run_id. You ",
-#     "should run model_fetch_run() to fetch model outputs from S3"
-#   )
-# }
+if (metadata$run_id != params$run_id) {
+  stop(
+    "Local run outputs are NOT equal to the requested run_id. You ",
+    "should run model_fetch_run() to fetch model outputs from S3"
+  )
+}
 
 # Extract hash values from dvc.lock file
 dvc_lock_values <- sapply(
