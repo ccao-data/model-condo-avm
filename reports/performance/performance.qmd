@@ -15,7 +15,6 @@ format:
     toc_float: true
     fig-align: center
     fontsize: 12pt
-    theme: cosmo
 knitr:
   opts_chunk:
     out.width: "100%"
@@ -29,19 +28,19 @@ params:
 source("../_setup.R")
 ```
 
-<!-- {{< include _model.qmd >}} -->
+{{< include _model.qmd >}}
 
 {{< include _outcomes.qmd >}}
 
-<!-- {{< include _sales.qmd >}} -->
+{{< include _sales.qmd >}}
 
-<!-- {{< include _outliers.qmd >}} -->
+{{< include _outliers.qmd >}}
 
-<!-- ```{r, results='asis', echo=FALSE} -->
-<!-- # Dynamically render shap code based on whether they are enabled for model run -->
-<!-- # https://www.harveyl888.com/post/2022-05-12-knit_child_quarto/ -->
-<!-- if (shap_exists) { -->
-<!--   shap_qmd <- knitr::knit_child("_shap.qmd", quiet = TRUE) -->
-<!--   cat(shap_qmd, sep = "\n") -->
-<!-- } -->
-<!-- ``` -->
+```{r, results='asis', echo=FALSE}
+# Dynamically render shap code based on whether they are enabled for model run
+# https://www.harveyl888.com/post/2022-05-12-knit_child_quarto/
+if (shap_exists) {
+  shap_qmd <- knitr::knit_child("_shap.qmd", quiet = TRUE)
+  cat(shap_qmd, sep = "\n")
+}
+```
