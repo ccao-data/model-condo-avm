@@ -60,13 +60,14 @@ We leverage these qualities to produce what we call ***strata***, a feature uniq
 
 ### Features Used
 
-Because our individual condo unit characteristics are sparse and incomplete, we primarily must rely on aggregate geospatial features, economic features, [strata](#condo-strata), and time of sale to determine condo assessed values. The features in the table below are the ones used in the 2024 assessment model.
+Because our individual condo unit characteristics are sparse and incomplete, we primarily must rely on aggregate geospatial features, economic features, [strata](#condo-strata), and time of sale to determine condo assessed values. The features in the table below are the ones used in the most recent assessment model.
 
 ```{r features_used, message=FALSE, echo=FALSE}
 library(dplyr)
 library(glue)
 library(jsonlite)
 library(purrr)
+library(readr)
 library(tidyr)
 library(yaml)
 
@@ -154,42 +155,61 @@ res_preds <- res_params$model$predictor$all
 
 condo_unique_preds <- setdiff(condo_preds$value, res_preds)
 
-condo_preds %>%
+condo_preds_fmt <- condo_preds %>%
   mutate(description = param_notes) %>%
   left_join(
     ccao::vars_dict,
     by = c("value" = "var_name_model")
   ) %>%
   distinct(
-    `Feature Name` = var_name_pretty,
-    Category = var_type,
-    Type = var_data_type,
-    Notes = description,
-    value
+    feature_name = var_name_pretty,
+    variable_name = value,
+    description,
+    category = var_type,
+    type = var_data_type
   ) %>%
   mutate(
-    Category = recode(
-      Category,
+    category = recode(
+      category,
       char = "Characteristic", acs5 = "ACS5", loc = "Location",
       prox = "Proximity", ind = "Indicator", time = "Time",
-      meta = "Meta", other = "Other", ccao = "Other"
+      meta = "Meta", other = "Other", ccao = "Other", shp = "Parcel Shape"
     ),
-    `Feature Name` = recode(
-      `Feature Name`,
+    feature_name = recode(
+      feature_name,
       "Tieback Proration Rate" = "Condominium % Ownership",
       "Year Built" = "Condominium Building Year Built"
+    ),
+    unique_to_condo_model = ifelse(
+      variable_name %in% condo_unique_preds |
+        feature_name %in%
+          c("Condominium Building Year Built", "Condominium % Ownership"),
+      TRUE, FALSE
     )
   ) %>%
-  mutate(`Unique to Condo Model` = ifelse(
-    value %in% condo_unique_preds |
-      `Feature Name` %in%
-        c("Condominium Building Year Built", "Condominium % Ownership"),
-    "X", ""
-  )) %>%
-  arrange(desc(`Unique to Condo Model`), Category) %>%
-  select(-value) %>%
+  arrange(desc(unique_to_condo_model), category)
+
+condo_preds_fmt %>%
+  write_csv("docs/data-dict.csv")
+
+condo_preds_fmt %>%
+  mutate(unique_to_condo_model = ifelse(unique_to_condo_model, "X", "")) %>%
+  rename(
+    "Feature Name" = "feature_name",
+    "Variable Name" = "variable_name",
+    "Description" = "description",
+    "Category" = "category",
+    "Type" = "type",
+    "Unique to Condo Model" = "unique_to_condo_model"
+  ) %>%
   knitr::kable(format = "markdown")
 ```
+
+We maintain a few useful resources for working with these features:
+
+- Once you've [pulled the input data](#getting-data), you can inner join the data to the CSV version of the data dictionary ([`docs/data-dict.csv`](./docs/data-dict.csv)) to filter for only the features that we use in the model.
+- You can browse our [data catalog](https://ccao-data.github.io/data-architecture/#!/overview) to see more details about these features, in particular the [condo model input view](https://ccao-data.github.io/data-architecture/#!/model/model.ccao_data_athena.model.vw_pin_condo_input) which is the source of our training data.
+- You can use the [`ccao` R package](https://ccao-data.github.io/ccao/) or its [Python equivalent](https://ccao-data.github.io/ccao/python/) to programmatically convert variable names to their human-readable versions ([`ccao::vars_rename()`](https://ccao-data.github.io/ccao/reference/vars_rename.html)) or convert numerically-encoded variables to human-readable values ([`ccao::vars_recode()`](https://ccao-data.github.io/ccao/reference/vars_recode.html). The [`ccao::vars_dict` object](https://ccao-data.github.io/ccao/reference/vars_dict.html) is also useful for inspecting the raw crosswalk that powers the rename and recode functions.
 
 ### Valuation
 
