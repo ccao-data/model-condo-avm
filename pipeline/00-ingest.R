@@ -48,11 +48,11 @@ recode_column_type <- function(col, col_name, dictionary = col_type_dict) {
     pull(var_type)
 
   switch(col_type,
-         numeric = as.numeric(col),
-         character = as.character(col),
-         logical = as.logical(as.numeric(col)),
-         categorical = as.factor(col),
-         date = lubridate::as_date(col)
+    numeric = as.numeric(col),
+    character = as.character(col),
+    logical = as.logical(as.numeric(col)),
+    categorical = as.factor(col),
+    date = lubridate::as_date(col)
   )
 }
 
@@ -308,7 +308,7 @@ training_data_ms <- training_data %>%
     # is a garage unit
     keep_unit_sale =
       meta_tieback_proration_rate >= (lag(meta_tieback_proration_rate) * 3) &
-      sum(meta_cdu == "GR", na.rm = TRUE) == 1, # nolint
+        sum(meta_cdu == "GR", na.rm = TRUE) == 1, # nolint
     # If there are multiple PINs associated with a sale, take only the
     # proportion of the sale value that is attributable to the main unit (based
     # on percentage of ownership)
@@ -622,12 +622,12 @@ bldg_strata <- bldg_5yr_sales_avg %>%
   left_join(bldg_strata_model, by = params$input$strata$group_var) %>%
   mutate(
     meta_strata_1 = switch(params$input$strata$type,
-                           kmeans = val_assign_center(mean_log10_sale_price, meta_strata_model_1),
-                           ntile = val_assign_ntile(mean_log10_sale_price, meta_strata_model_1)
+      kmeans = val_assign_center(mean_log10_sale_price, meta_strata_model_1),
+      ntile = val_assign_ntile(mean_log10_sale_price, meta_strata_model_1)
     ),
     meta_strata_2 = switch(params$input$strata$type,
-                           kmeans = val_assign_center(mean_log10_sale_price, meta_strata_model_2),
-                           ntile = val_assign_ntile(mean_log10_sale_price, meta_strata_model_2)
+      kmeans = val_assign_center(mean_log10_sale_price, meta_strata_model_2),
+      ntile = val_assign_ntile(mean_log10_sale_price, meta_strata_model_2)
     )
   ) %>%
   group_by(across(params$input$strata$group_var), meta_strata_1) %>%
