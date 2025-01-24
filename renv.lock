@@ -161,11 +161,11 @@
       "Version": "0.6.0",
       "Source": "GitHub",
       "RemoteType": "github",
+      "RemoteHost": "api.github.com",
       "RemoteUsername": "ccao-data",
       "RemoteRepo": "assessr",
       "RemoteRef": "master",
       "RemoteSha": "82b3cca6374cc7300145e4345278329b7835086a",
-      "RemoteHost": "api.github.com",
       "Requirements": [
         "R",
         "stats"
@@ -283,7 +283,8 @@
       "RemoteUsername": "ccao-data",
       "RemoteRepo": "ccao",
       "RemoteRef": "master",
-      "RemoteSha": "8b6f53e14c1732fcec5f6982fbc4bfb32f45f194",
+      "RemoteSha": "a5449b9717323de3c51ee1948e4431175d6ccda0",
+      "Remotes": "ccao-data/assessr",
       "Requirements": [
         "R",
         "assessr",
@@ -292,7 +293,7 @@
         "rlang",
         "tidyr"
       ],
-      "Hash": "1663306aa228ded9892f07d65ec20db3"
+      "Hash": "c29ff9f60bde4f122b8fe0bb75f02e8c"
     },
     "class": {
       "Package": "class",
@@ -898,11 +899,11 @@
       "Version": "0.0.6",
       "Source": "GitHub",
       "RemoteType": "github",
+      "RemoteHost": "api.github.com",
       "RemoteUsername": "ccao-data",
       "RemoteRepo": "lightsnip",
       "RemoteRef": "master",
       "RemoteSha": "2720ad973c990ad64ac7e6bb632389ff9f2a2675",
-      "RemoteHost": "api.github.com",
       "Requirements": [
         "butcher",
         "dials",
