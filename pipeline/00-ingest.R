@@ -123,6 +123,44 @@ land_nbhd_rate_data <- dbGetQuery(
 )
 tictoc::toc()
 
+# Pull the single family sales data. It will only be used to construct rolling
+# price averages by neighborhood.
+tictoc::tic("Single-family sales data pulled")
+sf_sales_data <- dbGetQuery(
+  conn = AWS_ATHENA_CONN_NOCTUA, glue("
+  SELECT
+    sale.doc_no AS meta_sale_document_num,
+    sale.sale_price AS meta_sale_price,
+    sale.sale_date AS meta_sale_date,
+    sale.sv_is_outlier,
+    res.meta_township_code,
+    res.meta_nbhd_code
+  FROM model.vw_card_res_input res
+  INNER JOIN default.vw_pin_sale sale
+    ON sale.pin = res.meta_pin
+    AND sale.year = res.year
+  WHERE res.year
+    BETWEEN '{params$input$min_sale_year}'
+      AND '{params$input$max_sale_year}'
+    --AND CAST({params$input$max_sale_year} AS int)
+    AND sale.deed_type IN ('01', '02', '05')
+    AND NOT sale.is_multisale
+    AND NOT sale.sale_filter_same_sale_within_365
+    AND NOT sale.sale_filter_less_than_10k
+    AND NOT sale.sale_filter_deed_type
+  ")
+) %>%
+  # Only exclude explicit outliers from training. Sales with missing validation
+  # outcomes will be considered non-outliers
+  mutate(
+    sv_is_outlier = replace_na(sv_is_outlier, FALSE),
+    ind_pin_is_multicard = FALSE
+  ) %>%
+  # Keep multicard sales since we are only using them to construct sale price
+  # trends, but we still need the sales sample to be unique by document number
+  distinct(meta_sale_document_num, .keep_all = TRUE)
+tictoc::toc()
+
 # Close connection to Athena
 dbDisconnect(AWS_ATHENA_CONN_NOCTUA)
 rm(AWS_ATHENA_CONN_NOCTUA)
@@ -401,6 +439,204 @@ training_data_clean <- training_data_fil %>%
   as_tibble()
 
 
+# Stack single-family and condo sales data to construct rolling means for both
+all_sales_data <- sf_sales_data %>%
+  mutate(regression_group = "sf") %>%
+  bind_rows(
+    training_data_clean %>%
+      select(meta_sale_document_num, meta_sale_price, meta_sale_date, sv_is_outlier, meta_township_code, meta_nbhd_code) %>%
+      mutate(
+        ind_pin_is_multicard = FALSE,
+        regression_group = "condo"
+      )
+  ) %>%
+  mutate(
+    meta_sale_price_sf = ifelse(regression_group == 'sf', meta_sale_price, NA),
+    meta_sale_price_condo = ifelse(regression_group == 'condo', meta_sale_price, NA),
+  ) %>%
+  arrange(meta_sale_date)
+
+all_sales_data_dt <- all_sales_data[
+  !sv_is_outlier & !ind_pin_is_multicard,
+  `:=`(
+    lag_nbhd_sf_t0_price = data.table::shift(meta_sale_price_sf, 1, type = "lag"),
+    lag_nbhd_sf_t1_shift = (1:.N - findInterval(meta_sale_date %m-% months(3), meta_sale_date)) * 2 - 1,
+    lag_nbhd_sf_t2_shift = (1:.N - findInterval(meta_sale_date %m-% months(12), meta_sale_date)) * 2 - 1,
+    lag_nbhd_condo_t0_price = data.table::shift(meta_sale_price_condo, 1, type = "lag"),
+    lag_nbhd_condo_t1_shift = (1:.N - findInterval(meta_sale_date %m-% months(3), meta_sale_date)) * 2 - 1,
+    lag_nbhd_condo_t2_shift = (1:.N - findInterval(meta_sale_date %m-% months(12), meta_sale_date)) * 2 - 1
+  ),
+  by = .(meta_nbhd_code)
+][
+  !sv_is_outlier & !ind_pin_is_multicard,
+  `:=`(
+    lag_nbhd_sf_t1_price = meta_sale_price_sf[replace(seq(.N) - lag_nbhd_sf_t1_shift, seq(.N) <= lag_nbhd_sf_t1_shift, NA)],
+    lag_nbhd_sf_t2_price = meta_sale_price_sf[replace(seq(.N) - lag_nbhd_sf_t2_shift, seq(.N) <= lag_nbhd_sf_t2_shift, NA)],
+    lag_nbhd_condo_t1_price = meta_sale_price_condo[replace(seq(.N) - lag_nbhd_condo_t1_shift, seq(.N) <= lag_nbhd_condo_t1_shift, NA)],
+    lag_nbhd_condo_t2_price = meta_sale_price_condo[replace(seq(.N) - lag_nbhd_condo_t2_shift, seq(.N) <= lag_nbhd_condo_t2_shift, NA)]
+  ),
+  by = .(meta_nbhd_code)
+][
+  !sv_is_outlier & !ind_pin_is_multicard,
+  `:=`(
+    time_sale_roll_mean_nbhd_sf_t0_w1 = data.table::frollmean(
+      lag_nbhd_sf_t0_price,
+      1:.N - findInterval(meta_sale_date %m-% months(3), meta_sale_date),
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ),
+    time_sale_roll_mean_nbhd_sf_t0_w2 = data.table::frollmean(
+      lag_nbhd_sf_t0_price,
+      1:.N - findInterval(meta_sale_date %m-% months(6), meta_sale_date),
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ),
+    time_sale_roll_mean_nbhd_sf_t0_w3 = data.table::frollmean(
+      lag_nbhd_sf_t0_price,
+      1:.N - findInterval(meta_sale_date %m-% months(12), meta_sale_date),
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ),
+    time_sale_roll_mean_nbhd_sf_t1_w1 = data.table::frollmean(
+      lag_nbhd_sf_t1_price,
+      1:.N - findInterval(meta_sale_date %m-% months(3), meta_sale_date),
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ),
+    time_sale_roll_mean_nbhd_sf_t1_w2 = data.table::frollmean(
+      lag_nbhd_sf_t1_price,
+      1:.N - findInterval(meta_sale_date %m-% months(6), meta_sale_date),
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ),
+    time_sale_roll_mean_nbhd_sf_t1_w3 = data.table::frollmean(
+      lag_nbhd_sf_t1_price,
+      1:.N - findInterval(meta_sale_date %m-% months(12), meta_sale_date),
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ),
+    time_sale_roll_mean_nbhd_sf_t2_w1 = data.table::frollmean(
+      lag_nbhd_sf_t2_price,
+      1:.N - findInterval(meta_sale_date %m-% months(3), meta_sale_date),
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ),
+    time_sale_roll_mean_nbhd_sf_t2_w2 = data.table::frollmean(
+      lag_nbhd_sf_t2_price,
+      1:.N - findInterval(meta_sale_date %m-% months(6), meta_sale_date),
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ),
+    time_sale_roll_mean_nbhd_sf_t2_w3 = data.table::frollmean(
+      lag_nbhd_sf_t2_price,
+      1:.N - findInterval(meta_sale_date %m-% months(12), meta_sale_date),
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ),
+    time_sale_roll_mean_nbhd_condo_t0_w1 = data.table::frollmean(
+      lag_nbhd_condo_t0_price,
+      1:.N - findInterval(meta_sale_date %m-% months(3), meta_sale_date),
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ),
+    time_sale_roll_mean_nbhd_condo_t0_w2 = data.table::frollmean(
+      lag_nbhd_condo_t0_price,
+      1:.N - findInterval(meta_sale_date %m-% months(6), meta_sale_date),
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ),
+    time_sale_roll_mean_nbhd_condo_t0_w3 = data.table::frollmean(
+      lag_nbhd_condo_t0_price,
+      1:.N - findInterval(meta_sale_date %m-% months(12), meta_sale_date),
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ),
+    time_sale_roll_mean_nbhd_condo_t1_w1 = data.table::frollmean(
+      lag_nbhd_condo_t1_price,
+      1:.N - findInterval(meta_sale_date %m-% months(3), meta_sale_date),
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ),
+    time_sale_roll_mean_nbhd_condo_t1_w2 = data.table::frollmean(
+      lag_nbhd_condo_t1_price,
+      1:.N - findInterval(meta_sale_date %m-% months(6), meta_sale_date),
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ),
+    time_sale_roll_mean_nbhd_condo_t1_w3 = data.table::frollmean(
+      lag_nbhd_condo_t1_price,
+      1:.N - findInterval(meta_sale_date %m-% months(12), meta_sale_date),
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ),
+    time_sale_roll_mean_nbhd_condo_t2_w1 = data.table::frollmean(
+      lag_nbhd_condo_t2_price,
+      1:.N - findInterval(meta_sale_date %m-% months(3), meta_sale_date),
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ),
+    time_sale_roll_mean_nbhd_condo_t2_w2 = data.table::frollmean(
+      lag_nbhd_condo_t2_price,
+      1:.N - findInterval(meta_sale_date %m-% months(6), meta_sale_date),
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ),
+    time_sale_roll_mean_nbhd_condo_t2_w3 = data.table::frollmean(
+      lag_nbhd_condo_t2_price,
+      1:.N - findInterval(meta_sale_date %m-% months(12), meta_sale_date),
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    )
+  ),
+]
+
+all_sales_data_dt <- all_sales_data_dt %>%
+  mutate(across(.cols = everything(), ~ifelse(is.nan(.x), NA, .x)))
+
+# Join rolling sales means for condo and single-family sales onto training data
+training_data_clean <- training_data_clean %>%
+  left_join(
+    all_sales_data_dt %>%
+      select(meta_sale_document_num, starts_with("time")),
+    by = "meta_sale_document_num"
+  )
+
 ## 4.2. Assessment Data --------------------------------------------------------
 
 # Clean the assessment data. This is the target data that the trained model is
@@ -454,6 +690,18 @@ assessment_data_clean <- assessment_data %>%
   relocate(starts_with("char_"), .after = starts_with("ind_")) %>%
   as_tibble()
 
+
+assessment_data_clean <- assessment_data_clean %>%
+  left_join(
+    all_sales_data_dt %>%
+      group_by(meta_nbhd_code) %>%
+      arrange(desc(meta_sale_date)) %>%
+      fill(starts_with("time"), .direction = "up") %>%
+      slice_head(n = 1) %>%
+      ungroup() %>%
+      select(meta_nbhd_code, starts_with("time")),
+    by = "meta_nbhd_code"
+  )
 
 ## 4.3. Land Rates -------------------------------------------------------------
 message("Saving land rates")
