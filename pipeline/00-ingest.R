@@ -123,8 +123,8 @@ land_nbhd_rate_data <- dbGetQuery(
 )
 tictoc::toc()
 
-# Pull the single family sales data. It will only be used to construct rolling
-# price averages by neighborhood.
+# Pull single family sales data  to construct rolling price averages by
+# neighborhood.
 tictoc::tic("Single-family sales data pulled")
 sf_sales_data <- dbGetQuery(
   conn = AWS_ATHENA_CONN_NOCTUA, glue("
@@ -156,7 +156,7 @@ sf_sales_data <- dbGetQuery(
     sv_is_outlier = replace_na(sv_is_outlier, FALSE),
     ind_pin_is_multicard = FALSE
   ) %>%
-  # Keep multicard sales since we are only using them to construct sale price
+  # We keep multicard sales since we are only using them to construct sale price
   # trends, but we still need the sales sample to be unique by document number
   distinct(meta_sale_document_num, .keep_all = TRUE)
 tictoc::toc()
@@ -730,7 +730,8 @@ assessment_data_clean <- assessment_data %>%
   relocate(starts_with("char_"), .after = starts_with("ind_")) %>%
   as_tibble()
 
-
+# Join rolling sales means for condo and single-family sales onto assessment
+# data
 assessment_data_clean <- assessment_data_clean %>%
   left_join(
     all_sales_data_dt %>%
