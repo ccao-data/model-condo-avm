@@ -12,7 +12,7 @@ stages:
         assessment:
           year: '2025'
           date: '2025-01-01'
-          triad: city
+          triad: north
           group: condo
           data_year: '2024'
           working_year: '2025'
@@ -35,8 +35,8 @@ stages:
       size: 76317241
     - path: input/char_data.parquet
       hash: md5
-      md5: 91fd3babe32c193c2612c58938c10210
-      size: 150134075
+      md5: dc5a120811499b6b0e4af8af8791001d
+      size: 150600837
     - path: input/condo_strata_data.parquet
       hash: md5
       md5: ded3ecde590af57e6b98a8935fae0215
