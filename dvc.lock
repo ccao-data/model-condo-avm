@@ -35,8 +35,8 @@ stages:
       size: 76103136
     - path: input/char_data.parquet
       hash: md5
-      md5: 50d3ba8b83e934feb7496fed7d194153
-      size: 149467338
+      md5: 09a842b0910fa84c9fa7834593ee488c
+      size: 149301395
     - path: input/condo_strata_data.parquet
       hash: md5
       md5: ded3ecde590af57e6b98a8935fae0215
