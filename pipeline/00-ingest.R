@@ -455,14 +455,19 @@ all_sales_data <- sf_sales_data %>%
   ) %>%
   mutate(
     meta_sale_price_sf = ifelse(regression_group == "sf", meta_sale_price, NA),
-    meta_sale_price_condo = ifelse(regression_group == "condo", meta_sale_price, NA),
+    meta_sale_price_condo = ifelse(
+      regression_group == "condo", meta_sale_price, NA
+    ),
   ) %>%
   arrange(meta_sale_date)
 
 all_sales_data_dt <- all_sales_data[
   !sv_is_outlier & !ind_pin_is_multicard,
   `:=`(
-    lag_nbhd_sf_t0_price = data.table::shift(meta_sale_price_sf, 1, type = "lag"),
+    lag_nbhd_sf_t0_price = data.table::shift(
+      meta_sale_price_sf, 1,
+      type = "lag"
+    ),
     lag_nbhd_sf_t1_shift = (seq_len(.N) - findInterval(
       meta_sale_date %m-% months(3),
       meta_sale_date
@@ -520,7 +525,9 @@ all_sales_data_dt <- all_sales_data[
     ),
     time_sale_roll_mean_nbhd_sf_t0_w3 = data.table::frollmean(
       lag_nbhd_sf_t0_price,
-      seq_len(.N) - findInterval(meta_sale_date %m-% months(12), meta_sale_date),
+      seq_len(.N) - findInterval(
+        meta_sale_date %m-% months(12), meta_sale_date
+      ),
       align = "right",
       adaptive = TRUE,
       na.rm = TRUE,
@@ -544,7 +551,9 @@ all_sales_data_dt <- all_sales_data[
     ),
     time_sale_roll_mean_nbhd_sf_t1_w3 = data.table::frollmean(
       lag_nbhd_sf_t1_price,
-      seq_len(.N) - findInterval(meta_sale_date %m-% months(12), meta_sale_date),
+      seq_len(.N) - findInterval(
+        meta_sale_date %m-% months(12), meta_sale_date
+      ),
       align = "right",
       adaptive = TRUE,
       na.rm = TRUE,
@@ -568,7 +577,9 @@ all_sales_data_dt <- all_sales_data[
     ),
     time_sale_roll_mean_nbhd_sf_t2_w3 = data.table::frollmean(
       lag_nbhd_sf_t2_price,
-      seq_len(.N) - findInterval(meta_sale_date %m-% months(12), meta_sale_date),
+      seq_len(.N) - findInterval(
+        meta_sale_date %m-% months(12), meta_sale_date
+      ),
       align = "right",
       adaptive = TRUE,
       na.rm = TRUE,
@@ -592,7 +603,9 @@ all_sales_data_dt <- all_sales_data[
     ),
     time_sale_roll_mean_nbhd_condo_t0_w3 = data.table::frollmean(
       lag_nbhd_condo_t0_price,
-      seq_len(.N) - findInterval(meta_sale_date %m-% months(12), meta_sale_date),
+      seq_len(.N) - findInterval(
+        meta_sale_date %m-% months(12), meta_sale_date
+      ),
       align = "right",
       adaptive = TRUE,
       na.rm = TRUE,
@@ -616,7 +629,9 @@ all_sales_data_dt <- all_sales_data[
     ),
     time_sale_roll_mean_nbhd_condo_t1_w3 = data.table::frollmean(
       lag_nbhd_condo_t1_price,
-      seq_len(.N) - findInterval(meta_sale_date %m-% months(12), meta_sale_date),
+      seq_len(.N) - findInterval(
+        meta_sale_date %m-% months(12), meta_sale_date
+      ),
       align = "right",
       adaptive = TRUE,
       na.rm = TRUE,
@@ -640,7 +655,9 @@ all_sales_data_dt <- all_sales_data[
     ),
     time_sale_roll_mean_nbhd_condo_t2_w3 = data.table::frollmean(
       lag_nbhd_condo_t2_price,
-      seq_len(.N) - findInterval(meta_sale_date %m-% months(12), meta_sale_date),
+      seq_len(.N) - findInterval(
+        meta_sale_date %m-% months(12), meta_sale_date
+      ),
       align = "right",
       adaptive = TRUE,
       na.rm = TRUE,
