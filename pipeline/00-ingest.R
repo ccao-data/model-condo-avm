@@ -447,7 +447,7 @@ all_sales_data <- sf_sales_data %>%
       select(
         meta_sale_document_num, meta_sale_price, meta_sale_date, sv_is_outlier,
         meta_township_code, meta_nbhd_code
-        ) %>%
+      ) %>%
       mutate(
         ind_pin_is_multicard = FALSE,
         regression_group = "condo"
@@ -463,18 +463,23 @@ all_sales_data_dt <- all_sales_data[
   !sv_is_outlier & !ind_pin_is_multicard,
   `:=`(
     lag_nbhd_sf_t0_price = data.table::shift(meta_sale_price_sf, 1, type = "lag"),
-    lag_nbhd_sf_t1_shift = (seq_len(.N) - findInterval(meta_sale_date %m-% months(3),
-                                                meta_sale_date)) * 2 - 1,
-    lag_nbhd_sf_t2_shift = (seq_len(.N) - findInterval(meta_sale_date %m-% months(12),
-                                                meta_sale_date)) * 2 - 1,
+    lag_nbhd_sf_t1_shift = (seq_len(.N) - findInterval(
+      meta_sale_date %m-% months(3),
+      meta_sale_date
+    )) * 2 - 1,
+    lag_nbhd_sf_t2_shift = (seq_len(.N) - findInterval(
+      meta_sale_date %m-% months(12),
+      meta_sale_date
+    )) * 2 - 1,
     lag_nbhd_condo_t0_price = data.table::shift(meta_sale_price_condo, 1,
-                                                type = "lag"),
+      type = "lag"
+    ),
     lag_nbhd_condo_t1_shift = (seq_len(.N) - findInterval(
       meta_sale_date %m-% months(3), meta_sale_date
-      )) * 2 - 1,
+    )) * 2 - 1,
     lag_nbhd_condo_t2_shift = (seq_len(.N) - findInterval(
       meta_sale_date %m-% months(12), meta_sale_date
-      )) * 2 - 1
+    )) * 2 - 1
   ),
   by = .(meta_nbhd_code)
 ][
@@ -482,16 +487,16 @@ all_sales_data_dt <- all_sales_data[
   `:=`(
     lag_nbhd_sf_t1_price = meta_sale_price_sf[replace(
       seq(.N) - lag_nbhd_sf_t1_shift, seq(.N) <= lag_nbhd_sf_t1_shift, NA
-      )],
+    )],
     lag_nbhd_sf_t2_price = meta_sale_price_sf[replace(
       seq(.N) - lag_nbhd_sf_t2_shift, seq(.N) <= lag_nbhd_sf_t2_shift, NA
-      )],
+    )],
     lag_nbhd_condo_t1_price = meta_sale_price_condo[replace(
       seq(.N) - lag_nbhd_condo_t1_shift, seq(.N) <= lag_nbhd_condo_t1_shift, NA
-      )],
+    )],
     lag_nbhd_condo_t2_price = meta_sale_price_condo[replace(
       seq(.N) - lag_nbhd_condo_t2_shift, seq(.N) <= lag_nbhd_condo_t2_shift, NA
-      )]
+    )]
   ),
   by = .(meta_nbhd_code)
 ][
