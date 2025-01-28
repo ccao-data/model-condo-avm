@@ -338,7 +338,7 @@ units_working <- assessment_data_working %>%
 assessment_data <- assessment_data %>%
   left_join(units_working, by = c("meta_pin" = "pin"))
 
-assessment_data <- training_data %>%
+training_data <- training_data %>%
   left_join(units_working, by = c("meta_pin" = "pin"))
 
 # Save both years for report generation using the characteristics
