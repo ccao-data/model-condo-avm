@@ -30,9 +30,114 @@ AWS_ATHENA_CONN_NOCTUA <- dbConnect(
 
 
 
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# 2. Define Functions ----------------------------------------------------------
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Ingest-specific helper functions for data cleaning, etc.
+
+# Create a dictionary of column types, as specified in ccao::vars_dict
+col_type_dict <- ccao::vars_dict %>%
+  distinct(var_name = var_name_model, var_type = var_data_type) %>%
+  drop_na(var_name)
+
+# Mini-function to ensure that columns are the correct type
+recode_column_type <- function(col, col_name, dictionary = col_type_dict) {
+  col_type <- dictionary %>%
+    filter(var_name == col_name) %>%
+    pull(var_type)
+
+  switch(col_type,
+         numeric = as.numeric(col),
+         character = as.character(col),
+         logical = as.logical(as.numeric(col)),
+         categorical = as.factor(col),
+         date = lubridate::as_date(col)
+  )
+}
+
+
+# Create quantiles with unbounded top and bottom bins. Used to bin
+# condo building sales prices into strata
+val_create_ntiles <- function(x, probs, na.rm = TRUE) {
+  stopifnot(
+    is.numeric(x),
+    is.numeric(probs),
+    is.logical(na.rm)
+  )
+
+  output <- list(c(
+    -Inf,
+    unique(stats::quantile(x, probs = probs, na.rm = na.rm, names = FALSE)),
+    Inf
+  ))
+  output <- ifelse(all(is.na(x)), list(NA_real_), output)
+
+  return(output)
+}
+
+
+# Given a sale price x, assign the sale price to a pre-made strata bin
+val_assign_ntile <- function(x, ntiles) {
+  output <- as.character(ifelse(
+    !is.na(x),
+    purrr::pmap(
+      list(x, ntiles),
+      ~ cut(.x, breaks = .y, labels = FALSE)
+    ),
+    NA_character_
+  ))
+
+  return(output)
+}
+
+
+# Given a set of k-means centers and a sale price, find the nearest center
+val_assign_center <- function(x, centers) {
+  output <- as.character(ifelse(
+    !is.na(x) & !is.na(centers),
+    purrr::pmap(
+      list(x, centers),
+      ~ which.min(mapply(function(z, y) sum(z - y)^2, .x, .y))
+    ),
+    NA_character_
+  ))
+
+  return(output)
+}
+
+
+# Rescaling function to normalize a continuous range to be between a min and max
+rescale <- function(x, min = 0, max = 1) {
+  output <- (x - min(x, na.rm = TRUE)) /
+    (max(x, na.rm = TRUE) - min(x, na.rm = TRUE)) *
+    (max - min) + min
+
+  return(output)
+}
+
+
+# Mini function to deal with arrays
+# Some Athena columns are stored as arrays but are converted to string on
+# ingest. In such cases, we either keep the contents of the cell (if 1 unit),
+# collapse the array into a comma-separated string (if more than 1 unit),
+# or replace with NA if the array is empty
+process_array_column <- function(x) {
+  purrr::map_chr(x, function(cell) {
+    if (length(cell) > 1) {
+      paste(cell, collapse = ", ")
+    } else if (length(cell) == 1) {
+      as.character(cell) # Convert the single element to character
+    } else {
+      NA # Handle cases where the array is empty
+    }
+  })
+}
+
+
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 2. Pull Data -----------------------------------------------------------------
+# 3. Pull Data -----------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 message("Pulling data from Athena")
 
@@ -104,9 +209,56 @@ assessment_data <- dbGetQuery(
 )
 tictoc::toc()
 
-# Save both years for report generation using the characteristics
-assessment_data %>%
-  write_parquet(paths$input$char$local)
+
+
+##### START TEMPORARY FIX FOR MISSING DATA. REMOVE ONCE 2024 DATA IS AVAILABLE
+library(data.table)
+conflict_prefer_all("dplyr", "data.table", quiet = TRUE)
+conflict_prefer_all("lubridate", "data.table", quiet = TRUE)
+fill_cols <- assessment_data %>%
+  select(
+    starts_with("loc_"),
+    starts_with("prox_"),
+    starts_with("acs5_"),
+    starts_with("other_"),
+    starts_with("shp_")
+  ) %>%
+  names()
+assessment_data_temp <- as.data.table(assessment_data) %>%
+  mutate(across(starts_with("loc_tax_"), process_array_column))
+assessment_data_temp_2024 <- assessment_data_temp[
+  meta_year == "2024",
+][
+  assessment_data_temp[meta_year == "2023"],
+  (fill_cols) := mget(paste0("i.", fill_cols)),
+  on = .(meta_pin, meta_card_num)
+]
+assessment_data <- rbind(
+  assessment_data_temp[meta_year != "2024"],
+  assessment_data_temp_2024
+) %>%
+  as_tibble()
+
+training_data_temp <- as.data.table(training_data) %>%
+  mutate(across(starts_with("loc_tax_"), process_array_column))
+training_data_temp_2024 <- training_data_temp[
+  meta_year == "2024",
+][
+  assessment_data_temp[meta_year == "2023"],
+  (fill_cols) := mget(paste0("i.", fill_cols)),
+  on = .(meta_pin, meta_card_num)
+]
+training_data <- rbind(
+  training_data_temp[meta_year != "2024"],
+  training_data_temp_2024
+) %>%
+  as_tibble()
+rm(
+  assessment_data_temp, assessment_data_temp_2024,
+  training_data_temp, training_data_temp_2024
+)
+##### END TEMPORARY FIX
+
 
 
 units <- dbGetQuery(
@@ -181,15 +333,21 @@ units_working <- assessment_data_working %>%
       TRUE ~ "No matching condition"
     )
   ) %>%
-  select(meta_pin, floor)
+  select(pin, floor)
+
+assessment_data <- assessment_data %>%
+  left_join(units_working, by = c("meta_pin" = "pin"))
+
+assessment_data <- training_data %>%
+  left_join(units_working, by = c("meta_pin" = "pin"))
+
+# Save both years for report generation using the characteristics
+assessment_data %>%
+  write_parquet(paths$input$char$local)
 
 # Save only the assessment year data to use for assessing values
 assessment_data <- assessment_data %>%
-  filter(year == params$assessment$data_year) %>%
-  left_join(floor_data, by = "meta_pin")
-
-training_data <- training_data %>%
-  left_join(floor_data, by = "meta_pin")
+  filter(year == params$assessment$data_year)
 
 # Pull  neighborhood-level land rates per sqft, as calculated by Valuations
 tictoc::tic("Land rate data pulled")
@@ -205,119 +363,6 @@ tictoc::toc()
 # Close connection to Athena
 dbDisconnect(AWS_ATHENA_CONN_NOCTUA)
 rm(AWS_ATHENA_CONN_NOCTUA)
-
-
-
-
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 3. Define Functions ----------------------------------------------------------
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-# Ingest-specific helper functions for data cleaning, etc.
-
-# Create a dictionary of column types, as specified in ccao::vars_dict
-col_type_dict <- ccao::vars_dict %>%
-  distinct(var_name = var_name_model, var_type = var_data_type) %>%
-  drop_na(var_name)
-
-# Mini-function to ensure that columns are the correct type
-recode_column_type <- function(col, col_name, dictionary = col_type_dict) {
-  col_type <- dictionary %>%
-    filter(var_name == col_name) %>%
-    pull(var_type)
-
-  switch(col_type,
-    numeric = as.numeric(col),
-    character = as.character(col),
-    logical = as.logical(as.numeric(col)),
-    categorical = as.factor(col),
-    date = lubridate::as_date(col)
-  )
-}
-
-
-# Create quantiles with unbounded top and bottom bins. Used to bin
-# condo building sales prices into strata
-val_create_ntiles <- function(x, probs, na.rm = TRUE) {
-  stopifnot(
-    is.numeric(x),
-    is.numeric(probs),
-    is.logical(na.rm)
-  )
-
-  output <- list(c(
-    -Inf,
-    unique(stats::quantile(x, probs = probs, na.rm = na.rm, names = FALSE)),
-    Inf
-  ))
-  output <- ifelse(all(is.na(x)), list(NA_real_), output)
-
-  return(output)
-}
-
-
-# Given a sale price x, assign the sale price to a pre-made strata bin
-val_assign_ntile <- function(x, ntiles) {
-  output <- as.character(ifelse(
-    !is.na(x),
-    purrr::pmap(
-      list(x, ntiles),
-      ~ cut(.x, breaks = .y, labels = FALSE)
-    ),
-    NA_character_
-  ))
-
-  return(output)
-}
-
-
-# Given a set of k-means centers and a sale price, find the nearest center
-val_assign_center <- function(x, centers) {
-  output <- as.character(ifelse(
-    !is.na(x) & !is.na(centers),
-    purrr::pmap(
-      list(x, centers),
-      ~ which.min(mapply(function(z, y) sum(z - y)^2, .x, .y))
-    ),
-    NA_character_
-  ))
-
-  return(output)
-}
-
-
-# Rescaling function to normalize a continuous range to be between a min and max
-rescale <- function(x, min = 0, max = 1) {
-  output <- (x - min(x, na.rm = TRUE)) /
-    (max(x, na.rm = TRUE) - min(x, na.rm = TRUE)) *
-    (max - min) + min
-
-  return(output)
-}
-
-
-# Mini function to deal with arrays
-# Some Athena columns are stored as arrays but are converted to string on
-# ingest. In such cases, we either keep the contents of the cell (if 1 unit),
-# collapse the array into a comma-separated string (if more than 1 unit),
-# or replace with NA if the array is empty
-process_array_columns <- function(data, selector) {
-  data %>%
-    mutate(
-      across(
-        !!enquo(selector),
-        ~ sapply(.x, function(cell) {
-          if (length(cell) > 1) {
-            paste(cell, collapse = ", ")
-          } else if (length(cell) == 1) {
-            as.character(cell) # Convert the single element to character
-          } else {
-            NA # Handle cases where the array is empty
-          }
-        })
-      )
-    )
-}
 
 
 
@@ -343,7 +388,7 @@ training_data_ms <- training_data %>%
     # is a garage unit
     keep_unit_sale =
       meta_tieback_proration_rate >= (lag(meta_tieback_proration_rate) * 3) &
-        sum(meta_cdu == "GR", na.rm = TRUE) == 1, # nolint
+      sum(meta_cdu == "GR", na.rm = TRUE) == 1, # nolint
     # If there are multiple PINs associated with a sale, take only the
     # proportion of the sale value that is attributable to the main unit (based
     # on percentage of ownership)
@@ -431,8 +476,8 @@ training_data_clean <- training_data_fil %>%
   # Some Athena columns are stored as arrays but are converted to string on
   # ingest. In such cases, take the first element and clean the string
   # Apply the helper function to process array columns
-  process_array_columns(starts_with("loc_tax_")) %>%
   mutate(
+    across(starts_with("loc_tax_"), process_array_column),
     loc_tax_municipality_name =
       replace_na(loc_tax_municipality_name, "UNINCORPORATED")
   ) %>%
@@ -488,8 +533,8 @@ training_data_clean <- training_data_fil %>%
 assessment_data_clean <- assessment_data %>%
   ccao::vars_recode(cols = starts_with("char_"), code_type = "code") %>%
   # Apply the helper function to process array columns
-  process_array_columns(starts_with("loc_tax_")) %>%
   mutate(
+    across(starts_with("loc_tax_"), process_array_column),
     loc_tax_municipality_name =
       replace_na(loc_tax_municipality_name, "UNINCORPORATED")
   ) %>%
@@ -657,12 +702,12 @@ bldg_strata <- bldg_5yr_sales_avg %>%
   left_join(bldg_strata_model, by = params$input$strata$group_var) %>%
   mutate(
     meta_strata_1 = switch(params$input$strata$type,
-      kmeans = val_assign_center(mean_log10_sale_price, meta_strata_model_1),
-      ntile = val_assign_ntile(mean_log10_sale_price, meta_strata_model_1)
+                           kmeans = val_assign_center(mean_log10_sale_price, meta_strata_model_1),
+                           ntile = val_assign_ntile(mean_log10_sale_price, meta_strata_model_1)
     ),
     meta_strata_2 = switch(params$input$strata$type,
-      kmeans = val_assign_center(mean_log10_sale_price, meta_strata_model_2),
-      ntile = val_assign_ntile(mean_log10_sale_price, meta_strata_model_2)
+                           kmeans = val_assign_center(mean_log10_sale_price, meta_strata_model_2),
+                           ntile = val_assign_ntile(mean_log10_sale_price, meta_strata_model_2)
     )
   ) %>%
   group_by(across(params$input$strata$group_var), meta_strata_1) %>%
