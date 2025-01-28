@@ -451,8 +451,8 @@ all_sales_data <- sf_sales_data %>%
       )
   ) %>%
   mutate(
-    meta_sale_price_sf = ifelse(regression_group == 'sf', meta_sale_price, NA),
-    meta_sale_price_condo = ifelse(regression_group == 'condo', meta_sale_price, NA),
+    meta_sale_price_sf = ifelse(regression_group == "sf", meta_sale_price, NA),
+    meta_sale_price_condo = ifelse(regression_group == "condo", meta_sale_price, NA),
   ) %>%
   arrange(meta_sale_date)
 
@@ -627,7 +627,7 @@ all_sales_data_dt <- all_sales_data[
 ]
 
 all_sales_data_dt <- all_sales_data_dt %>%
-  mutate(across(.cols = everything(), ~ifelse(is.nan(.x), NA, .x)))
+  mutate(across(.cols = everything(), ~ ifelse(is.nan(.x), NA, .x)))
 
 # Join rolling sales means for condo and single-family sales onto training data
 training_data_clean <- training_data_clean %>%
