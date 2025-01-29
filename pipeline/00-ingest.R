@@ -30,146 +30,8 @@ AWS_ATHENA_CONN_NOCTUA <- dbConnect(
 
 
 
-
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 2. Pull Data -----------------------------------------------------------------
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-message("Pulling data from Athena")
-
-# Pull the training data, which contains actual sales + attached characteristics
-# from the condominium input view. We want to get sales spanning multiple
-# parcels only for sales that sell with deeded parking spots
-tictoc::tic("Training data pulled")
-training_data <- dbGetQuery(
-  conn = AWS_ATHENA_CONN_NOCTUA, glue("
-  SELECT
-      sale.sale_price AS meta_sale_price,
-      sale.sale_date AS meta_sale_date,
-      sale.doc_no AS meta_sale_document_num,
-      sale.deed_type AS meta_sale_deed_type,
-      sale.seller_name AS meta_sale_seller_name,
-      sale.buyer_name AS meta_sale_buyer_name,
-      sale.num_parcels_sale AS meta_sale_num_parcels,
-      sale.sv_is_outlier,
-      sale.sv_outlier_reason1,
-      sale.sv_outlier_reason2,
-      sale.sv_outlier_reason3,
-      condo.*
-  FROM model.vw_pin_condo_input condo
-  INNER JOIN default.vw_pin_sale sale
-      ON sale.pin = condo.meta_pin
-      AND sale.year = condo.year
-  WHERE condo.year
-      BETWEEN '{params$input$min_sale_year}'
-      AND '{params$input$max_sale_year}'
-  AND sale.deed_type IN ('01', '02', '05')
-  AND NOT sale.sale_filter_same_sale_within_365
-  AND NOT sale.sale_filter_less_than_10k
-  AND NOT sale.sale_filter_deed_type
-  AND Year(sale.sale_date) >= {params$input$min_sale_year}
-  AND sale.num_parcels_sale <= 2
-  ")
-)
-tictoc::toc()
-
-# Raw sales document number data used to identify some sales accidentally
-# excluded from the original training runs. See
-# https://github.com/ccao-data/data-architecture/pull/334 for more info
-tictoc::tic("Sales data pulled")
-sales_data <- dbGetQuery(
-  conn = AWS_ATHENA_CONN_NOCTUA, glue("
-  SELECT DISTINCT
-      substr(saledt, 1, 4) AS year,
-      instruno AS doc_no_old,
-      NULLIF(REPLACE(instruno, 'D', ''), '') AS doc_no_new
-  FROM iasworld.sales
-  WHERE substr(saledt, 1, 4) >= '{params$input$min_sale_year}'
-  ")
-)
-tictoc::toc()
-
-# Pull all condo PIN input data for the assessment and prior year. We will only
-# use the assessment year to run the model, but the prior year can be used for
-# report generation
-tictoc::tic("Assessment data pulled")
-assessment_data <- dbGetQuery(
-  conn = AWS_ATHENA_CONN_NOCTUA, glue("
-  SELECT *
-  FROM model.vw_pin_condo_input
-  WHERE year IN (
-    '{as.numeric(params$assessment$data_year) - 1}',
-    '{params$assessment$data_year}'
-  )
-  ")
-)
-tictoc::toc()
-
-# Save both years for report generation using the characteristics
-assessment_data %>%
-  write_parquet(paths$input$char$local)
-
-# Save only the assessment year data to use for assessing values
-assessment_data <- assessment_data %>%
-  filter(year == params$assessment$data_year)
-
-# Pull  neighborhood-level land rates per sqft, as calculated by Valuations
-tictoc::tic("Land rate data pulled")
-land_nbhd_rate_data <- dbGetQuery(
-  conn = AWS_ATHENA_CONN_NOCTUA, glue("
-  SELECT *
-  FROM ccao.land_nbhd_rate
-  WHERE year = '{params$assessment$year}'
-  ")
-)
-tictoc::toc()
-
-# Pull single family sales data  to construct rolling price averages by
-# neighborhood.
-tictoc::tic("Single-family sales data pulled")
-sf_sales_data <- dbGetQuery(
-  conn = AWS_ATHENA_CONN_NOCTUA, glue("
-  SELECT
-    sale.doc_no AS meta_sale_document_num,
-    sale.sale_price AS meta_sale_price,
-    sale.sale_date AS meta_sale_date,
-    sale.sv_is_outlier,
-    res.meta_township_code,
-    res.meta_nbhd_code
-  FROM model.vw_card_res_input res
-  INNER JOIN default.vw_pin_sale sale
-    ON sale.pin = res.meta_pin
-    AND sale.year = res.year
-  WHERE res.year
-    BETWEEN '{params$input$min_sale_year}'
-      AND '{params$input$max_sale_year}'
-    --AND CAST({params$input$max_sale_year} AS int)
-    AND sale.deed_type IN ('01', '02', '05')
-    AND NOT sale.is_multisale
-    AND NOT sale.sale_filter_same_sale_within_365
-    AND NOT sale.sale_filter_less_than_10k
-    AND NOT sale.sale_filter_deed_type
-  ")
-) %>%
-  # Only exclude explicit outliers from training. Sales with missing validation
-  # outcomes will be considered non-outliers
-  mutate(
-    sv_is_outlier = replace_na(sv_is_outlier, FALSE),
-    ind_pin_is_multicard = FALSE
-  ) %>%
-  # We keep multicard sales since we are only using them to construct sale price
-  # trends, but we still need the sales sample to be unique by document number
-  distinct(meta_sale_document_num, .keep_all = TRUE)
-tictoc::toc()
-
-# Close connection to Athena
-dbDisconnect(AWS_ATHENA_CONN_NOCTUA)
-rm(AWS_ATHENA_CONN_NOCTUA)
-
-
-
-
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 3. Define Functions ----------------------------------------------------------
+# 2. Define Functions ----------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Ingest-specific helper functions for data cleaning, etc.
@@ -260,23 +122,205 @@ rescale <- function(x, min = 0, max = 1) {
 # ingest. In such cases, we either keep the contents of the cell (if 1 unit),
 # collapse the array into a comma-separated string (if more than 1 unit),
 # or replace with NA if the array is empty
-process_array_columns <- function(data, selector) {
-  data %>%
-    mutate(
-      across(
-        !!enquo(selector),
-        ~ sapply(.x, function(cell) {
-          if (length(cell) > 1) {
-            paste(cell, collapse = ", ")
-          } else if (length(cell) == 1) {
-            as.character(cell) # Convert the single element to character
-          } else {
-            NA # Handle cases where the array is empty
-          }
-        })
-      )
-    )
+process_array_column <- function(x) {
+  purrr::map_chr(x, function(cell) {
+    if (length(cell) > 1) {
+      paste(cell, collapse = ", ")
+    } else if (length(cell) == 1) {
+      as.character(cell) # Convert the single element to character
+    } else {
+      NA # Handle cases where the array is empty
+    }
+  })
 }
+
+
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# 3. Pull Data -----------------------------------------------------------------
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+message("Pulling data from Athena")
+
+# Pull the training data, which contains actual sales + attached characteristics
+# from the condominium input view. We want to get sales spanning multiple
+# parcels only for sales that sell with deeded parking spots
+tictoc::tic("Training data pulled")
+training_data <- dbGetQuery(
+  conn = AWS_ATHENA_CONN_NOCTUA, glue("
+  SELECT
+      sale.sale_price AS meta_sale_price,
+      sale.sale_date AS meta_sale_date,
+      sale.doc_no AS meta_sale_document_num,
+      sale.deed_type AS meta_sale_deed_type,
+      sale.seller_name AS meta_sale_seller_name,
+      sale.buyer_name AS meta_sale_buyer_name,
+      sale.num_parcels_sale AS meta_sale_num_parcels,
+      sale.sv_is_outlier,
+      sale.sv_outlier_reason1,
+      sale.sv_outlier_reason2,
+      sale.sv_outlier_reason3,
+      condo.*
+  FROM model.vw_pin_condo_input condo
+  INNER JOIN default.vw_pin_sale sale
+      ON sale.pin = condo.meta_pin
+      AND sale.year = condo.year
+  WHERE condo.year
+      BETWEEN '{params$input$min_sale_year}'
+      AND '{params$input$max_sale_year}'
+  AND sale.deed_type IN ('01', '02', '05')
+  AND NOT sale.sale_filter_same_sale_within_365
+  AND NOT sale.sale_filter_less_than_10k
+  AND NOT sale.sale_filter_deed_type
+  AND Year(sale.sale_date) >= {params$input$min_sale_year}
+  AND sale.num_parcels_sale <= 2
+  ")
+)
+tictoc::toc()
+
+# Raw sales document number data used to identify some sales accidentally
+# excluded from the original training runs. See
+# https://github.com/ccao-data/data-architecture/pull/334 for more info
+tictoc::tic("Sales data pulled")
+sales_data <- dbGetQuery(
+  conn = AWS_ATHENA_CONN_NOCTUA, glue("
+  SELECT DISTINCT
+      substr(saledt, 1, 4) AS year,
+      instruno AS doc_no_old,
+      NULLIF(REPLACE(instruno, 'D', ''), '') AS doc_no_new
+  FROM iasworld.sales
+  WHERE substr(saledt, 1, 4) >= '{params$input$min_sale_year}'
+  ")
+)
+tictoc::toc()
+
+# Pull all condo PIN input data for the assessment and prior year. We will only
+# use the assessment year to run the model, but the prior year can be used for
+# report generation
+tictoc::tic("Assessment data pulled")
+assessment_data <- dbGetQuery(
+  conn = AWS_ATHENA_CONN_NOCTUA, glue("
+  SELECT *
+  FROM model.vw_pin_condo_input
+  WHERE year IN (
+    '{as.numeric(params$assessment$data_year) - 1}',
+    '{params$assessment$data_year}'
+  )
+  ")
+)
+tictoc::toc()
+
+
+
+##### START TEMPORARY FIX FOR MISSING DATA. REMOVE ONCE 2024 DATA IS AVAILABLE
+library(data.table)
+conflict_prefer_all("dplyr", "data.table", quiet = TRUE)
+conflict_prefer_all("lubridate", "data.table", quiet = TRUE)
+fill_cols <- assessment_data %>%
+  select(
+    starts_with("loc_"),
+    starts_with("prox_"),
+    starts_with("acs5_"),
+    starts_with("other_"),
+    starts_with("shp_")
+  ) %>%
+  names()
+assessment_data_temp <- as.data.table(assessment_data) %>%
+  mutate(across(starts_with("loc_tax_"), process_array_column))
+assessment_data_temp_2024 <- assessment_data_temp[
+  meta_year == "2024",
+][
+  assessment_data_temp[meta_year == "2023"],
+  (fill_cols) := mget(paste0("i.", fill_cols)),
+  on = .(meta_pin, meta_card_num)
+]
+assessment_data <- rbind(
+  assessment_data_temp[meta_year != "2024"],
+  assessment_data_temp_2024
+) %>%
+  as_tibble()
+
+training_data_temp <- as.data.table(training_data) %>%
+  mutate(across(starts_with("loc_tax_"), process_array_column))
+training_data_temp_2024 <- training_data_temp[
+  meta_year == "2024",
+][
+  assessment_data_temp[meta_year == "2023"],
+  (fill_cols) := mget(paste0("i.", fill_cols)),
+  on = .(meta_pin, meta_card_num)
+]
+training_data <- rbind(
+  training_data_temp[meta_year != "2024"],
+  training_data_temp_2024
+) %>%
+  as_tibble()
+rm(
+  assessment_data_temp, assessment_data_temp_2024,
+  training_data_temp, training_data_temp_2024
+)
+##### END TEMPORARY FIX
+
+
+
+# Save both years for report generation using the characteristics
+assessment_data %>%
+  write_parquet(paths$input$char$local)
+
+# Save only the assessment year data to use for assessing values
+assessment_data <- assessment_data %>%
+  filter(year == params$assessment$data_year)
+
+# Pull  neighborhood-level land rates per sqft, as calculated by Valuations
+tictoc::tic("Land rate data pulled")
+land_nbhd_rate_data <- dbGetQuery(
+  conn = AWS_ATHENA_CONN_NOCTUA, glue("
+  SELECT *
+  FROM ccao.land_nbhd_rate
+  WHERE year = '{params$assessment$year}'
+  ")
+)
+tictoc::toc()
+
+# Pull single family sales data  to construct rolling price averages by
+# neighborhood.
+tictoc::tic("Single-family sales data pulled")
+sf_sales_data <- dbGetQuery(
+  conn = AWS_ATHENA_CONN_NOCTUA, glue("
+  SELECT
+    sale.doc_no AS meta_sale_document_num,
+    sale.sale_price AS meta_sale_price,
+    sale.sale_date AS meta_sale_date,
+    sale.sv_is_outlier,
+    res.meta_township_code,
+    res.meta_nbhd_code
+  FROM model.vw_card_res_input res
+  INNER JOIN default.vw_pin_sale sale
+    ON sale.pin = res.meta_pin
+    AND sale.year = res.year
+  WHERE res.year
+    BETWEEN '{params$input$min_sale_year}'
+      AND '{params$input$max_sale_year}'
+    --AND CAST({params$input$max_sale_year} AS int)
+    AND sale.deed_type IN ('01', '02', '05')
+    AND NOT sale.is_multisale
+    AND NOT sale.sale_filter_same_sale_within_365
+    AND NOT sale.sale_filter_less_than_10k
+    AND NOT sale.sale_filter_deed_type
+  ")
+) %>%
+  # Only exclude explicit outliers from training. Sales with missing validation
+  # outcomes will be considered non-outliers
+  mutate(
+    sv_is_outlier = replace_na(sv_is_outlier, FALSE),
+    ind_pin_is_multicard = FALSE
+  ) %>%
+  # We keep multicard sales since we are only using them to construct sale price
+  # trends, but we still need the sales sample to be unique by document number
+  distinct(meta_sale_document_num, .keep_all = TRUE)
+tictoc::toc()
+
+# Close connection to Athena
+dbDisconnect(AWS_ATHENA_CONN_NOCTUA)
+rm(AWS_ATHENA_CONN_NOCTUA)
 
 
 
@@ -390,8 +434,8 @@ training_data_clean <- training_data_fil %>%
   # Some Athena columns are stored as arrays but are converted to string on
   # ingest. In such cases, take the first element and clean the string
   # Apply the helper function to process array columns
-  process_array_columns(starts_with("loc_tax_")) %>%
   mutate(
+    across(starts_with("loc_tax_"), process_array_column),
     loc_tax_municipality_name =
       replace_na(loc_tax_municipality_name, "UNINCORPORATED")
   ) %>%
@@ -687,8 +731,8 @@ training_data_clean <- training_data_clean %>%
 assessment_data_clean <- assessment_data %>%
   ccao::vars_recode(cols = starts_with("char_"), code_type = "code") %>%
   # Apply the helper function to process array columns
-  process_array_columns(starts_with("loc_tax_")) %>%
   mutate(
+    across(starts_with("loc_tax_"), process_array_column),
     loc_tax_municipality_name =
       replace_na(loc_tax_municipality_name, "UNINCORPORATED")
   ) %>%
