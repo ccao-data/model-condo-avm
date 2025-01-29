@@ -31,7 +31,8 @@ Depends:
     tune,
     workflows,
     yaml,
-    yardstick
+    yardstick,
+    zoo
 Remotes:
     ccao-data/assessr,
     ccao-data/ccao,
