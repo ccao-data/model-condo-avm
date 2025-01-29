@@ -744,8 +744,8 @@ assessment_data_clean <- assessment_data_clean %>%
   left_join(
     all_sales_data_dt %>%
       group_by(meta_nbhd_code) %>%
-      arrange(meta_sale_date) %>%
-      fill(starts_with("time"), .direction = "down") %>%
+      arrange(desc(meta_sale_date)) %>%
+      fill(starts_with("time"), .direction = "up") %>%
       slice_head(n = 1) %>%
       ungroup() %>%
       select(meta_nbhd_code, starts_with("time")),
