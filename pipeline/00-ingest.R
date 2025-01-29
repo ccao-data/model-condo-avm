@@ -739,7 +739,7 @@ assessment_data_clean <- assessment_data %>%
   as_tibble()
 
 # Join rolling sales means for condo and single-family sales onto assessment
-# data
+# data. Use the most recent rolling mean per neighborhood.
 assessment_data_clean <- assessment_data_clean %>%
   left_join(
     all_sales_data_dt %>%
