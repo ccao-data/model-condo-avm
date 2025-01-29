@@ -664,6 +664,7 @@ all_sales_data_dt <- all_sales_data[
       hasNA = TRUE
     )
   ),
+  by = .(meta_nbhd_code)
 ]
 
 # Remove NaNs
@@ -671,18 +672,9 @@ all_sales_data_dt <- all_sales_data_dt %>%
   mutate(across(.cols = starts_with("time"), ~ ifelse(is.nan(.x), NA, .x)))
 
 # Join rolling sales means for condo and single-family sales onto training data.
-# First make sure NAs are time-weighted linearly interpolated, then backwards
-# fill for first sale in each neighborhood.
 training_data_clean <- training_data_clean %>%
   left_join(
     all_sales_data_dt %>%
-      group_by(meta_nbhd_code) %>%
-      arrange(meta_sale_date) %>%
-      mutate(across(starts_with("time"), ~ na.approx(
-        .x, x = meta_sale_date, na.rm = FALSE
-        ))) %>%
-      fill(starts_with("time"), .direction = "up") %>%
-      ungroup() %>%
       select(meta_sale_document_num, starts_with("time")),
     by = "meta_sale_document_num"
   )
