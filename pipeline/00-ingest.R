@@ -307,15 +307,15 @@ sf_sales_data <- dbGetQuery(
     AND NOT sale.sale_filter_deed_type
   ")
 ) %>%
+  # We keep multicard sales since we are only using them to construct sale price
+  # trends, but we still need the sales sample to be unique by document number
+  distinct(meta_sale_document_num, .keep_all = TRUE) %>%
   # Only exclude explicit outliers from training. Sales with missing validation
   # outcomes will be considered non-outliers
   mutate(
     sv_is_outlier = replace_na(sv_is_outlier, FALSE),
     ind_pin_is_multicard = FALSE
-  ) %>%
-  # We keep multicard sales since we are only using them to construct sale price
-  # trends, but we still need the sales sample to be unique by document number
-  distinct(meta_sale_document_num, .keep_all = TRUE)
+  )
 tictoc::toc()
 
 # Close connection to Athena
@@ -505,7 +505,7 @@ all_sales_data <- sf_sales_data %>%
   ) %>%
   arrange(meta_sale_date)
 
-all_sales_data_dt <- all_sales_data[
+all_sales_data_rolling <- all_sales_data[
   !sv_is_outlier & !ind_pin_is_multicard,
   `:=`(
     lag_nbhd_sf_t0_price = data.table::shift(
@@ -709,16 +709,15 @@ all_sales_data_dt <- all_sales_data[
     )
   ),
   by = .(meta_nbhd_code)
-]
-
-# Remove NaNs
-all_sales_data_dt <- all_sales_data_dt %>%
+] %>%
+  as_tibble() %>%
+  # Replace NaNs
   mutate(across(.cols = starts_with("time"), ~ ifelse(is.nan(.x), NA, .x)))
 
 # Join rolling sales means for condo and single-family sales onto training data.
 training_data_clean <- training_data_clean %>%
   left_join(
-    all_sales_data_dt %>%
+    all_sales_data_rolling %>%
       select(meta_sale_document_num, starts_with("time")),
     by = "meta_sale_document_num"
   )
@@ -774,15 +773,15 @@ assessment_data_clean <- assessment_data %>%
   ) %>%
   relocate(starts_with("ind_"), .after = starts_with("meta_")) %>%
   relocate(starts_with("char_"), .after = starts_with("ind_")) %>%
-  as_tibble()
-
-# Join rolling sales means for condo and single-family sales onto assessment
-# data. Use the most recent rolling mean per neighborhood.
-assessment_data_clean <- assessment_data_clean %>%
+  as_tibble() %>%
+  # Join rolling sales means for condo and single-family sales onto assessment
+  # data. Use the most recent rolling mean per neighborhood. There is no need to
+  # remove outliers from the right side of the join since they are empty and
+  # cannot influence forward-filling
   left_join(
-    all_sales_data_dt %>%
+    all_sales_data_rolling %>%
       group_by(meta_nbhd_code) %>%
-      arrange(desc(meta_sale_date)) %>%
+      arrange(desc(meta_sale_date), .by_group = TRUE) %>%
       fill(starts_with("time"), .direction = "up") %>%
       slice_head(n = 1) %>%
       ungroup() %>%

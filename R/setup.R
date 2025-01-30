@@ -19,6 +19,7 @@ suppressPackageStartupMessages({
 # Resolve package namespace conflicts, preferring the library::function pair
 # shown over other functions with the same name from different libraries
 conflicts_prefer(
+  data.table::`:=`,
   dplyr::filter,
   dplyr::first,
   dplyr::lag,
