@@ -91,7 +91,7 @@ message("Preparing data for Desk Review export")
 assessment_pin_prepped <- assessment_pin %>%
   left_join(
     assessment_pin_old,
-    by = c("year", "meta_pin")
+    by = c("meta_pin")
   ) %>%
   mutate(
     prior_near_land_rate = round(
