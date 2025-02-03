@@ -103,7 +103,8 @@ assessment_pin_prepped <- assessment_pin %>%
     # Empty fields to be filled out via other means
     char_type_resd = NA,
     valuations_note = NA,
-    sale_ratio = NA) %>%
+    sale_ratio = NA
+  ) %>%
   select(
     township_code, meta_pin, meta_class, meta_nbhd_code,
     property_full_address, loc_tax_municipality_name, meta_pin10,
@@ -127,7 +128,8 @@ assessment_pin_prepped <- assessment_pin %>%
     flag_pin_is_multiland, flag_land_gte_95_percentile,
     flag_land_value_capped, flag_prior_near_to_pred_unchanged,
     flag_prior_near_yoy_inc_gt_50_pct, flag_prior_near_yoy_dec_gt_5_pct,
-    flag_strata_is_imputed) %>%
+    flag_strata_is_imputed
+  ) %>%
   mutate(
     across(starts_with("flag_"), as.numeric),
     across(where(is.numeric), ~ na_if(.x, Inf))
