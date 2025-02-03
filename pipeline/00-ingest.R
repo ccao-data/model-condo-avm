@@ -533,14 +533,15 @@ message("Calculating condo strata")
 # building. The first 10 digits of a given PIN are the building (the last 4 are
 # the unit)
 
-# Get the the recency-weighted mean log10 sale price of each building
+# Get the the recency-weighted, leave-one-out mean log10 sale price of
+# each building
 bldg_5yr_sales_avg <- training_data_clean %>%
   filter(
     meta_sale_date > make_date(as.numeric(params$input$max_sale_year) - 4),
     !sv_is_outlier
   ) %>%
   select(
-    meta_pin10, meta_sale_price, meta_sale_date,
+    meta_pin10, meta_sale_price, meta_sale_date, meta_sale_document_num,
     all_of(params$input$strata$group_var)
   ) %>%
   mutate(
@@ -551,13 +552,18 @@ bldg_5yr_sales_avg <- training_data_clean %>%
     )
   ) %>%
   group_by(meta_pin10, across(any_of(params$input$strata$group_var))) %>%
-  summarise(
-    mean_log10_sale_price = weighted.mean(
-      log10(meta_sale_price),
-      meta_sale_date_norm,
-      na.rm = TRUE
+  mutate(
+    meta_pin10_5yr_num_sale = n(),
+    mean_log10_sale_price = ifelse(
+      meta_pin10_5yr_num_sale > 1,
+      (
+        sum(log10(meta_sale_price) * meta_sale_date_norm) -
+          log10(meta_sale_price) * meta_sale_date_norm
+      ) / (sum(meta_sale_date_norm) - meta_sale_date_norm),
+      NA_real_
     ),
-    meta_pin10_5yr_num_sale = n()
+    mean_sp = mean(log10(meta_sale_price)),
+    sale = first(log10(meta_sale_price))
   ) %>%
   ungroup()
 
@@ -642,7 +648,7 @@ bldg_strata <- bldg_5yr_sales_avg %>%
 
 # Attach the strata and sale counts for both assessment and training data
 training_data_w_strata <- training_data_clean %>%
-  left_join(bldg_strata, by = "meta_pin10") %>%
+  left_join(bldg_strata, by = c("meta_pin10", "meta_sale_document_num")) %>%
   mutate(meta_pin10_5yr_num_sale = replace_na(meta_pin10_5yr_num_sale, 0)) %>%
   relocate(
     c(starts_with("meta_strata"), meta_pin10_5yr_num_sale),
