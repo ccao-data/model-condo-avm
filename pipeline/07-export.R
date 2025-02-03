@@ -37,16 +37,6 @@ assessment_pin <- dbGetQuery(
   ")
 )
 
-# Pull prior final model's values for comparison
-assessment_pin_old <- dbGetQuery(
-  conn = AWS_ATHENA_CONN_NOCTUA, glue("
-  SELECT year, meta_pin, pred_pin_final_fmv_round AS model_org_fmv
-  FROM model.assessment_pin
-  WHERE run_id = '2024-02-16-silly-billy'
-  AND meta_triad_code = '{params$export$triad_code}'
-  ")
-)
-
 # Pull card-level data only for all PINs. Needed for upload, since values are
 # tracked by card, even though they're presented by PIN
 assessment_card <- dbGetQuery(
@@ -80,6 +70,7 @@ land <- dbGetQuery(
 
 
 
+
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 3. Prep Desk Review ----------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -88,10 +79,6 @@ message("Preparing data for Desk Review export")
 # Prep data with a few additional columns + put everything in the right
 # order for DR sheets
 assessment_pin_prepped <- assessment_pin %>%
-  left_join(
-    assessment_pin_old,
-    by = c("year", "meta_pin")
-  ) %>%
   mutate(
     prior_near_land_rate = round(
       prior_near_land / (char_land_sf * meta_tieback_proration_rate),
@@ -116,10 +103,7 @@ assessment_pin_prepped <- assessment_pin %>%
     # Empty fields to be filled out via other means
     char_type_resd = NA,
     valuations_note = NA,
-    sale_ratio = NA,
-    model_org_fmv_nom_chg = (pred_pin_final_fmv_round - model_org_fmv),
-    model_org_fmv_pct_chg = model_org_fmv_nom_chg / model_org_fmv
-  ) %>%
+    sale_ratio = NA) %>%
   select(
     township_code, meta_pin, meta_class, meta_nbhd_code,
     property_full_address, loc_tax_municipality_name, meta_pin10,
@@ -143,10 +127,7 @@ assessment_pin_prepped <- assessment_pin %>%
     flag_pin_is_multiland, flag_land_gte_95_percentile,
     flag_land_value_capped, flag_prior_near_to_pred_unchanged,
     flag_prior_near_yoy_inc_gt_50_pct, flag_prior_near_yoy_dec_gt_5_pct,
-    flag_strata_is_imputed, sale_recent_1_sv_added_later,
-    sale_recent_2_sv_added_later, model_org_fmv, model_org_fmv_nom_chg,
-    model_org_fmv_pct_chg
-  ) %>%
+    flag_strata_is_imputed) %>%
   mutate(
     across(starts_with("flag_"), as.numeric),
     across(where(is.numeric), ~ na_if(.x, Inf))
@@ -197,6 +178,7 @@ assessment_pin10_prepped <- assessment_pin_prepped %>%
   ) %>%
   ungroup() %>%
   arrange(meta_pin10)
+
 
 
 
@@ -254,7 +236,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   num_head <- 6
   pin_row_range <- (num_head + 1):(nrow(assessment_pin_filtered) + num_head)
   pin_row_range_w_header <- c(num_head, pin_row_range)
-  pin_col_range <- 1:59
+  pin_col_range <- 1:54
 
   assessment_pin_w_row_ids <- assessment_pin_filtered %>%
     tibble::rowid_to_column("row_id") %>%
@@ -325,7 +307,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     wb, pin_sheet_name,
     style = style_price,
     rows = pin_row_range,
-    cols = c(9:11, 15:18, 23, 28, 33, 55, 56, 58, 59), gridExpand = TRUE
+    cols = c(9:11, 15:18, 23, 28, 33, 53, 54), gridExpand = TRUE
   )
   addStyle(
     wb, pin_sheet_name,
@@ -340,7 +322,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   addStyle(
     wb, pin_sheet_name,
     style = style_pct,
-    rows = pin_row_range, cols = c(8, 14, 22, 24, 57), gridExpand = TRUE
+    rows = pin_row_range, cols = c(8, 14, 22, 24), gridExpand = TRUE
   )
   addStyle(
     wb, pin_sheet_name,
@@ -356,7 +338,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
 
   # Format YoY % change column with a range of colors from low to high
   walk(
-    c(24, 57),
+    c(24),
     ~ conditionalFormatting(
       wb, pin_sheet_name,
       cols = .x,
@@ -377,7 +359,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   )
   conditionalFormatting(
     wb, pin_sheet_name,
-    cols = 32:36,
+    cols = 32:37,
     rows = pin_row_range,
     style = createStyle(bgFill = "#FFCC99"),
     rule = "$AJ7=2",
@@ -398,7 +380,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   # to apply it to the second range of columns
   conditionalFormatting(
     wb, pin_sheet_name,
-    cols = 32:36,
+    cols = 32:37,
     rows = pin_row_range,
     style = createStyle(bgFill = "#FF9999"),
     rule = '$AH7!=""',
@@ -468,18 +450,18 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   writeFormula(
     wb, pin_sheet_name,
     assessment_pin_avs$total_av,
-    startCol = 58,
+    startCol = 53,
     startRow = 7
   )
   writeFormula(
     wb, pin_sheet_name,
     assessment_pin_avs$av_difference,
-    startCol = 59,
+    startCol = 54,
     startRow = 7
   )
   setColWidths(
     wb, pin_sheet_name,
-    c(58, 59),
+    c(53, 54),
     widths = 1,
     hidden = c(TRUE, TRUE), ignoreMergedCells = FALSE
   )
