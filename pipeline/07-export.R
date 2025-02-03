@@ -389,24 +389,6 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     type = "expression"
   )
 
-  # Highlight sales that were later added to the model
-  conditionalFormatting(
-    wb, pin_sheet_name,
-    cols = 27,
-    rows = pin_row_range,
-    style = createStyle(bgFill = "#CF91FF"),
-    rule = "$AY7=1",
-    type = "expression"
-  )
-  conditionalFormatting(
-    wb, pin_sheet_name,
-    cols = 32,
-    rows = pin_row_range,
-    style = createStyle(bgFill = "#CF91FF"),
-    rule = "$AZ7=1",
-    type = "expression"
-  )
-
   # Write PIN-level data to workbook
   writeData(
     wb, pin_sheet_name, assessment_pin_filtered,
