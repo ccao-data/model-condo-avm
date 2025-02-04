@@ -224,8 +224,6 @@ model:
       - "shp_parcel_mrr_area_ratio"
       - "shp_parcel_mrr_side_ratio"
       - "shp_parcel_num_vertices"
-      - "meta_strata_1"
-      - "meta_strata_2"
 
     # List of predictors included in predictor.all which are categoricals. It is
     # CRITICAL that any categorical variables are included in this list, else
@@ -238,8 +236,6 @@ model:
       - "loc_school_elementary_district_geoid"
       - "loc_school_secondary_district_geoid"
       - "time_sale_quarter_of_year"
-      - "meta_strata_1"
-      - "meta_strata_2"
 
     # List of variables used with the recipe step step_impute_knn(). The knn
     # variables will have missing values imputed, while the knn_imp variables
