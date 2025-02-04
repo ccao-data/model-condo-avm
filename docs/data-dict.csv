@@ -9,6 +9,8 @@ Condominium Unit Bedrooms,char_bedrooms,Number of bedrooms in the building,Chara
 Condominium Unit Half Baths,char_half_baths,Number of half baths,Characteristic,numeric,TRUE
 Condominium Unit Full Baths,char_full_baths,Number of full bathrooms,Characteristic,numeric,TRUE
 Condominium % Ownership,meta_tieback_proration_rate,Proration rate applied to the PIN,Meta,numeric,TRUE
+Condominium Building Strata 1,meta_strata_1,Condominium Building Strata - 10 Levels,Meta,character,TRUE
+Condominium Building Strata 2,meta_strata_2,Condominium Building Strata - 100 Levels,Meta,character,TRUE
 Standard Deviation Distance From Parcel Centroid to Vertices (Feet),shp_parcel_centroid_dist_ft_sd,Standard deviation of the distance from each major parcel vertex to the parcel centroid,Parcel Shape,numeric,TRUE
 Standard Deviation Parcel Edge Length (Feet),shp_parcel_edge_len_ft_sd,Standard deviation of the edge length between parcel vertices,Parcel Shape,numeric,TRUE
 Standard Deviation Parcel Interior Angle (Degrees),shp_parcel_interior_angle_sd,Standard deviation of the interior angles of the parcel polygon,Parcel Shape,numeric,TRUE
