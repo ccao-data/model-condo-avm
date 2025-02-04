@@ -466,10 +466,10 @@ message("Calculating condo strata")
 ## 5.1. Calculate Strata -------------------------------------------------------
 
 # Condominiums' unit characteristics (such as square footage, # of bedrooms,
-# etc.) are not tracked by the CCAO. As such, e need to rely on other
+# etc.) are not well-tracked by the CCAO. As such, we need to rely on other
 # information to determine the value of unsold condos. Fortunately, condos are
 # more homogeneous than single-family homes and are pre-grouped into like units
-# (buildings)
+# (i.e buildings)
 
 # As such, we can use the historic sale price of other sold units in the same
 # building to determine an unsold condo's value. To do so, we construct condo
@@ -482,7 +482,7 @@ message("Calculating condo strata")
 # the unit)
 
 # Get the the recency-weighted, leave-one-out mean log10 sale price of
-# each building
+# each building. This gets
 bldg_5yr_sales_avg <- training_data_clean %>%
   filter(
     meta_sale_date > make_date(as.numeric(params$input$max_sale_year) - 4),
@@ -493,21 +493,23 @@ bldg_5yr_sales_avg <- training_data_clean %>%
     all_of(params$input$strata$group_var)
   ) %>%
   mutate(
-    meta_sale_date_norm = rescale(
-      as.numeric(meta_sale_date),
-      params$input$strata$weight_min,
-      params$input$strata$weight_max
-    )
+    # Logistic decay function to weight sale recency. The parameter here was
+    # chosen via simple grid search
+    meta_sale_date_wt = params$input$strata$weight_max / (
+      params$input$strata$weight_max +
+        exp(-(0.005 * as.integer(meta_sale_date - (max(meta_sale_date) - years(2))))) # nolint
+    ) * (1 - params$input$strata$weight_min) + params$input$strata$weight_min
   ) %>%
   group_by(meta_pin10, across(any_of(params$input$strata$group_var))) %>%
   mutate(
     meta_pin10_5yr_num_sale = n(),
+    # Leave-one-out mean of the building i.e. excluding the current sale
     mean_log10_sale_price = ifelse(
       meta_pin10_5yr_num_sale > 1,
       (
-        sum(log10(meta_sale_price) * meta_sale_date_norm) -
-          log10(meta_sale_price) * meta_sale_date_norm
-      ) / (sum(meta_sale_date_norm) - meta_sale_date_norm),
+        sum(log10(meta_sale_date_wt) * meta_sale_date_wt) -
+          log10(meta_sale_date_wt) * meta_sale_date_wt
+      ) / (sum(meta_sale_date_wt) - meta_sale_date_wt),
       NA_real_
     )
   ) %>%
