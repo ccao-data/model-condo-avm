@@ -402,7 +402,6 @@ ratio_study:
     - "meta_nbhd_code"
     - "loc_tax_municipality_name"
     - "loc_ward_num"
-    - "loc_census_puma_geoid"
     - "loc_census_tract_geoid"
     - "loc_school_elementary_district_geoid"
     - "loc_school_secondary_district_geoid"
