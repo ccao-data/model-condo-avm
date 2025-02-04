@@ -509,9 +509,11 @@ bldg_5yr_sales_avg <- training_data_clean %>%
           log10(meta_sale_price) * meta_sale_date_norm
       ) / (sum(meta_sale_date_norm) - meta_sale_date_norm),
       NA_real_
-    ),
-    mean_sp = mean(log10(meta_sale_price)),
-    sale = first(log10(meta_sale_price))
+    )
+  ) %>%
+  select(
+    meta_pin10, meta_sale_document_num, meta_sale_date,
+    meta_pin10_5yr_num_sale, mean_log10_sale_price
   ) %>%
   ungroup()
 
@@ -596,7 +598,10 @@ bldg_strata <- bldg_5yr_sales_avg %>%
 
 # Attach the strata and sale counts for both assessment and training data
 training_data_w_strata <- training_data_clean %>%
-  left_join(bldg_strata, by = c("meta_pin10", "meta_sale_document_num")) %>%
+  left_join(
+    bldg_strata %>% select(-meta_sale_date),
+    by = c("meta_pin10", "meta_sale_document_num")
+  ) %>%
   mutate(meta_pin10_5yr_num_sale = replace_na(meta_pin10_5yr_num_sale, 0)) %>%
   relocate(
     c(starts_with("meta_strata"), meta_pin10_5yr_num_sale),
@@ -605,7 +610,13 @@ training_data_w_strata <- training_data_clean %>%
   write_parquet(paths$input$training$local)
 
 assessment_data_w_strata <- assessment_data_clean %>%
-  left_join(bldg_strata, by = "meta_pin10") %>%
+  left_join(
+    bldg_strata %>%
+      filter(meta_sale_date == max(meta_sale_date), .by = "meta_pin10") %>%
+      distinct(meta_pin10, .keep_all = TRUE) %>%
+      select(-meta_sale_date, -meta_sale_document_num),
+    by = "meta_pin10"
+  ) %>%
   mutate(meta_pin10_5yr_num_sale = replace_na(meta_pin10_5yr_num_sale, 0)) %>%
   relocate(
     c(starts_with("meta_strata"), meta_pin10_5yr_num_sale),
