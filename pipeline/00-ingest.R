@@ -507,8 +507,8 @@ bldg_5yr_sales_avg <- training_data_clean %>%
     mean_log10_sale_price = ifelse(
       meta_pin10_5yr_num_sale > 1,
       (
-        sum(log10(meta_sale_date_wt) * meta_sale_date_wt) -
-          log10(meta_sale_date_wt) * meta_sale_date_wt
+        sum(log10(meta_sale_price) * meta_sale_date_wt) -
+          log10(meta_sale_price) * meta_sale_date_wt
       ) / (sum(meta_sale_date_wt) - meta_sale_date_wt),
       NA_real_
     )
@@ -589,9 +589,9 @@ bldg_strata <- bldg_5yr_sales_avg %>%
     )
   ) %>%
   group_by(across(params$input$strata$group_var), meta_strata_1) %>%
-  mutate(meta_strata_1_5yr_num_sale = sum(meta_pin10_5yr_num_sale)) %>%
+  mutate(meta_strata_1_5yr_num_sale = sum(n())) %>%
   group_by(across(params$input$strata$group_var), meta_strata_2) %>%
-  mutate(meta_strata_2_5yr_num_sale = sum(meta_pin10_5yr_num_sale)) %>%
+  mutate(meta_strata_2_5yr_num_sale = sum(n())) %>%
   ungroup() %>%
   select(
     -c(mean_log10_sale_price, meta_strata_model_1, meta_strata_model_2),
