@@ -47,10 +47,7 @@ message("Loading evaluation data")
 # Load the test results from the end of the train stage. This will be the most
 # recent 10% of sales and already includes predictions.
 test_data_card <- read_parquet(paths$output$test_card$local) %>%
-  filter(
-    !is.na(loc_census_puma_geoid),
-    meta_modeling_group == "CONDO"
-  )
+  filter(meta_modeling_group == "CONDO")
 
 # Load the assessment results from the previous stage. This will include every
 # residential PIN that needs a value.
