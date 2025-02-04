@@ -5,8 +5,8 @@ stages:
     deps:
     - path: pipeline/00-ingest.R
       hash: md5
-      md5: b91e2ec22113406aae490edb36fbb7dd
-      size: 33642
+      md5: 32c710a20efbbecb9efdfcd6135431be
+      size: 32221
     params:
       params.yaml:
         assessment:
@@ -31,12 +31,12 @@ stages:
     outs:
     - path: input/assessment_data.parquet
       hash: md5
-      md5: a8e25e4fe7e62b85b63d5175d82603e8
-      size: 79249396
+      md5: a0238cba7cf7db923cddae55d2c38c8f
+      size: 86299622
     - path: input/char_data.parquet
       hash: md5
-      md5: c413791724db9725659ef536c429602f
-      size: 149205649
+      md5: 173bafba039c11a9195109ee2b6bdf53
+      size: 154472364
     - path: input/condo_strata_data.parquet
       hash: md5
       md5: ded3ecde590af57e6b98a8935fae0215
@@ -47,8 +47,8 @@ stages:
       size: 6019
     - path: input/training_data.parquet
       hash: md5
-      md5: 17ff61dc7cd2ecd272d46f9777b80080
-      size: 100488708
+      md5: 0654aa78dd6a691fa4ef414d20c52b4b
+      size: 100612725
   train:
     cmd: Rscript pipeline/01-train.R
     deps:
