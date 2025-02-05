@@ -5,8 +5,8 @@ stages:
     deps:
     - path: pipeline/00-ingest.R
       hash: md5
-      md5: 4fdbb9725b4c1eee047cffc2584fe4fe
-      size: 26362
+      md5: 715d769a46c6172f27b8df9e8db3d6eb
+      size: 21170
     params:
       params.yaml:
         assessment:
@@ -19,36 +19,27 @@ stages:
         input:
           min_sale_year: '2016'
           max_sale_year: '2024'
-          strata:
-            seed: 123
-            group_var:
-            - meta_township_code
-            type: ntile
-            k_1: 10
-            k_2: 100
+          n_years_prior: 5
+          building:
             weight_min: 0.1
             weight_max: 1.0
     outs:
     - path: input/assessment_data.parquet
       hash: md5
-      md5: 00eb95958a971dc48ac89a1f9cdbb9a9
-      size: 84037285
+      md5: 02f1e9a9466060f6c9b2ab388fca0de6
+      size: 82056354
     - path: input/char_data.parquet
       hash: md5
-      md5: 8ce013b3c2608e9776fc2c67145a3d25
-      size: 154288666
-    - path: input/condo_strata_data.parquet
-      hash: md5
-      md5: d5d4548047c7bbf885597b752b25effd
-      size: 40639
+      md5: abc657669dc3294a4c5dfc715ab5d1d1
+      size: 153981236
     - path: input/land_nbhd_rate_data.parquet
       hash: md5
       md5: 5fe80edfabdfac91efe888a25ee4051c
       size: 6019
     - path: input/training_data.parquet
       hash: md5
-      md5: 926a117af3294f5f51883f48a6c20292
-      size: 78446043
+      md5: c65f1c3b32929dbea29e2def92206a47
+      size: 78194210
   train:
     cmd: Rscript pipeline/01-train.R
     deps:
