@@ -323,8 +323,9 @@ have recent sales.
 
 When no sales have occurred in a building in the 5 years prior to
 assessment, the building’s mean feature is imputed. The model will look
-at nearby buildings that have similar unit counts/age and then try to
-assign an appropriate average to the target building.
+at nearby buildings that have similar unit counts, age, and other
+features, then try to assign an appropriate average to the target
+building.
 
 Most of the time, this technique produces reasonable results. However,
 buildings without sales still go through an additional round of review
