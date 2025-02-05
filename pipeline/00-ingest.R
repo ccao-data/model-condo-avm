@@ -442,12 +442,12 @@ bldg_rolling_means_dt[
   # date range. This is a logistic function centered 3 years before the lien
   # date and bounded between the min and max weights. The parameters here were
   # discovered with some rough grid search
-  sale_wt := params$input$strata$weight_max / (
-    params$input$strata$weight_max +
+  sale_wt := params$input$building$weight_max / (
+    params$input$building$weight_max +
       exp(
         -(0.002 * as.integer(meta_sale_date - (max(meta_sale_date) - years(3))))
       )
-  ) * (1 - params$input$strata$weight_min) + params$input$strata$weight_min
+  ) * (1 - params$input$building$weight_min) + params$input$building$weight_min
 ][
   ,
   # Scale weights so the max weight is 1
@@ -475,7 +475,16 @@ bldg_rolling_means_dt[
   # given sale, how many index positions back do we need to go to get only sales
   # from the past N years
   `:=`(
-    cnt = data.table::frollsum(
+    wtd_cnt = data.table::frollsum(
+      as.numeric(!is.na(lag_price_within_offset)),
+      n = seq_len(.N) -
+        findInterval(meta_sale_date %m-% offset, meta_sale_date),
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ),
+    wtd_cnt = data.table::frollsum(
       as.numeric(!is.na(lag_price_within_offset)) * lag_sale_wt,
       n = seq_len(.N) -
         findInterval(meta_sale_date %m-% offset, meta_sale_date),
@@ -484,7 +493,7 @@ bldg_rolling_means_dt[
       na.rm = TRUE,
       hasNA = TRUE
     ),
-    valsum = data.table::frollsum(
+    wtd_valsum = data.table::frollsum(
       lag_price_within_offset * lag_sale_wt,
       n = seq_len(.N) -
         findInterval(meta_sale_date %m-% offset, meta_sale_date),
@@ -497,7 +506,7 @@ bldg_rolling_means_dt[
   by = .(meta_pin10)
 ][
   !sv_is_outlier & meta_modeling_group == "CONDO" | data_source == "assessment",
-  wtdmean := valsum / cnt,
+  wtdmean := wtd_valsum / wtd_cnt,
   by = .(meta_pin10)
 ]
 
@@ -512,7 +521,11 @@ training_data_clean <- training_data_clean %>%
   left_join(
     bldg_rolling_means_dt %>%
       filter(data_source == "training") %>%
-      select(meta_pin10, meta_sale_document_num, meta_bldg_roll_mean = wtdmean),
+      select(
+        meta_pin10, meta_sale_document_num,
+        meta_pin10_bldg_roll_mean = wtdmean,
+        meta_pin10_bldg_roll_count = cnt
+      ),
     by = c("meta_pin10", "meta_sale_document_num")
   )
 
@@ -520,7 +533,11 @@ assessment_data_clean <- assessment_data_clean %>%
   left_join(
     bldg_rolling_means_dt %>%
       filter(data_source == "assessment") %>%
-      select(meta_pin, meta_bldg_roll_mean = wtdmean),
+      select(
+        meta_pin,
+        meta_pin10_bldg_roll_mean = wtdmean,
+        meta_pin10_bldg_roll_count = cnt
+      ),
     by = c("meta_pin")
   )
 
