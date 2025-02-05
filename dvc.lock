@@ -209,8 +209,6 @@ stages:
           - acs5_median_household_renter_occupied_gross_rent
           - acs5_percent_household_owner_occupied
           - other_tax_bill_rate
-          - ccao_is_active_exe_homeowner
-          - ccao_n_years_exe_homeowner
           - time_sale_year
           - time_sale_day
           - time_sale_quarter_of_year
@@ -412,8 +410,6 @@ stages:
         - acs5_median_household_renter_occupied_gross_rent
         - acs5_percent_household_owner_occupied
         - other_tax_bill_rate
-        - ccao_is_active_exe_homeowner
-        - ccao_n_years_exe_homeowner
         - time_sale_year
         - time_sale_day
         - time_sale_quarter_of_year
@@ -629,8 +625,6 @@ stages:
         - acs5_median_household_renter_occupied_gross_rent
         - acs5_percent_household_owner_occupied
         - other_tax_bill_rate
-        - ccao_is_active_exe_homeowner
-        - ccao_n_years_exe_homeowner
         - time_sale_year
         - time_sale_day
         - time_sale_quarter_of_year
@@ -781,8 +775,6 @@ stages:
             - acs5_median_household_renter_occupied_gross_rent
             - acs5_percent_household_owner_occupied
             - other_tax_bill_rate
-            - ccao_is_active_exe_homeowner
-            - ccao_n_years_exe_homeowner
             - time_sale_year
             - time_sale_day
             - time_sale_quarter_of_year

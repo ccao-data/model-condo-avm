@@ -54,8 +54,6 @@ Municipality Name,loc_tax_municipality_name,"Taxing district name, as seen on Co
 Township Code,meta_township_code,Cook County township code,Meta,character,FALSE
 Neighborhood Code,meta_nbhd_code,Assessor neighborhood code,Meta,character,FALSE
 Property Tax Bill Aggregate Rate,other_tax_bill_rate,Tax bill rate for the taxing district containing a given PIN,Other,numeric,FALSE
-Active Homeowner Exemption,ccao_is_active_exe_homeowner,Parcel has an active homeowner exemption,Other,logical,FALSE
-Number of Years Active Homeowner Exemption,ccao_n_years_exe_homeowner,Number of years parcel has had an active homeowner exemption,Other,numeric,FALSE
 Number of PINs in Half Mile,prox_num_pin_in_half_mile,Number of PINs within half mile,Proximity,numeric,FALSE
 Number of Bus Stops in Half Mile,prox_num_bus_stop_in_half_mile,Number of bus stops within half mile,Proximity,numeric,FALSE
 Number of Foreclosures Per 1000 PINs (Past 5 Years),prox_num_foreclosure_per_1000_pin_past_5_years,"Number of foreclosures per 1000 PINs, within half mile (past 5 years)",Proximity,numeric,FALSE

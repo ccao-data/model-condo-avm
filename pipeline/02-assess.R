@@ -198,9 +198,6 @@ assessment_data_merged %>%
     all_of(params$model$predictor$all),
     flag_strata_is_imputed, township_code
   ) %>%
-  mutate(
-    ccao_n_years_exe_homeowner = as.integer(ccao_n_years_exe_homeowner)
-  ) %>%
   ccao::vars_recode(
     cols = starts_with("char_"),
     code_type = "long",
