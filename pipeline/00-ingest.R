@@ -309,15 +309,8 @@ training_data_clean <- training_data_fil %>%
     .after = meta_2yr_pri_board_tot
   ) %>%
   relocate(starts_with("ind_"), .after = starts_with("meta_")) %>%
-  relocate(starts_with("char_"), .after = starts_with("ind_")) %>%
-  filter(
-    between(
-      meta_sale_date,
-      make_date(params$input$min_sale_year, 1, 1),
-      make_date(params$input$max_sale_year, 12, 31)
-    )
-  ) %>%
-  as_tibble()
+  relocate(starts_with("char_"), .after = starts_with("ind_"))
+
 
 
 ## 4.2. Assessment Data --------------------------------------------------------
@@ -506,7 +499,10 @@ bldg_rolling_means_dt[
   by = .(meta_pin10)
 ][
   !sv_is_outlier & meta_modeling_group == "CONDO" | data_source == "assessment",
-  wtdmean := wtd_valsum / wtd_cnt,
+  `:=`(
+    wtdmean = wtd_valsum / wtd_cnt,
+    cnt = data.table::nafill(cnt, type = "const", fill = 0)
+  ),
   by = .(meta_pin10)
 ]
 
@@ -528,6 +524,14 @@ training_data_clean <- training_data_clean %>%
       ),
     by = c("meta_pin10", "meta_sale_document_num")
   ) %>%
+  filter(
+    between(
+      meta_sale_date,
+      make_date(params$input$min_sale_year, 1, 1),
+      make_date(params$input$max_sale_year, 12, 31)
+    )
+  ) %>%
+  as_tibble() %>%
   write_parquet(paths$input$training$local)
 
 assessment_data_clean <- assessment_data_clean %>%
@@ -541,6 +545,7 @@ assessment_data_clean <- assessment_data_clean %>%
       ),
     by = c("meta_pin")
   ) %>%
+  as_tibble() %>%
   write_parquet(paths$input$assessment$local)
 
 # Reminder to upload to DVC store
