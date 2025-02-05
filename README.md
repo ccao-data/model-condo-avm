@@ -91,7 +91,7 @@ Fortunately, condos have two qualities which make modeling a bit easier:
 
 1.  Condos are more homogeneous than single/multi-family properties,
     i.e. the range of potential condo sale prices is much narrower.
-2.  Condo are pre-grouped into clusters of like units (buildings), and
+2.  Condos are pre-grouped into clusters of like units (buildings), and
     units within the same building usually have similar sale prices.
 
 We leverage these qualities to produce a time-weighted, rolling average
@@ -209,7 +209,7 @@ We maintain a few useful resources for working with these features:
   versions
   ([`ccao::vars_rename()`](https://ccao-data.github.io/ccao/reference/vars_rename.html))
   or convert numerically-encoded variables to human-readable values
-  ([`ccao::vars_recode()`](https://ccao-data.github.io/ccao/reference/vars_recode.html).
+  ([`ccao::vars_recode()`](https://ccao-data.github.io/ccao/reference/vars_recode.html)).
   The [`ccao::vars_dict`
   object](https://ccao-data.github.io/ccao/reference/vars_dict.html) is
   also useful for inspecting the raw crosswalk that powers the rename
@@ -280,7 +280,7 @@ of the challenges we face.
 
 The current modeling methodology for condominiums makes two assumptions:
 
-1.  Condos units within the same building are similar and will sell for
+1.  Condo units within the same building are similar and will sell for
     similar amounts.
 2.  If units are not similar, the percentage of ownership will
     accurately reflect and be proportional to any difference in value
@@ -289,7 +289,7 @@ The current modeling methodology for condominiums makes two assumptions:
 The model process works even in heterogeneous buildings as long as
 assumption 2 is met. For example, imagine a building with 8 identical
 units and 1 penthouse unit. This building violates assumption 1 because
-the penthouse unit is likely larger and worth more than the other 10.
+the penthouse unit is likely larger and worth more than the other 8.
 However, if the percentage of ownership of each unit is roughly
 proportional to its value, then each unit will still receive a fair
 assessment.
@@ -307,9 +307,9 @@ secondary review to ensure the accuracy of the individual unit values.
 ### Buildings With Few Sales
 
 The condo model relies on sales within the same building to calculate a
-weight, rolling average building sale price. This method works well for
-large buildings with many sales, but can break down when there are only
-1 or 2 sales in a building. The primary danger here is
+weighted, rolling average building sale price. This method works well
+for large buildings with many sales, but can break down when there are
+only 1 or 2 sales in a building. The primary danger here is
 *unrepresentative* sales, i.e. sales that deviate significantly from the
 real average value of a building’s units. When this happens, buildings
 can have their average unit sale value pegged too high or low.
