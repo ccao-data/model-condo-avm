@@ -156,8 +156,7 @@ assessment_data_merged %>%
   select(
     meta_year, meta_pin, meta_class, meta_card_num, meta_lline_num,
     meta_modeling_group, ends_with("_num_sale"), pred_card_initial_fmv,
-    all_of(params$model$predictor$all),
-    flag_strata_is_imputed, township_code
+    all_of(params$model$predictor$all), township_code
   ) %>%
   mutate(
     ccao_n_years_exe_homeowner = as.integer(ccao_n_years_exe_homeowner)
@@ -273,7 +272,7 @@ assessment_data_pin <- assessment_data_merged %>%
     meta_nbhd_code, meta_tax_code, meta_class, meta_tieback_key_pin,
     meta_tieback_proration_rate, meta_cdu, meta_modeling_group,
     meta_pin_num_landlines, meta_strata_1, meta_strata_2,
-    flag_strata_is_imputed, char_yrblt,
+    char_yrblt,
 
     # Keep overall building square footage
     char_total_bldg_sf = char_building_sf,
