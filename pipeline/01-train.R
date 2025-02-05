@@ -46,8 +46,8 @@ train_recipe <- model_main_recipe(
   data = training_data_full,
   pred_vars = params$model$predictor$all,
   cat_vars = params$model$predictor$categorical,
-  knn_vars = params$model$predictor$knn,
-  knn_imp_vars = params$model$predictor$knn_imp,
+  imp = params$model$predictor$imp,
+  imp_vars = params$model$predictor$imp_vars,
   id_vars = params$model$predictor$id,
   seed = params$model$seed
 )
@@ -67,8 +67,8 @@ lin_recipe <- model_lin_recipe(
     mutate(meta_sale_price = log(meta_sale_price)),
   pred_vars = params$model$predictor$all,
   cat_vars = params$model$predictor$categorical,
-  knn_vars = params$model$predictor$knn,
-  knn_imp_vars = params$model$predictor$knn_imp,
+  imp = params$model$predictor$imp,
+  imp_vars = params$model$predictor$imp_vars,
   id_vars = params$model$predictor$id,
   seed = params$model$seed
 )

@@ -60,23 +60,11 @@ input:
   min_sale_year: "2016"
   max_sale_year: "2024"
 
-  # Parameters used to construct condominium strata features
-  strata:
-    # Seed for k-means
-    seed: 123
+  # Rolling time window size for building mean feature
+  n_years_prior: 5
 
-    # Grouping variables used in the construction of condo strata. Each group
-    # will have its own independent strata of size K 1 and K 2 (see below)
-    group_var:
-      - "meta_township_code"
-
-    # We can use either quantiles or k-means clustering to build condo strata
-    type: "ntile"
-
-    # Number of quantiles of centers to use when constructing strata
-    k_1: 10
-    k_2: 100
-
+  # Parameters used to construct condominium building mean feature
+  building:
     # Max and min weights for mean sale price weighted by sale date i.e. the
     # the least recent sale counts half as much as the most recent one
     weight_min: 0.1
@@ -224,7 +212,7 @@ model:
       - "shp_parcel_mrr_area_ratio"
       - "shp_parcel_mrr_side_ratio"
       - "shp_parcel_num_vertices"
-      - "meta_bldg_roll_mean"
+      - "meta_pin10_bldg_roll_mean"
 
     # List of predictors included in predictor.all which are categoricals. It is
     # CRITICAL that any categorical variables are included in this list, else
@@ -238,13 +226,13 @@ model:
       - "loc_school_secondary_district_geoid"
       - "time_sale_quarter_of_year"
 
-    # List of variables used with the recipe step step_impute_knn(). The knn
-    # variables will have missing values imputed, while the knn_imp variables
+    # List of variables used with the recipe step step_impute_bag(). The imp
+    # variables will have missing values imputed, while the imp_vars variables
     # are used to do the imputing
-    knn:
-      - "meta_bldg_roll_mean"
+    imp:
+      - "meta_pin10_bldg_roll_mean"
 
-    knn_imp:
+    imp_vars:
       - "loc_latitude"
       - "loc_longitude"
       - "char_building_units"
@@ -252,6 +240,7 @@ model:
       - "meta_township_code"
       - "char_land_sf"
       - "char_building_units"
+      - "char_building_non_units"
       - "char_bldg_is_mixed_use"
       - "char_building_sf"
 
