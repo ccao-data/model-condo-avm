@@ -458,6 +458,84 @@ land_nbhd_rate_data %>%
 
 
 
+
+library(data.table)
+conflict_prefer_all("dplyr", "data.table", quiet = TRUE)
+conflict_prefer_all("lubridate", "data.table", quiet = TRUE)
+
+offset <- years(5)
+
+training_data_dt <- training_data_clean %>%
+  as.data.table() %>%
+  setkey(meta_pin10, meta_sale_date)
+
+training_data_dt[
+  ,
+  sale_wt := params$input$strata$weight_max / (
+    params$input$strata$weight_max +
+      exp(
+        -(0.005 * as.integer(meta_sale_date - (max(meta_sale_date) - years(2))))
+      )
+  ) * (1 - params$input$strata$weight_min) + params$input$strata$weight_min
+][
+  !sv_is_outlier & meta_modeling_group == "CONDO",
+  `:=`(
+    lag_price_within_offset = data.table::fifelse(
+      meta_sale_date -
+        data.table::shift(meta_sale_date, 1, type = "lag") <= offset,
+      data.table::shift(meta_sale_price, 1, type = "lag"),
+      NA_real_
+    ),
+    lag_wt = data.table::shift(sale_wt, 1, type = "lag")
+  ),
+  by = .(meta_pin10)
+][
+  !sv_is_outlier & meta_modeling_group == "CONDO",
+  `:=`(
+    cnt = data.table::frollsum(
+      as.numeric(!is.na(lag_price_within_offset)) * lag_wt,
+      n = seq_len(.N) -
+        findInterval(meta_sale_date %m-% offset, meta_sale_date),
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ),
+    valsum = data.table::frollsum(
+      lag_price_within_offset * lag_wt,
+      n = seq_len(.N) -
+        findInterval(meta_sale_date %m-% offset, meta_sale_date),
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ),
+    frollmean = data.table::frollmean(
+      lag_price_within_offset,
+      n = seq_len(.N) -
+        findInterval(meta_sale_date %m-% offset, meta_sale_date),
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    )
+  ),
+  by = .(meta_pin10)
+][
+  !sv_is_outlier & meta_modeling_group == "CONDO",
+  `:=`(
+    wtdmean = valsum / cnt
+  ),
+  by = .(meta_pin10)
+]
+
+training_data_w_mean <- training_data_dt %>%
+  select(
+    meta_pin10, meta_pin, meta_sale_date, meta_sale_price,
+    lag_price_within_offset, frollmean, valsum, cnt, sale_wt, lag_wt, wtdmean
+  )
+
+
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 5. Condo Strata --------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
