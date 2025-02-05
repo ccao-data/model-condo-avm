@@ -94,7 +94,7 @@ cv:
   # Number of folds to use for cross-validation. For v-fold CV, the data will be
   # randomly split. For rolling-origin, the data will be split into V chunks by
   # time, with each chunk/period calculated automatically
-  num_folds: 10
+  num_folds: 7
 
   # The number of months time-based folds should overlap each other. Only
   # applicable to rolling-origin CV. See https://www.tmwr.org/resampling#rolling
@@ -224,8 +224,7 @@ model:
       - "shp_parcel_mrr_area_ratio"
       - "shp_parcel_mrr_side_ratio"
       - "shp_parcel_num_vertices"
-      - "meta_strata_1"
-      - "meta_strata_2"
+      - "meta_bldg_roll_mean"
 
     # List of predictors included in predictor.all which are categoricals. It is
     # CRITICAL that any categorical variables are included in this list, else
@@ -238,21 +237,25 @@ model:
       - "loc_school_elementary_district_geoid"
       - "loc_school_secondary_district_geoid"
       - "time_sale_quarter_of_year"
-      - "meta_strata_1"
-      - "meta_strata_2"
 
     # List of variables used with the recipe step step_impute_knn(). The knn
     # variables will have missing values imputed, while the knn_imp variables
     # are used to do the imputing
     knn:
-      - "meta_strata_1"
-      - "meta_strata_2"
+      - "meta_bldg_roll_mean"
 
     knn_imp:
       - "loc_latitude"
       - "loc_longitude"
       - "char_building_units"
       - "char_yrblt"
+      - "meta_township_code"
+      - "meta_nbhd_code"
+      - "char_land_sf"
+      - "char_building_units"
+      - "char_building_non_units"
+      - "char_bldg_is_mixed_use"
+      - "char_building_sf"
 
     # List of identifiers for each observation, can be ignored
     id:
@@ -313,7 +316,7 @@ model:
       cat_l2: 0.017
       lambda_l1: 0.697
       lambda_l2: 0.002
-      neighbors: 15
+      trees: 25
 
     # Range of possible hyperparameter values for tuning to explore
     range:
@@ -336,7 +339,7 @@ model:
       cat_l2: [-3, 2]  # 10 ^ X
       lambda_l1: [-3, 2]  # 10 ^ X
       lambda_l2: [-3, 2]  # 10 ^ X
-      neighbors: [5, 40]
+      trees: [5, 50]
 
 
 # Post-Valuation ---------------------------------------------------------------

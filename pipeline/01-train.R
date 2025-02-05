@@ -48,7 +48,8 @@ train_recipe <- model_main_recipe(
   cat_vars = params$model$predictor$categorical,
   knn_vars = params$model$predictor$knn,
   knn_imp_vars = params$model$predictor$knn_imp,
-  id_vars = params$model$predictor$id
+  id_vars = params$model$predictor$id,
+  seed = params$model$seed
 )
 
 
@@ -85,7 +86,7 @@ lin_wflow <- workflow() %>%
 # Fit the linear model on the training data
 lin_wflow_final_fit <- lin_wflow %>%
   finalize_workflow(
-    list(neighbors = params$model$hyperparameter$default$neighbors)
+    list(trees = params$model$hyperparameter$default$trees)
   ) %>%
   fit(data = train %>% mutate(meta_sale_price = log(meta_sale_price)))
 
@@ -228,7 +229,7 @@ if (cv_enable) {
       date_col = meta_sale_date,
       val_prop = params$model$parameter$validation_prop,
       train_includes_val = params$model$parameter$validation_prop > 0,
-      cumulative = FALSE
+      cumulative = TRUE
     )
   }
 
@@ -253,7 +254,7 @@ if (cv_enable) {
       cat_l2              = lightsnip::cat_l2(lgbm_range$cat_l2),
       lambda_l1           = lightsnip::lambda_l1(lgbm_range$lambda_l1),
       lambda_l2           = lightsnip::lambda_l2(lgbm_range$lambda_l2),
-      neighbors           = dials::neighbors(lgbm_range$neighbors)
+      trees               = dials::trees(lgbm_range$trees)
       # nolint end
     )
 

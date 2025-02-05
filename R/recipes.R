@@ -20,7 +20,7 @@
 #' @return A recipe object that can be used to clean model input data.
 #'
 model_main_recipe <- function(data, pred_vars, cat_vars,
-                              knn_vars, knn_imp_vars, id_vars) {
+                              knn_vars, knn_imp_vars, id_vars, seed) {
   recipe(data) %>%
     # Set the role of each variable in the input data
     update_role(meta_sale_price, new_role = "outcome") %>%
@@ -35,14 +35,11 @@ model_main_recipe <- function(data, pred_vars, cat_vars,
     # node value is called with the sample(). This is not deterministic, meaning
     # different runs of the model will have different imputed values, and thus
     # different FMVs.
-    step_impute_knn(
+    step_impute_bag(
       all_of(knn_vars),
-      neighbors = tune(),
+      trees = tune(),
       impute_with = imp_vars(all_of(knn_imp_vars)),
-      options = list(
-        nthread = parallel::detectCores(logical = FALSE),
-        eps = 1e-08
-      )
+      seed_val = seed
     ) %>%
     # Replace novel levels with "new"
     step_novel(all_of(cat_vars), -has_role("ID")) %>%
