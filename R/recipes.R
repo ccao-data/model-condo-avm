@@ -73,7 +73,7 @@ model_main_recipe <- function(data, pred_vars, cat_vars,
 #' @return A recipe object that can be used to clean model input data.
 #'
 model_lin_recipe <- function(data, pred_vars, cat_vars,
-                             knn_vars, knn_imp_vars, id_vars) {
+                             knn_vars, knn_imp_vars, id_vars, seed) {
   recipe(data) %>%
     # Set the role of each variable in the input data
     update_role(meta_sale_price, new_role = "outcome") %>%
@@ -88,14 +88,11 @@ model_lin_recipe <- function(data, pred_vars, cat_vars,
     step_rm(starts_with("loc_"), -all_numeric_predictors()) %>%
     # Impute missing values using KNN. Specific to condo model, usually used to
     # impute missing condo building strata
-    step_impute_knn(
+    step_impute_bag(
       all_of(knn_vars),
-      neighbors = tune(),
+      trees = tune(),
       impute_with = imp_vars(all_of(knn_imp_vars)),
-      options = list(
-        nthread = parallel::detectCores(logical = FALSE),
-        eps = 1e-08
-      )
+      seed_val = seed
     ) %>%
     # Transforms and imputations
     step_mutate(

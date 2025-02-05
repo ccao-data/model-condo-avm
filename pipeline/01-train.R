@@ -69,7 +69,8 @@ lin_recipe <- model_lin_recipe(
   cat_vars = params$model$predictor$categorical,
   knn_vars = params$model$predictor$knn,
   knn_imp_vars = params$model$predictor$knn_imp,
-  id_vars = params$model$predictor$id
+  id_vars = params$model$predictor$id,
+  seed = params$model$seed
 )
 
 # Create a linear model specification and workflow
