@@ -465,20 +465,38 @@ conflict_prefer_all("lubridate", "data.table", quiet = TRUE)
 
 offset <- years(5)
 
-training_data_dt <- training_data_clean %>%
+bldg_rolling_means_dt <- training_data_clean %>%
+  mutate(data_source = "training") %>%
+  select(
+    meta_pin10, meta_pin, meta_tieback_proration_rate,
+    meta_sale_date, meta_sale_price, meta_sale_document_num, sv_is_outlier,
+    meta_modeling_group, data_source
+  ) %>%
+  bind_rows(
+    assessment_data_clean %>%
+      mutate(data_source = "assessment") %>%
+      select(
+        meta_pin10, meta_pin, meta_tieback_proration_rate,
+        meta_sale_date,
+        meta_modeling_group, data_source
+      )
+  ) %>%
   as.data.table() %>%
   setkey(meta_pin10, meta_sale_date)
 
-training_data_dt[
+bldg_rolling_means_dt[
   ,
   sale_wt := params$input$strata$weight_max / (
     params$input$strata$weight_max +
       exp(
-        -(0.005 * as.integer(meta_sale_date - (max(meta_sale_date) - years(2))))
+        -(0.002 * as.integer(meta_sale_date -(max(meta_sale_date) - years(3))))
       )
   ) * (1 - params$input$strata$weight_min) + params$input$strata$weight_min
 ][
-  !sv_is_outlier & meta_modeling_group == "CONDO",
+  ,
+  sale_wt := sale_wt / max(sale_wt),
+][
+  !sv_is_outlier & meta_modeling_group == "CONDO" | data_source == "assessment",
   `:=`(
     lag_price_within_offset = data.table::fifelse(
       meta_sale_date -
@@ -490,7 +508,7 @@ training_data_dt[
   ),
   by = .(meta_pin10)
 ][
-  !sv_is_outlier & meta_modeling_group == "CONDO",
+  !sv_is_outlier & meta_modeling_group == "CONDO" | data_source == "assessment",
   `:=`(
     cnt = data.table::frollsum(
       as.numeric(!is.na(lag_price_within_offset)) * lag_wt,
@@ -509,30 +527,32 @@ training_data_dt[
       adaptive = TRUE,
       na.rm = TRUE,
       hasNA = TRUE
-    ),
-    frollmean = data.table::frollmean(
-      lag_price_within_offset,
-      n = seq_len(.N) -
-        findInterval(meta_sale_date %m-% offset, meta_sale_date),
-      align = "right",
-      adaptive = TRUE,
-      na.rm = TRUE,
-      hasNA = TRUE
     )
   ),
   by = .(meta_pin10)
 ][
-  !sv_is_outlier & meta_modeling_group == "CONDO",
+  !sv_is_outlier & meta_modeling_group == "CONDO" | data_source == "assessment",
   `:=`(
     wtdmean = valsum / cnt
   ),
   by = .(meta_pin10)
 ]
 
-training_data_w_mean <- training_data_dt %>%
-  select(
-    meta_pin10, meta_pin, meta_sale_date, meta_sale_price,
-    lag_price_within_offset, frollmean, valsum, cnt, sale_wt, lag_wt, wtdmean
+# Re-attach to original datasets
+training_data_clean <- training_data_clean %>%
+  left_join(
+    bldg_rolling_means_dt %>%
+      filter(data_source == "training") %>%
+      select(meta_pin10, meta_sale_document_num, meta_bldg_roll_mean = wtdmean),
+    by = c("meta_pin10", "meta_sale_document_num")
+  )
+
+assessment_data_clean <- assessment_data_clean %>%
+  left_join(
+    bldg_rolling_means_dt %>%
+      filter(data_source == "assessment") %>%
+      select(meta_pin, meta_bldg_roll_mean = wtdmean),
+    by = c("meta_pin")
   )
 
 

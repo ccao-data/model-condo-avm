@@ -79,7 +79,7 @@ input:
 
     # Max and min weights for mean sale price weighted by sale date i.e. the
     # the least recent sale counts half as much as the most recent one
-    weight_min: 0.3
+    weight_min: 0.1
     weight_max: 1.0
 
 
