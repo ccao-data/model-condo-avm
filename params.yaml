@@ -250,10 +250,8 @@ model:
       - "char_building_units"
       - "char_yrblt"
       - "meta_township_code"
-      - "meta_nbhd_code"
       - "char_land_sf"
       - "char_building_units"
-      - "char_building_non_units"
       - "char_bldg_is_mixed_use"
       - "char_building_sf"
 
