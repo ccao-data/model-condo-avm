@@ -475,7 +475,7 @@ bldg_rolling_means_dt[
   # given sale, how many index positions back do we need to go to get only sales
   # from the past N years
   `:=`(
-    wtd_cnt = data.table::frollsum(
+    cnt = data.table::frollsum(
       as.numeric(!is.na(lag_price_within_offset)),
       n = seq_len(.N) -
         findInterval(meta_sale_date %m-% offset, meta_sale_date),
@@ -527,7 +527,8 @@ training_data_clean <- training_data_clean %>%
         meta_pin10_bldg_roll_count = cnt
       ),
     by = c("meta_pin10", "meta_sale_document_num")
-  )
+  ) %>%
+  write_parquet(paths$input$training$local)
 
 assessment_data_clean <- assessment_data_clean %>%
   left_join(
@@ -539,7 +540,8 @@ assessment_data_clean <- assessment_data_clean %>%
         meta_pin10_bldg_roll_count = cnt
       ),
     by = c("meta_pin")
-  )
+  ) %>%
+  write_parquet(paths$input$assessment$local)
 
 # Reminder to upload to DVC store
 message(
