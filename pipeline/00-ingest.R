@@ -497,13 +497,16 @@ bldg_rolling_means_dt[
     )
   ),
   by = .(meta_pin10)
-][
-  !sv_is_outlier & meta_modeling_group == "CONDO" | data_source == "assessment",
+][, wtd_mean := wtd_valsum / wtd_cnt][
+  ,
   `:=`(
-    wtdmean = wtd_valsum / wtd_cnt,
-    cnt = data.table::nafill(cnt, type = "const", fill = 0)
-  ),
-  by = .(meta_pin10)
+    wtd_mean = fifelse(
+      wtd_mean <= 0 | is.nan(wtd_mean) | !is.finite(wtd_mean),
+      NA_real_,
+      wtd_mean
+    ),
+    cnt = fifelse(is.na(cnt) | is.nan(cnt) | !is.finite(cnt), 0, cnt)
+  )
 ]
 
 
@@ -519,7 +522,7 @@ training_data_clean <- training_data_clean %>%
       filter(data_source == "training") %>%
       select(
         meta_pin10, meta_sale_document_num,
-        meta_pin10_bldg_roll_mean = wtdmean,
+        meta_pin10_bldg_roll_mean = wtd_mean,
         meta_pin10_bldg_roll_count = cnt
       ),
     by = c("meta_pin10", "meta_sale_document_num")
@@ -540,7 +543,7 @@ assessment_data_clean <- assessment_data_clean %>%
       filter(data_source == "assessment") %>%
       select(
         meta_pin,
-        meta_pin10_bldg_roll_mean = wtdmean,
+        meta_pin10_bldg_roll_mean = wtd_mean,
         meta_pin10_bldg_roll_count = cnt
       ),
     by = c("meta_pin")
