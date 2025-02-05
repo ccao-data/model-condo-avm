@@ -53,47 +53,8 @@ assessment_data_pred <- assessment_data_pred %>%
     pred_card_initial_fmv = as.numeric(predict(
       lgbm_final_full_fit,
       new_data = assessment_data_baked
-    )$.pred),
-    # Strata variables are converted to 0-indexed integers during baking.
-    # We save those converted values so we can unconvert them below
-    temp_strata_1 = assessment_data_baked$meta_strata_1,
-    temp_strata_2 = assessment_data_baked$meta_strata_2
+    )$.pred)
   )
-
-# The baked data encodes categorical values as base-0 integers.
-# However, here we want to recover the original (unencoded) values of our
-# strata variables wherever they've been imputed by the baking step. To do so,
-# we create a mapping of the encoded to unencoded values and use them to
-# recover both the original strata values and those imputed by
-# step_impute_knn (in R/recipes.R)
-strata_mapping_1 <- assessment_data_pred %>%
-  filter(!is.na(meta_strata_1)) %>%
-  distinct(temp_strata_1, meta_strata_1) %>%
-  pull(meta_strata_1, name = temp_strata_1)
-strata_mapping_2 <- assessment_data_pred %>%
-  filter(!is.na(meta_strata_2)) %>%
-  distinct(temp_strata_2, meta_strata_2) %>%
-  pull(meta_strata_2, name = temp_strata_2)
-
-# Recover the imputed strata values
-assessment_data_pred <- assessment_data_pred %>%
-  mutate(
-    # Binary variable to identify condos which have imputed strata
-    flag_strata_is_imputed = is.na(meta_strata_1) | is.na(meta_strata_2),
-    # Use mappings to replace meta_strata_1 and meta_strata_2 directly
-    meta_strata_1 = ifelse(
-      is.na(meta_strata_1),
-      unname(strata_mapping_1[as.character(temp_strata_1)]),
-      meta_strata_1
-    ),
-    meta_strata_2 = ifelse(
-      is.na(meta_strata_2),
-      unname(strata_mapping_2[as.character(temp_strata_2)]),
-      meta_strata_2
-    )
-  ) %>%
-  # Remove unnecessary columns
-  select(-temp_strata_1, -temp_strata_2)
 
 
 
