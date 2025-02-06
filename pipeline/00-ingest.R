@@ -423,8 +423,7 @@ bldg_rolling_means_dt <- training_data_clean %>%
       )
   ) %>%
   as.data.table() %>%
-  setkey(meta_pin10, meta_sale_date) %>%
-  slice(1:10000)
+  setkey(meta_pin10, meta_sale_date)
 
 # Construct the time-weighted, leave-one-out rolling mean of building sale
 # prices. We use data.table here since it's MUCH faster than dplyr for this
