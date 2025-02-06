@@ -527,6 +527,10 @@ training_data_clean <- training_data_clean %>%
       ),
     by = c("meta_pin10", "meta_sale_document_num")
   ) %>%
+  mutate(
+    meta_pin10_bldg_roll_pct_sold =
+      char_building_units / meta_pin10_bldg_roll_count
+  ) %>%
   filter(
     between(
       meta_sale_date,
@@ -547,6 +551,10 @@ assessment_data_clean <- assessment_data_clean %>%
         meta_pin10_bldg_roll_count = cnt
       ),
     by = c("meta_pin")
+  ) %>%
+  mutate(
+    meta_pin10_bldg_roll_pct_sold =
+      char_building_units / meta_pin10_bldg_roll_count
   ) %>%
   as_tibble() %>%
   write_parquet(paths$input$assessment$local)

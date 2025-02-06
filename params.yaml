@@ -213,6 +213,7 @@ model:
       - "shp_parcel_mrr_side_ratio"
       - "shp_parcel_num_vertices"
       - "meta_pin10_bldg_roll_mean"
+      - "meta_pin10_bldg_roll_pct_sold"
 
     # List of predictors included in predictor.all which are categoricals. It is
     # CRITICAL that any categorical variables are included in this list, else
