@@ -457,21 +457,27 @@ bldg_rolling_means_dt[
       data.table::shift(meta_sale_price, 1, type = "lag"),
       NA_real_
     ),
-    # We also need to shift the sale weights so they align with the lagged sales
-    lag_sale_wt = data.table::shift(sale_wt, 1, type = "lag")
+    # We also need to shift the sale weights and dates so they align with the
+    # lagged sale prices
+    lag_sale_wt = data.table::shift(sale_wt, 1, type = "lag"),
+    lag_sale_date = data.table::shift(meta_sale_date, 1, type = "lag")
   ),
   by = .(meta_pin10)
 ][
-  !sv_is_outlier & meta_modeling_group == "CONDO" | data_source == "assessment",
-  # Calculate the numerator and denominator of the rolling mean. The n argument
-  # here is the size of the rolling window relative to EACH sale i.e. for any
+  # This is the size of the rolling window relative to EACH sale i.e. for any
   # given sale, how many index positions back do we need to go to get only sales
   # from the past N years
+  !sv_is_outlier & meta_modeling_group == "CONDO" | data_source == "assessment",
+  window_size := seq_len(.N) -
+    findInterval(meta_sale_date %m-% offset, lag_sale_date[-1]) - 1,
+  by = .(meta_pin10)
+][
+  !sv_is_outlier & meta_modeling_group == "CONDO" | data_source == "assessment",
+  # Calculate the numerator and denominator of the weighted rolling mean
   `:=`(
     cnt = data.table::frollsum(
       as.numeric(!is.na(lag_price_within_offset)),
-      n = seq_len(.N) -
-        findInterval(meta_sale_date %m-% offset, meta_sale_date),
+      n = window_size,
       align = "right",
       adaptive = TRUE,
       na.rm = TRUE,
@@ -479,8 +485,7 @@ bldg_rolling_means_dt[
     ),
     wtd_cnt = data.table::frollsum(
       as.numeric(!is.na(lag_price_within_offset)) * lag_sale_wt,
-      n = seq_len(.N) -
-        findInterval(meta_sale_date %m-% offset, meta_sale_date),
+      n = window_size,
       align = "right",
       adaptive = TRUE,
       na.rm = TRUE,
@@ -488,8 +493,7 @@ bldg_rolling_means_dt[
     ),
     wtd_valsum = data.table::frollsum(
       lag_price_within_offset * lag_sale_wt,
-      n = seq_len(.N) -
-        findInterval(meta_sale_date %m-% offset, meta_sale_date),
+      n = window_size,
       align = "right",
       adaptive = TRUE,
       na.rm = TRUE,
@@ -529,7 +533,8 @@ training_data_clean <- training_data_clean %>%
   ) %>%
   mutate(
     meta_pin10_bldg_roll_pct_sold =
-      char_building_units / meta_pin10_bldg_roll_count
+      char_building_units / meta_pin10_bldg_roll_count,
+    meta_pin10_bldg_roll_pct_sold = replace_na(meta_pin10_bldg_roll_pct_sold, 0)
   ) %>%
   filter(
     between(
@@ -554,7 +559,8 @@ assessment_data_clean <- assessment_data_clean %>%
   ) %>%
   mutate(
     meta_pin10_bldg_roll_pct_sold =
-      char_building_units / meta_pin10_bldg_roll_count
+      char_building_units / meta_pin10_bldg_roll_count,
+    meta_pin10_bldg_roll_pct_sold = replace_na(meta_pin10_bldg_roll_pct_sold, 0)
   ) %>%
   as_tibble() %>%
   write_parquet(paths$input$assessment$local)
