@@ -389,10 +389,10 @@ message("Calculating building rolling means")
 # more homogeneous than single-family homes and are pre-grouped into like units
 # (buildings)
 
-# As such, we can use the historic sale price of other sold units in the same
+# We can use the historic sale price of other sold units in the same
 # building to determine an unsold condo's value. To do so, we construct a
-# time-weighted, leave-one-out rolling mean of sale prices for each building.
-# In other words, this is just the average of sales in the building in the past
+# time-weighted, leave-one-out, rolling mean of sale prices for each building.
+# In other words, we get the average of sales in the building in the past
 # N years, excluding the sale we're trying to predict.
 
 ## 5.1. Construct Rolling Means ------------------------------------------------
@@ -423,16 +423,17 @@ bldg_rolling_means_dt <- training_data_clean %>%
       )
   ) %>%
   as.data.table() %>%
-  setkey(meta_pin10, meta_sale_date)
+  setkey(meta_pin10, meta_sale_date) %>%
+  slice(1:10000)
 
 # Construct the time-weighted, leave-one-out rolling mean of building sale
 # prices. We use data.table here since it's MUCH faster than dplyr for this
-# task. The code here is a bit dense, view the output dataframe for debugging
+# task. The code here is a bit dense. View the output dataframe for debugging
 # (it helps a lot).
 bldg_rolling_means_dt[
   ,
   # Create initial time weights for the range of sales across the whole training
-  # date range. This is a logistic function centered 3 years before the lien
+  # date range. This is a logistic curve centered 3 years before the lien
   # date and bounded between the min and max weights. The parameters here were
   # discovered with some rough grid search
   sale_wt := params$input$building$weight_max / (
@@ -446,21 +447,14 @@ bldg_rolling_means_dt[
   # Scale weights so the max weight is 1
   sale_wt := sale_wt / max(sale_wt)
 ][
+  # Calculate the index offset to use for _excluding_ sales outside of the
+  # rolling window (of past N years)
   !sv_is_outlier & meta_modeling_group == "CONDO" | data_source == "assessment",
-  # This is the "leave-one-out" part of the mean construction. By taking the
-  # lag, we replace the current sale with the prior sale, effectively excluding
-  # the current sale from the rolling mean window
   `:=`(
-    lag_price_within_offset = data.table::fifelse(
-      meta_sale_date -
-        data.table::shift(meta_sale_date, 1, type = "lag") <= offset,
-      data.table::shift(meta_sale_price, 1, type = "lag"),
-      NA_real_
-    ),
-    # We also need to shift the sale weights and dates so they align with the
-    # lagged sale prices
-    lag_sale_wt = data.table::shift(sale_wt, 1, type = "lag"),
-    lag_sale_date = data.table::shift(meta_sale_date, 1, type = "lag")
+    index_in_group = .I,
+    index_cur_sale_gt_sale_minus_offset = findInterval(
+      meta_sale_date %m-% offset, meta_sale_date
+    )
   ),
   by = .(meta_pin10)
 ][
@@ -468,23 +462,14 @@ bldg_rolling_means_dt[
   # given sale, how many index positions back do we need to go to get only sales
   # from the past N years
   !sv_is_outlier & meta_modeling_group == "CONDO" | data_source == "assessment",
-  window_size := seq_len(.N) -
-    findInterval(meta_sale_date %m-% offset, lag_sale_date[-1]) - 1,
+  window_size := index_in_group - index_cur_sale_gt_sale_minus_offset,
   by = .(meta_pin10)
 ][
   !sv_is_outlier & meta_modeling_group == "CONDO" | data_source == "assessment",
   # Calculate the numerator and denominator of the weighted rolling mean
   `:=`(
     cnt = data.table::frollsum(
-      as.numeric(!is.na(lag_price_within_offset)),
-      n = window_size,
-      align = "right",
-      adaptive = TRUE,
-      na.rm = TRUE,
-      hasNA = TRUE
-    ),
-    wtd_cnt = data.table::frollsum(
-      as.numeric(!is.na(lag_price_within_offset)) * lag_sale_wt,
+      as.numeric(!is.na(meta_sale_price)),
       n = window_size,
       align = "right",
       adaptive = TRUE,
@@ -492,7 +477,15 @@ bldg_rolling_means_dt[
       hasNA = TRUE
     ),
     wtd_valsum = data.table::frollsum(
-      lag_price_within_offset * lag_sale_wt,
+      meta_sale_price * sale_wt,
+      n = window_size,
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ),
+    wtd_cnt = data.table::frollsum(
+      as.numeric(!is.na(meta_sale_price)) * sale_wt,
       n = window_size,
       align = "right",
       adaptive = TRUE,
@@ -501,7 +494,14 @@ bldg_rolling_means_dt[
     )
   ),
   by = .(meta_pin10)
-][, wtd_mean := wtd_valsum / wtd_cnt][
+][
+  ,
+  wtd_mean := (
+    wtd_valsum -
+      (replace(meta_sale_price, is.na(meta_sale_price), 0) * sale_wt)
+  ) /
+    (wtd_cnt - (as.numeric(!is.na(meta_sale_price)) * sale_wt))
+][
   ,
   `:=`(
     wtd_mean = fifelse(
@@ -509,7 +509,8 @@ bldg_rolling_means_dt[
       NA_real_,
       wtd_mean
     ),
-    cnt = fifelse(is.na(cnt) | is.nan(cnt) | !is.finite(cnt), 0, cnt)
+    cnt = fifelse(is.na(cnt) | is.nan(cnt) | !is.finite(cnt), 0, cnt) -
+      as.numeric(!is.na(meta_sale_price))
   )
 ]
 
