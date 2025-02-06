@@ -323,9 +323,9 @@ have recent sales.
 ### Buildings Without Sales
 
 When no sales have occurred in a building in the 5 years prior to
-assessment, the building’s mean feature is imputed. The model will look
-at nearby buildings that have similar unit counts, age, and other
-features, then try to assign an appropriate average to the target
+assessment, the building’s mean sale price feature is imputed. The model
+will look at nearby buildings that have similar unit counts, age, and
+other features, then try to assign an appropriate average to the target
 building.
 
 Most of the time, this technique produces reasonable results. However,
@@ -351,7 +351,8 @@ speaking, the most important features are:
 - Condo percentage of ownership, which determines the intra-building
   variation in unit price.
 - Other sales in the building. This is captured by a rolling average of
-  sales in the building over the past 5 years.
+  sales in the building over the past 5 years, excluding any sales of
+  the target condo unit.
 
 **Q: How do I see the assessed value of other units in my building?**
 
