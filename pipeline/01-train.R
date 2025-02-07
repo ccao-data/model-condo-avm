@@ -87,7 +87,7 @@ lin_wflow <- workflow() %>%
 # Fit the linear model on the training data
 lin_wflow_final_fit <- lin_wflow %>%
   finalize_workflow(
-    list(trees = params$model$hyperparameter$default$imp_trees)
+    list(imp_trees = params$model$hyperparameter$default$imp_trees)
   ) %>%
   fit(data = train %>% mutate(meta_sale_price = log(meta_sale_price)))
 
