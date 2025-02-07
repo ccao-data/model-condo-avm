@@ -528,16 +528,9 @@ bldg_rolling_means_dt[
 ][, wtd_mean := wtd_valsum / wtd_cnt][
   ,
   `:=`(
-    wtd_mean = fifelse(
-      wtd_mean <= 0 | is.nan(wtd_mean) | is.infinite(wtd_mean),
-      NA_real_,
-      wtd_mean
-    ),
-    cnt = fifelse(
-      is.na(cnt) | is.nan(cnt) | is.infinite(cnt),
-      NA_real_,
-      cnt
-    )
+    wtd_mean =
+      fifelse(is.nan(wtd_mean) | is.infinite(wtd_mean), NA_real_, wtd_mean),
+    cnt = fifelse(is.nan(cnt) | is.infinite(cnt), NA_real_, cnt)
   )
 ]
 
@@ -605,6 +598,13 @@ assessment_data_clean <- assessment_data_clean %>%
   ) %>%
   as_tibble() %>%
   write_parquet(paths$input$assessment$local)
+
+# Throw errors if any of the constructed mean features are negative
+if (any(training_data_clean$meta_pin10_bldg_roll_mean < 0)) {
+  stop("Negative building rolling mean detected in training data")
+} else if (any(assessment_data_clean$meta_pin10_bldg_roll_mean < 0)) {
+  stop("Negative building rolling mean detected in assessment data")
+}
 
 # Reminder to upload to DVC store
 message(
