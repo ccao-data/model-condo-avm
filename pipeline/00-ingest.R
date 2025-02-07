@@ -447,7 +447,7 @@ bldg_rolling_means_dt[
   sale_wt := sale_wt / max(sale_wt)
 ][
   # Calculate the adaptive rolling window size using some tricky interval logic.
-  # To demo what's actually going on here:
+  # To demo what's actually going on here with `findInterval()`:
   #
   # Given the following sales Y:
   # 2015-12-01 2018-01-01 2022-06-15 2025-01-01
@@ -456,19 +456,19 @@ bldg_rolling_means_dt[
   # 2010-12-01 2013-01-01 2017-06-15 2020-01-01
   #
   # For each element of X, find the _index position_ of the breaks in Y that
-  # contains that element. For the first element of X for example:
+  # contains that element e.g. for the first element of X:
   #  2015-12-01 2018-01-01 2022-06-15 2025-01-01
   # └── 2010-12-01 is outside any of the cuts, so the index is 0
   #
-  # For the fourth element of X:
+  # Or for the fourth element of X:
   # 2015-12-01 2018-01-01 2022-06-15 2025-01-01
   #                      └── 2020-01-01 is between these two, so the index is 2
   #
   # Using this technique, we can determine how many index positions we need to
-  # move before the offset of the current date is within the window. We then
-  # subtract that from the window size, effectively shrinking the front of the
-  # window by that many index positions (and therefore excluding sales that are
-  # outside the N year time frame)
+  # move before the offset current date (sale date - N years) finds prior sales
+  # that are within the N year time window. We then subtract that number of
+  # index positions from the window size, effectively shrinking the front of the
+  # window by N positions and excluding sales that are outside the N year offset
   !sv_is_outlier & meta_modeling_group == "CONDO" | data_source == "assessment",
   `:=`(
     index_in_group = seq_len(.N),
@@ -553,7 +553,7 @@ training_data_clean <- training_data_clean %>%
     by = c("meta_pin10", "meta_sale_document_num")
   ) %>%
   mutate(
-    # Also construct a percentage of units sold in the building feature
+    # Also construct a "percentage of units sold in the building" feature
     meta_pin10_bldg_roll_pct_sold =
       meta_pin10_bldg_roll_count / char_building_units,
     meta_pin10_bldg_roll_pct_sold = ifelse(
@@ -592,7 +592,7 @@ assessment_data_clean <- assessment_data_clean %>%
       is.na(meta_pin10_bldg_roll_pct_sold) |
         is.nan(meta_pin10_bldg_roll_pct_sold) |
         is.infinite(meta_pin10_bldg_roll_pct_sold),
-      0,
+      NA_real_,
       meta_pin10_bldg_roll_pct_sold
     )
   ) %>%
