@@ -446,12 +446,33 @@ bldg_rolling_means_dt[
   # Scale weights so the max weight is 1
   sale_wt := sale_wt / max(sale_wt)
 ][
-  # Calculate the index offset to use for _excluding_ sales outside of the
-  # rolling window (of past N years)
+  # Calculate the adaptive rolling window size using some tricky interval logic.
+  # To demo what's actually going on here:
+  #
+  # Given the following sales Y:
+  # 2015-12-01 2018-01-01 2022-06-15 2025-01-01
+  #
+  # And their 5-year offset X:
+  # 2010-12-01 2013-01-01 2017-06-15 2020-01-01
+  #
+  # For each element of X, find the _index position_ of the breaks in Y that
+  # contains that element. For the first element of X for example:
+  #  2015-12-01 2018-01-01 2022-06-15 2025-01-01
+  # └── 2010-12-01 is outside any of the cuts, so the index is 0
+  #
+  # For the fourth element of X:
+  # 2015-12-01 2018-01-01 2022-06-15 2025-01-01
+  #                      └── 2020-01-01 is between these two, so the index is 2
+  #
+  # Using this technique, we can determine how many index positions we need to
+  # move before the offset of the current date is within the window. We then
+  # subtract that from the window size, effectively shrinking the front of the
+  # window by that many index positions (and therefore excluding sales that are
+  # outside the N year time frame)
   !sv_is_outlier & meta_modeling_group == "CONDO" | data_source == "assessment",
   `:=`(
-    index_in_group = .I,
-    index_cur_sale_gt_sale_minus_offset = findInterval(
+    index_in_group = seq_len(.N),
+    shrink_win_by_n_positions = findInterval(
       meta_sale_date %m-% offset, meta_sale_date
     )
   ),
@@ -461,11 +482,15 @@ bldg_rolling_means_dt[
   # given sale, how many index positions back do we need to go to get only sales
   # from the past N years
   !sv_is_outlier & meta_modeling_group == "CONDO" | data_source == "assessment",
-  window_size := index_in_group - index_cur_sale_gt_sale_minus_offset,
+  window_size := index_in_group - shrink_win_by_n_positions,
   by = .(meta_pin10)
 ][
   !sv_is_outlier & meta_modeling_group == "CONDO" | data_source == "assessment",
-  # Calculate the numerator and denominator of the weighted rolling mean
+  # Calculate the numerator and denominator of the weighted rolling mean, but
+  # EXCLUDE the current sale. This is the leave-one-out part. Note that we need
+  # to replace NA values with 0 in the denominator for cases where there's no
+  # current sale but we still want to create a mean of prior sales e.g. for
+  # the assessment data
   `:=`(
     cnt = data.table::frollsum(
       as.numeric(!is.na(meta_sale_price)),
@@ -474,7 +499,7 @@ bldg_rolling_means_dt[
       adaptive = TRUE,
       na.rm = TRUE,
       hasNA = TRUE
-    ),
+    ) - as.numeric(!is.na(meta_sale_price)),
     wtd_valsum = data.table::frollsum(
       meta_sale_price * sale_wt,
       n = window_size,
@@ -482,7 +507,7 @@ bldg_rolling_means_dt[
       adaptive = TRUE,
       na.rm = TRUE,
       hasNA = TRUE
-    ),
+    ) - replace(meta_sale_price, is.na(meta_sale_price), 0) * sale_wt,
     wtd_cnt = data.table::frollsum(
       as.numeric(!is.na(meta_sale_price)) * sale_wt,
       n = window_size,
@@ -490,26 +515,22 @@ bldg_rolling_means_dt[
       adaptive = TRUE,
       na.rm = TRUE,
       hasNA = TRUE
-    )
+    ) - as.numeric(!is.na(meta_sale_price)) * sale_wt
   ),
   by = .(meta_pin10)
-][
-  ,
-  wtd_mean := (
-    wtd_valsum -
-      (replace(meta_sale_price, is.na(meta_sale_price), 0) * sale_wt)
-  ) /
-    (wtd_cnt - (as.numeric(!is.na(meta_sale_price)) * sale_wt))
-][
+][, wtd_mean := wtd_valsum / wtd_cnt][
   ,
   `:=`(
     wtd_mean = fifelse(
-      wtd_mean <= 0 | is.nan(wtd_mean) | !is.finite(wtd_mean),
+      wtd_mean <= 0 | is.nan(wtd_mean) | is.infinite(wtd_mean),
       NA_real_,
       wtd_mean
     ),
-    cnt = fifelse(is.na(cnt) | is.nan(cnt) | !is.finite(cnt), 0, cnt) -
-      as.numeric(!is.na(meta_sale_price))
+    cnt = fifelse(
+      is.na(cnt) | is.nan(cnt) | is.infinite(cnt),
+      NA_real_,
+      cnt
+    )
   )
 ]
 
@@ -519,7 +540,7 @@ bldg_rolling_means_dt[
 # Extract the constructed building means from the dedicated dataframe and
 # re-attach them to their respective datasets. Note that some PINs will
 # not have a mean (no sales in the building or no sales in the window). These
-# missing values get imputed during the training stage.
+# missing values get imputed during the training stage
 training_data_clean <- training_data_clean %>%
   left_join(
     bldg_rolling_means_dt %>%
@@ -532,9 +553,16 @@ training_data_clean <- training_data_clean %>%
     by = c("meta_pin10", "meta_sale_document_num")
   ) %>%
   mutate(
+    # Also construct a percentage of units sold in the building feature
     meta_pin10_bldg_roll_pct_sold =
-      char_building_units / meta_pin10_bldg_roll_count,
-    meta_pin10_bldg_roll_pct_sold = replace_na(meta_pin10_bldg_roll_pct_sold, 0)
+      meta_pin10_bldg_roll_count / char_building_units,
+    meta_pin10_bldg_roll_pct_sold = ifelse(
+      is.na(meta_pin10_bldg_roll_pct_sold) |
+        is.nan(meta_pin10_bldg_roll_pct_sold) |
+        is.infinite(meta_pin10_bldg_roll_pct_sold),
+      NA_real_,
+      meta_pin10_bldg_roll_pct_sold
+    )
   ) %>%
   filter(
     between(
@@ -559,8 +587,14 @@ assessment_data_clean <- assessment_data_clean %>%
   ) %>%
   mutate(
     meta_pin10_bldg_roll_pct_sold =
-      char_building_units / meta_pin10_bldg_roll_count,
-    meta_pin10_bldg_roll_pct_sold = replace_na(meta_pin10_bldg_roll_pct_sold, 0)
+      meta_pin10_bldg_roll_count / char_building_units,
+    meta_pin10_bldg_roll_pct_sold = ifelse(
+      is.na(meta_pin10_bldg_roll_pct_sold) |
+        is.nan(meta_pin10_bldg_roll_pct_sold) |
+        is.infinite(meta_pin10_bldg_roll_pct_sold),
+      0,
+      meta_pin10_bldg_roll_pct_sold
+    )
   ) %>%
   as_tibble() %>%
   write_parquet(paths$input$assessment$local)
