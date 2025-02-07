@@ -2,7 +2,7 @@ stages:
   ingest:
     cmd: Rscript pipeline/00-ingest.R
     desc: >
-      Ingest training and assessment data from Athena + generate condo strata
+      Ingest training and assessment data from Athena + generate building means
     deps:
       - pipeline/00-ingest.R
     params:
@@ -11,7 +11,6 @@ stages:
     outs:
       - input/assessment_data.parquet
       - input/char_data.parquet
-      - input/condo_strata_data.parquet
       - input/land_nbhd_rate_data.parquet
       - input/training_data.parquet
     frozen: true
@@ -60,7 +59,6 @@ stages:
     deps:
       - pipeline/02-assess.R
       - input/assessment_data.parquet
-      - input/condo_strata_data.parquet
       - input/land_nbhd_rate_data.parquet
       - input/training_data.parquet
       - output/workflow/fit/model_workflow_fit.zip

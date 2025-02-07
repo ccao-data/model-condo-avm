@@ -60,26 +60,14 @@ input:
   min_sale_year: "2016"
   max_sale_year: "2024"
 
-  # Parameters used to construct condominium strata features
-  strata:
-    # Seed for k-means
-    seed: 123
+  # Rolling time window size for building mean feature
+  n_years_prior: 5
 
-    # Grouping variables used in the construction of condo strata. Each group
-    # will have its own independent strata of size K 1 and K 2 (see below)
-    group_var:
-      - "meta_township_code"
-
-    # We can use either quantiles or k-means clustering to build condo strata
-    type: "ntile"
-
-    # Number of quantiles of centers to use when constructing strata
-    k_1: 10
-    k_2: 100
-
+  # Parameters used to construct condominium building mean feature
+  building:
     # Max and min weights for mean sale price weighted by sale date i.e. the
     # the least recent sale counts half as much as the most recent one
-    weight_min: 0.3
+    weight_min: 0.1
     weight_max: 1.0
 
 
@@ -94,7 +82,7 @@ cv:
   # Number of folds to use for cross-validation. For v-fold CV, the data will be
   # randomly split. For rolling-origin, the data will be split into V chunks by
   # time, with each chunk/period calculated automatically
-  num_folds: 10
+  num_folds: 7
 
   # The number of months time-based folds should overlap each other. Only
   # applicable to rolling-origin CV. See https://www.tmwr.org/resampling#rolling
@@ -224,8 +212,8 @@ model:
       - "shp_parcel_mrr_area_ratio"
       - "shp_parcel_mrr_side_ratio"
       - "shp_parcel_num_vertices"
-      - "meta_strata_1"
-      - "meta_strata_2"
+      - "meta_pin10_bldg_roll_mean"
+      - "meta_pin10_bldg_roll_pct_sold"
 
     # List of predictors included in predictor.all which are categoricals. It is
     # CRITICAL that any categorical variables are included in this list, else
@@ -238,21 +226,23 @@ model:
       - "loc_school_elementary_district_geoid"
       - "loc_school_secondary_district_geoid"
       - "time_sale_quarter_of_year"
-      - "meta_strata_1"
-      - "meta_strata_2"
 
-    # List of variables used with the recipe step step_impute_knn(). The knn
-    # variables will have missing values imputed, while the knn_imp variables
+    # List of variables used with the recipe step step_impute_bag(). The imp
+    # variables will have missing values imputed, while the imp_vars variables
     # are used to do the imputing
-    knn:
-      - "meta_strata_1"
-      - "meta_strata_2"
+    imp:
+      - "meta_pin10_bldg_roll_mean"
 
-    knn_imp:
+    imp_vars:
       - "loc_latitude"
       - "loc_longitude"
       - "char_building_units"
       - "char_yrblt"
+      - "meta_township_code"
+      - "char_land_sf"
+      - "char_building_non_units"
+      - "char_bldg_is_mixed_use"
+      - "char_building_sf"
 
     # List of identifiers for each observation, can be ignored
     id:
@@ -313,7 +303,7 @@ model:
       cat_l2: 0.017
       lambda_l1: 0.697
       lambda_l2: 0.002
-      neighbors: 15
+      imp_trees: 25
 
     # Range of possible hyperparameter values for tuning to explore
     range:
@@ -336,7 +326,7 @@ model:
       cat_l2: [-3, 2]  # 10 ^ X
       lambda_l1: [-3, 2]  # 10 ^ X
       lambda_l2: [-3, 2]  # 10 ^ X
-      neighbors: [5, 40]
+      imp_trees: [5, 50]
 
 
 # Post-Valuation ---------------------------------------------------------------

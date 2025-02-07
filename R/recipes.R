@@ -10,17 +10,18 @@
 #'   will be the right-hand side of the regression AKA predictors.
 #' @param cat_vars Character vector of categorical column names. These will be
 #'   integer-encoded (base 0).
-#' @param knn_vars Character vector of column names. These columns will have
-#'   missing values imputed via KNN.
-#' @param knn_imp_vars Character vector of column names. These columns will be
-#'   used to impute the columns in knn_vars.
+#' @param imp Character vector of column names. These columns will have
+#'   missing values imputed.
+#' @param imp_vars Character vector of column names. These columns will be
+#'   used to impute the columns in imp.
 #' @param id_vars Character vector of ID variables. These can be kept in "baked"
 #'   data without being treated as predictors.
+#' @param seed Integer seed value for reproducibility.
 #'
 #' @return A recipe object that can be used to clean model input data.
 #'
 model_main_recipe <- function(data, pred_vars, cat_vars,
-                              knn_vars, knn_imp_vars, id_vars) {
+                              imp, imp_vars, id_vars, seed) {
   recipe(data) %>%
     # Set the role of each variable in the input data
     update_role(meta_sale_price, new_role = "outcome") %>%
@@ -30,19 +31,12 @@ model_main_recipe <- function(data, pred_vars, cat_vars,
     update_role_requirements("NA", bake = FALSE) %>%
     # Remove any variables not an outcome var or in the pred_vars vector
     step_rm(-all_outcomes(), -all_predictors(), -has_role("ID")) %>%
-    # Impute missing values using KNN. Specific to condo model, usually used to
-    # impute missing condo building strata. Within step_impute_knn, an estimated
-    # node value is called with the sample(). This is not deterministic, meaning
-    # different runs of the model will have different imputed values, and thus
-    # different FMVs.
-    step_impute_knn(
-      all_of(knn_vars),
-      neighbors = tune(),
-      impute_with = imp_vars(all_of(knn_imp_vars)),
-      options = list(
-        nthread = parallel::detectCores(logical = FALSE),
-        eps = 1e-08
-      )
+    # Impute missing values using a separate tree model
+    step_impute_bag(
+      all_of(imp),
+      trees = tune("imp_trees"),
+      impute_with = imp_vars(all_of(imp_vars)),
+      seed_val = seed
     ) %>%
     # Replace novel levels with "new"
     step_novel(all_of(cat_vars), -has_role("ID")) %>%
@@ -66,17 +60,18 @@ model_main_recipe <- function(data, pred_vars, cat_vars,
 #'   will be the right-hand side of the regression AKA predictors.
 #' @param cat_vars Character vector of categorical column names. These will be
 #'   transformed/encoded using embeddings.
-#' @param knn_vars Character vector of column names. These columns will have
-#'   missing values imputed via KNN.
-#' @param knn_imp_vars Character vector of column names. These columns will be
-#'   used to impute the columns in knn_vars.
+#' @param imp Character vector of column names. These columns will have
+#'   missing values imputed.
+#' @param imp_vars Character vector of column names. These columns will be
+#'   used to impute the columns in imp.
 #' @param id_vars Character vector of ID variables. These can be kept in "baked"
 #'   data without being treated as predictors.
+#' @param seed Integer seed value for reproducibility.
 #'
 #' @return A recipe object that can be used to clean model input data.
 #'
 model_lin_recipe <- function(data, pred_vars, cat_vars,
-                             knn_vars, knn_imp_vars, id_vars) {
+                             imp, imp_vars, id_vars, seed) {
   recipe(data) %>%
     # Set the role of each variable in the input data
     update_role(meta_sale_price, new_role = "outcome") %>%
@@ -89,16 +84,12 @@ model_lin_recipe <- function(data, pred_vars, cat_vars,
     step_rm(-all_outcomes(), -all_predictors(), -has_role("ID")) %>%
     # Drop extra location predictors that aren't nbhd or township
     step_rm(starts_with("loc_"), -all_numeric_predictors()) %>%
-    # Impute missing values using KNN. Specific to condo model, usually used to
-    # impute missing condo building strata
-    step_impute_knn(
-      all_of(knn_vars),
-      neighbors = tune(),
-      impute_with = imp_vars(all_of(knn_imp_vars)),
-      options = list(
-        nthread = parallel::detectCores(logical = FALSE),
-        eps = 1e-08
-      )
+    # Impute missing values using a separate tree model
+    step_impute_bag(
+      all_of(imp),
+      trees = tune("imp_trees"),
+      impute_with = imp_vars(all_of(imp_vars)),
+      seed_val = seed
     ) %>%
     # Transforms and imputations
     step_mutate(

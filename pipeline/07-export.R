@@ -123,12 +123,12 @@ assessment_pin_prepped <- assessment_pin %>%
     sale_recent_2_outlier_type, sale_recent_2_document_num,
     sale_recent_2_num_parcels,
     char_yrblt, char_total_bldg_sf, char_land_sf,
-    char_unit_sf, meta_strata_1, meta_strata_2, flag_nonlivable_space,
+    char_unit_sf, meta_pin10_bldg_roll_mean, meta_pin10_bldg_roll_count,
+    flag_nonlivable_space,
     flag_pin10_5yr_num_sale, flag_proration_sum_not_1,
     flag_pin_is_multiland, flag_land_gte_95_percentile,
     flag_land_value_capped, flag_prior_near_to_pred_unchanged,
-    flag_prior_near_yoy_inc_gt_50_pct, flag_prior_near_yoy_dec_gt_5_pct,
-    flag_strata_is_imputed
+    flag_prior_near_yoy_inc_gt_50_pct, flag_prior_near_yoy_dec_gt_5_pct
   ) %>%
   mutate(
     across(starts_with("flag_"), as.numeric),

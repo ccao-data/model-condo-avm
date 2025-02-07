@@ -8,7 +8,6 @@ Table of Contents
     - [Features Used](#features-used)
     - [Valuation](#valuation)
     - [Multi-PIN Sales](#multi-pin-sales)
-  - [Condo Strata](#condo-strata)
 - [Ongoing Issues](#ongoing-issues)
   - [Unit Heterogeneity](#unit-heterogeneity)
   - [Buildings With Few Sales](#buildings-with-few-sales)
@@ -92,20 +91,20 @@ Fortunately, condos have two qualities which make modeling a bit easier:
 
 1.  Condos are more homogeneous than single/multi-family properties,
     i.e. the range of potential condo sale prices is much narrower.
-2.  Condo are pre-grouped into clusters of like units (buildings), and
+2.  Condos are pre-grouped into clusters of like units (buildings), and
     units within the same building usually have similar sale prices.
 
-We leverage these qualities to produce what we call ***strata***, a
-feature unique to the condo model. See [Condo Strata](#condo-strata) for
-more information about how strata is used and calculated.
+We leverage these qualities to produce a time-weighted, rolling average
+sale price for each building which is then used as a predictor in the
+unit-level model.
 
 ### Features Used
 
 Because our individual condo unit characteristics are sparse and
 incomplete, we primarily must rely on aggregate geospatial features,
-economic features, [strata](#condo-strata), and time of sale to
-determine condo assessed values. The features in the table below are the
-ones used in the most recent assessment model.
+economic features, and time of sale to determine condo assessed values.
+The features in the table below are the ones used in the most recent
+assessment model.
 
 | Feature Name                                                                | Variable Name                                         | Description                                                                                                                                           | Category       | Type      | Unique to Condo Model |
 |:----------------------------------------------------------------------------|:------------------------------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------------------|:---------------|:----------|:----------------------|
@@ -119,8 +118,8 @@ ones used in the most recent assessment model.
 | Condominium Unit Half Baths                                                 | char_half_baths                                       | Number of half baths                                                                                                                                  | Characteristic | numeric   | X                     |
 | Condominium Unit Full Baths                                                 | char_full_baths                                       | Number of full bathrooms                                                                                                                              | Characteristic | numeric   | X                     |
 | Condominium % Ownership                                                     | meta_tieback_proration_rate                           | Proration rate applied to the PIN                                                                                                                     | Meta           | numeric   | X                     |
-| Condominium Building Strata 1                                               | meta_strata_1                                         | Condominium Building Strata - 10 Levels                                                                                                               | Meta           | character | X                     |
-| Condominium Building Strata 2                                               | meta_strata_2                                         | Condominium Building Strata - 100 Levels                                                                                                              | Meta           | character | X                     |
+| Building Rolling Average Sale Price                                         | meta_pin10_bldg_roll_mean                             |                                                                                                                                                       | Meta           | numeric   | X                     |
+| Building Rolling Percent Units Sold                                         | meta_pin10_bldg_roll_pct_sold                         |                                                                                                                                                       | Meta           | numeric   | X                     |
 | Standard Deviation Distance From Parcel Centroid to Vertices (Feet)         | shp_parcel_centroid_dist_ft_sd                        | Standard deviation of the distance from each major parcel vertex to the parcel centroid                                                               | Parcel Shape   | numeric   | X                     |
 | Standard Deviation Parcel Edge Length (Feet)                                | shp_parcel_edge_len_ft_sd                             | Standard deviation of the edge length between parcel vertices                                                                                         | Parcel Shape   | numeric   | X                     |
 | Standard Deviation Parcel Interior Angle (Degrees)                          | shp_parcel_interior_angle_sd                          | Standard deviation of the interior angles of the parcel polygon                                                                                       | Parcel Shape   | numeric   | X                     |
@@ -211,7 +210,7 @@ We maintain a few useful resources for working with these features:
   versions
   ([`ccao::vars_rename()`](https://ccao-data.github.io/ccao/reference/vars_rename.html))
   or convert numerically-encoded variables to human-readable values
-  ([`ccao::vars_recode()`](https://ccao-data.github.io/ccao/reference/vars_recode.html).
+  ([`ccao::vars_recode()`](https://ccao-data.github.io/ccao/reference/vars_recode.html)).
   The [`ccao::vars_dict`
   object](https://ccao-data.github.io/ccao/reference/vars_dict.html) is
   also useful for inspecting the raw crosswalk that powers the rename
@@ -271,42 +270,6 @@ a parking space (1% ownership), the sale would be adjusted to \$80,000:
 
 $$\frac{0.04}{0.04 + 0.01} * \$100,000 = \$80,000$$
 
-## Condo Strata
-
-The condo model uses an engineered feature called *strata* to deliver
-much of its predictive power. Strata is the binned, time-weighted,
-5-year average sale price of the building. There are two strata features
-used in the model, one with 10 bins and one with 100 bins. Buildings are
-binned across each triad using either quantiles or 1-dimensional
-k-means. A visual representation of quantile-based strata binning looks
-like:
-
-![](docs/figures/strata.png)
-
-To put strata in more concrete terms, the table below shows a sample
-5-level strata. Each condominium unit would be assigned a strata from
-this table (Strata 1, Strata 2, etc.) based on the 5-year weighted
-average sale price of its building. All units in a building will have
-the same strata.
-
-| Strata   | Range of 5-year Average Sale Price |
-|:---------|:-----------------------------------|
-| Strata 1 | \$0 - \$121K                       |
-| Strata 2 | \$121K - \$149K                    |
-| Strata 3 | \$149K - \$199K                    |
-| Strata 4 | \$199K - \$276K                    |
-| Strata 5 | \$276K+                            |
-
-Some additional notes on strata:
-
-- Strata is calculated in the [ingest stage](./pipeline/00-ingest.R) of
-  this repository.
-- Calculating the 5-year average sale price of a building requires at
-  least 1 sale. Buildings with no sales have their strata imputed via
-  KNN (using year built, number of units, and location as features).
-- Number of bins (10 and 100) was chosen based on model performance.
-  These numbers yielded the lowest root mean-squared error (RMSE).
-
 # Ongoing Issues
 
 The CCAO faces a number of ongoing issues specific to condominium
@@ -318,7 +281,7 @@ of the challenges we face.
 
 The current modeling methodology for condominiums makes two assumptions:
 
-1.  Condos units within the same building are similar and will sell for
+1.  Condo units within the same building are similar and will sell for
     similar amounts.
 2.  If units are not similar, the percentage of ownership will
     accurately reflect and be proportional to any difference in value
@@ -327,7 +290,7 @@ The current modeling methodology for condominiums makes two assumptions:
 The model process works even in heterogeneous buildings as long as
 assumption 2 is met. For example, imagine a building with 8 identical
 units and 1 penthouse unit. This building violates assumption 1 because
-the penthouse unit is likely larger and worth more than the other 10.
+the penthouse unit is likely larger and worth more than the other 8.
 However, if the percentage of ownership of each unit is roughly
 proportional to its value, then each unit will still receive a fair
 assessment.
@@ -344,13 +307,13 @@ secondary review to ensure the accuracy of the individual unit values.
 
 ### Buildings With Few Sales
 
-The condo model relies on sales within the same building to calculate
-[strata](#condo-strata). This method works well for large buildings with
-many sales, but can break down when there are only 1 or 2 sales in a
-building. The primary danger here is *unrepresentative* sales,
-i.e. sales that deviate significantly from the real average value of a
-building’s units. When this happens, buildings can have their average
-unit sale value pegged too high or low.
+The condo model relies on sales within the same building to calculate a
+weighted, rolling average building sale price. This method works well
+for large buildings with many sales, but can break down when there are
+only 1 or 2 sales in a building. The primary danger here is
+*unrepresentative* sales, i.e. sales that deviate significantly from the
+real average value of a building’s units. When this happens, buildings
+can have their average unit sale value pegged too high or low.
 
 Fortunately, buildings without any recent sales are relatively rare, as
 condos have a higher turnover rate than single and multi-family
@@ -360,9 +323,10 @@ have recent sales.
 ### Buildings Without Sales
 
 When no sales have occurred in a building in the 5 years prior to
-assessment, the building’s strata features are imputed. The model will
-look at nearby buildings that have similar unit counts/age and then try
-to assign an appropriate strata to the target building.
+assessment, the building’s mean sale price feature is imputed. The model
+will look at nearby buildings that have similar unit counts, age, and
+other features, then try to assign an appropriate average to the target
+building.
 
 Most of the time, this technique produces reasonable results. However,
 buildings without sales still go through an additional round of review
@@ -386,17 +350,9 @@ speaking, the most important features are:
   [geospatial features like neighborhood](#features-used).
 - Condo percentage of ownership, which determines the intra-building
   variation in unit price.
-- [Condo building strata](#condo-strata). Strata provides us with a good
-  estimate of the average sale price of a building’s units.
-
-**Q: How do I see my condo building’s strata?**
-
-Individual building [strata](#condo-strata) are not included with
-assessment notices or shown on the CCAO’s website. However, strata *are*
-stored in the sample data included in this repository. You can load the
-data
-([`input/condo_strata_data.parquet`](./input/condo_strata_data.parquet))
-using R and the `read_parquet()` function from the `arrow` library.
+- Other sales in the building. This is captured by a rolling average of
+  sales in the building over the past 5 years, excluding any sales of
+  the target condo unit.
 
 **Q: How do I see the assessed value of other units in my building?**
 

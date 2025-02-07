@@ -30,7 +30,7 @@ land_nbhd_rate <- read_parquet(
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 2. Predict Values and Recover Strata  ----------------------------------------
+# 2. Predict Values ------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 message("Predicting off-market values with trained model")
 
@@ -44,56 +44,18 @@ lgbm_final_full_recipe <- readRDS(paths$output$workflow_recipe$local)
 assessment_data_pred <- read_parquet(paths$input$assessment$local) %>%
   as_tibble()
 
-assessment_data_baked <- assessment_data_pred %>%
-  bake(lgbm_final_full_recipe, new_data = ., all_predictors())
-
 assessment_data_pred <- assessment_data_pred %>%
   mutate(
     .,
     pred_card_initial_fmv = as.numeric(predict(
       lgbm_final_full_fit,
-      new_data = assessment_data_baked
-    )$.pred),
-    # Strata variables are converted to 0-indexed integers during baking.
-    # We save those converted values so we can unconvert them below
-    temp_strata_1 = assessment_data_baked$meta_strata_1,
-    temp_strata_2 = assessment_data_baked$meta_strata_2
+      new_data = bake(
+        lgbm_final_full_recipe,
+        new_data = assessment_data_pred,
+        all_predictors()
+      )
+    )$.pred)
   )
-
-# The baked data encodes categorical values as base-0 integers.
-# However, here we want to recover the original (unencoded) values of our
-# strata variables wherever they've been imputed by the baking step. To do so,
-# we create a mapping of the encoded to unencoded values and use them to
-# recover both the original strata values and those imputed by
-# step_impute_knn (in R/recipes.R)
-strata_mapping_1 <- assessment_data_pred %>%
-  filter(!is.na(meta_strata_1)) %>%
-  distinct(temp_strata_1, meta_strata_1) %>%
-  pull(meta_strata_1, name = temp_strata_1)
-strata_mapping_2 <- assessment_data_pred %>%
-  filter(!is.na(meta_strata_2)) %>%
-  distinct(temp_strata_2, meta_strata_2) %>%
-  pull(meta_strata_2, name = temp_strata_2)
-
-# Recover the imputed strata values
-assessment_data_pred <- assessment_data_pred %>%
-  mutate(
-    # Binary variable to identify condos which have imputed strata
-    flag_strata_is_imputed = is.na(meta_strata_1) | is.na(meta_strata_2),
-    # Use mappings to replace meta_strata_1 and meta_strata_2 directly
-    meta_strata_1 = ifelse(
-      is.na(meta_strata_1),
-      unname(strata_mapping_1[as.character(temp_strata_1)]),
-      meta_strata_1
-    ),
-    meta_strata_2 = ifelse(
-      is.na(meta_strata_2),
-      unname(strata_mapping_2[as.character(temp_strata_2)]),
-      meta_strata_2
-    )
-  ) %>%
-  # Remove unnecessary columns
-  select(-temp_strata_1, -temp_strata_2)
 
 
 
@@ -195,8 +157,7 @@ assessment_data_merged %>%
   select(
     meta_year, meta_pin, meta_class, meta_card_num, meta_lline_num,
     meta_modeling_group, ends_with("_num_sale"), pred_card_initial_fmv,
-    all_of(params$model$predictor$all),
-    flag_strata_is_imputed, township_code
+    all_of(params$model$predictor$all), township_code
   ) %>%
   mutate(
     ccao_n_years_exe_homeowner = as.integer(ccao_n_years_exe_homeowner)
@@ -311,8 +272,7 @@ assessment_data_pin <- assessment_data_merged %>%
     meta_year, meta_pin, meta_pin10, meta_triad_code, meta_township_code,
     meta_nbhd_code, meta_tax_code, meta_class, meta_tieback_key_pin,
     meta_tieback_proration_rate, meta_cdu, meta_modeling_group,
-    meta_pin_num_landlines, meta_strata_1, meta_strata_2,
-    flag_strata_is_imputed, char_yrblt,
+    meta_pin_num_landlines, char_yrblt,
 
     # Keep overall building square footage
     char_total_bldg_sf = char_building_sf,
@@ -324,7 +284,7 @@ assessment_data_pin <- assessment_data_merged %>%
       "loc_property_", "loc_ward_", "loc_chicago_",
       "loc_census", "loc_school_", "loc_tax_", "prior_", "ind_"
     )),
-    meta_pin10_5yr_num_sale,
+    meta_pin10_bldg_roll_mean, meta_pin10_bldg_roll_count,
 
     # Keep PIN-level predicted values
     pred_pin_final_fmv, pred_pin_final_fmv_round, township_code
@@ -417,10 +377,9 @@ assessment_data_pin_final <- assessment_data_pin_2 %>%
   mutate(
     meta_pin_num_landlines = tidyr::replace_na(meta_pin_num_landlines, 1),
     flag_pin_is_multiland = tidyr::replace_na(flag_pin_is_multiland, FALSE),
-    flag_nonlivable_space = meta_modeling_group == "NONLIVABLE",
-    flag_pin10_5yr_num_sale = meta_pin10_5yr_num_sale
+    flag_nonlivable_space = meta_modeling_group == "NONLIVABLE"
   ) %>%
-  select(-meta_modeling_group, -meta_pin10_5yr_num_sale) %>%
+  select(-meta_modeling_group) %>%
   relocate(flag_prior_far_yoy_bldg_change_pct, .after = starts_with("flag_"))
 
 

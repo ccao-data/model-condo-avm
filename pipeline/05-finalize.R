@@ -68,22 +68,9 @@ metadata <- tibble::tibble(
   assessment_data_year = params$assessment$data_year,
   input_min_sale_year = params$input$min_sale_year,
   input_max_sale_year = params$input$max_sale_year,
-  input_strata_seed = params$input$strata$seed,
-  input_strata_group_var = list(params$input$strata$group_var),
-  input_strata_type = params$input$strata$type,
-  input_strata_k_1 = params$input$strata$k_1,
-  input_strata_k_2 = params$input$strata$k_2,
-  input_strata_weight_min = params$input$strata$weight_min,
-  input_strata_weight_max = params$input$strata$weight_max,
-  input_sale_validation_stat_groups = list(
-    params$input$sale_validation$stat_groups
-  ),
-  input_sale_validation_iso_forest = list(
-    params$input$sale_validation$iso_forest
-  ),
-  input_sale_validation_dev_bounds = list(
-    params$input$sale_validation$dev_bounds
-  ),
+  input_n_years_prior = params$input$n_years_prior,
+  input_building_weight_min = params$input$building$weight_min,
+  input_building_weight_max = params$input$building$weight_max,
   ratio_study_far_year = params$ratio_study$far_year,
   ratio_study_far_stage = params$ratio_study$far_stage,
   ratio_study_far_column = params$ratio_study$far_column,
@@ -111,15 +98,15 @@ metadata <- tibble::tibble(
   model_predictor_categorical_count =
     length(params$model$predictor$categorical),
   model_predictor_categorical_name = list(params$model$predictor$categorical),
-  model_predictor_knn_count = length(params$model$predictor$knn),
-  model_predictor_knn_name = list(params$model$predictor$knn),
-  model_predictor_knn_imp_count = length(params$model$predictor$knn_imp),
-  model_predictor_knn_imp_name = list(params$model$predictor$knn_imp)
+  model_predictor_imp_count = length(params$model$predictor$imp),
+  model_predictor_imp_name = list(params$model$predictor$imp),
+  model_predictor_imp_vars_count = length(params$model$predictor$imp_vars),
+  model_predictor_imp_vars_name = list(params$model$predictor$imp_vars)
 ) %>%
   bind_cols(dvc_md5_df) %>%
   relocate(
     starts_with("dvc_id_"),
-    .after = "input_strata_weight_max"
+    .after = "input_building_weight_max"
   ) %>%
   arrow::write_parquet(paths$output$metadata$local)
 

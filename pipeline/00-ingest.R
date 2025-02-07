@@ -14,10 +14,15 @@ purrr::walk(list.files("R/", "\\.R$", full.names = TRUE), source)
 
 # Load additional dev R libraries (see README#managing-r-dependencies)
 suppressPackageStartupMessages({
+  library(data.table)
   library(DBI)
   library(igraph)
   library(noctua)
 })
+
+# Load data.table without breaking everything else
+conflict_prefer_all("dplyr", "data.table", quiet = TRUE)
+conflict_prefer_all("lubridate", "data.table", quiet = TRUE)
 
 # Adds arrow support to speed up ingest process
 noctua_options(unload = TRUE)
@@ -56,67 +61,6 @@ recode_column_type <- function(col, col_name, dictionary = col_type_dict) {
   )
 }
 
-
-# Create quantiles with unbounded top and bottom bins. Used to bin
-# condo building sales prices into strata
-val_create_ntiles <- function(x, probs, na.rm = TRUE) {
-  stopifnot(
-    is.numeric(x),
-    is.numeric(probs),
-    is.logical(na.rm)
-  )
-
-  output <- list(c(
-    -Inf,
-    unique(stats::quantile(x, probs = probs, na.rm = na.rm, names = FALSE)),
-    Inf
-  ))
-  output <- ifelse(all(is.na(x)), list(NA_real_), output)
-
-  return(output)
-}
-
-
-# Given a sale price x, assign the sale price to a pre-made strata bin
-val_assign_ntile <- function(x, ntiles) {
-  output <- as.character(ifelse(
-    !is.na(x),
-    purrr::pmap(
-      list(x, ntiles),
-      ~ cut(.x, breaks = .y, labels = FALSE)
-    ),
-    NA_character_
-  ))
-
-  return(output)
-}
-
-
-# Given a set of k-means centers and a sale price, find the nearest center
-val_assign_center <- function(x, centers) {
-  output <- as.character(ifelse(
-    !is.na(x) & !is.na(centers),
-    purrr::pmap(
-      list(x, centers),
-      ~ which.min(mapply(function(z, y) sum(z - y)^2, .x, .y))
-    ),
-    NA_character_
-  ))
-
-  return(output)
-}
-
-
-# Rescaling function to normalize a continuous range to be between a min and max
-rescale <- function(x, min = 0, max = 1) {
-  output <- (x - min(x, na.rm = TRUE)) /
-    (max(x, na.rm = TRUE) - min(x, na.rm = TRUE)) *
-    (max - min) + min
-
-  return(output)
-}
-
-
 # Mini function to deal with arrays
 # Some Athena columns are stored as arrays but are converted to string on
 # ingest. In such cases, we either keep the contents of the cell (if 1 unit),
@@ -133,6 +77,7 @@ process_array_column <- function(x) {
     }
   })
 }
+
 
 
 
@@ -164,31 +109,15 @@ training_data <- dbGetQuery(
   INNER JOIN default.vw_pin_sale sale
       ON sale.pin = condo.meta_pin
       AND sale.year = condo.year
-  WHERE condo.year
-      BETWEEN '{params$input$min_sale_year}'
-      AND '{params$input$max_sale_year}'
+  WHERE CAST(condo.year AS int)
+      BETWEEN CAST({params$input$min_sale_year} AS int) -
+        {params$input$n_years_prior}
+      AND CAST({params$input$max_sale_year} AS int)
   AND sale.deed_type IN ('01', '02', '05')
   AND NOT sale.sale_filter_same_sale_within_365
   AND NOT sale.sale_filter_less_than_10k
   AND NOT sale.sale_filter_deed_type
-  AND Year(sale.sale_date) >= {params$input$min_sale_year}
   AND sale.num_parcels_sale <= 2
-  ")
-)
-tictoc::toc()
-
-# Raw sales document number data used to identify some sales accidentally
-# excluded from the original training runs. See
-# https://github.com/ccao-data/data-architecture/pull/334 for more info
-tictoc::tic("Sales data pulled")
-sales_data <- dbGetQuery(
-  conn = AWS_ATHENA_CONN_NOCTUA, glue("
-  SELECT DISTINCT
-      substr(saledt, 1, 4) AS year,
-      instruno AS doc_no_old,
-      NULLIF(REPLACE(instruno, 'D', ''), '') AS doc_no_new
-  FROM iasworld.sales
-  WHERE substr(saledt, 1, 4) >= '{params$input$min_sale_year}'
   ")
 )
 tictoc::toc()
@@ -338,9 +267,7 @@ training_data_clean <- training_data_fil %>%
   ) %>%
   # Only exclude explicit outliers from training. Sales with missing validation
   # outcomes will be considered non-outliers
-  mutate(
-    sv_is_outlier = replace_na(sv_is_outlier, FALSE)
-  ) %>%
+  mutate(sv_is_outlier = replace_na(sv_is_outlier, FALSE)) %>%
   # Some Athena columns are stored as arrays but are converted to string on
   # ingest. In such cases, take the first element and clean the string
   # Apply the helper function to process array columns
@@ -382,15 +309,8 @@ training_data_clean <- training_data_fil %>%
     .after = meta_2yr_pri_board_tot
   ) %>%
   relocate(starts_with("ind_"), .after = starts_with("meta_")) %>%
-  relocate(starts_with("char_"), .after = starts_with("ind_")) %>%
-  filter(
-    between(
-      meta_sale_date,
-      make_date(params$input$min_sale_year, 1, 1),
-      make_date(params$input$max_sale_year, 12, 31)
-    )
-  ) %>%
-  as_tibble()
+  relocate(starts_with("char_"), .after = starts_with("ind_"))
+
 
 
 ## 4.2. Assessment Data --------------------------------------------------------
@@ -459,162 +379,235 @@ land_nbhd_rate_data %>%
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 5. Condo Strata --------------------------------------------------------------
+# 5. Building Means ------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-message("Calculating condo strata")
-
-## 5.1. Calculate Strata -------------------------------------------------------
+message("Calculating building rolling means")
 
 # Condominiums' unit characteristics (such as square footage, # of bedrooms,
-# etc.) are not tracked by the CCAO. As such, e need to rely on other
+# etc.) are not tracked well by the CCAO. As such, we need to rely on other
 # information to determine the value of unsold condos. Fortunately, condos are
 # more homogeneous than single-family homes and are pre-grouped into like units
 # (buildings)
 
-# As such, we can use the historic sale price of other sold units in the same
-# building to determine an unsold condo's value. To do so, we construct condo
-# "strata", which are bins of the 5-year average sale price of the building.
-# Units and buildings in the same strata should ultimately have very similar
-# assessed values
+# We can use the historic sale price of other sold units in the same
+# building to determine an unsold condo's value. To do so, we construct a
+# time-weighted, leave-one-out, rolling mean of sale prices for each building.
+# In other words, we get the average of sales in the building in the past
+# N years, excluding the sale we're trying to predict.
 
-# The first step here is to get the average sale price of condos in each
-# building. The first 10 digits of a given PIN are the building (the last 4 are
-# the unit)
+## 5.1. Construct Rolling Means ------------------------------------------------
 
-# Get the the recency-weighted mean log10 sale price of each building
-bldg_5yr_sales_avg <- training_data_clean %>%
-  filter(
-    meta_sale_date > make_date(as.numeric(params$input$max_sale_year) - 4),
-    !sv_is_outlier
-  ) %>%
+# This offset is the size of the rolling window
+offset <- years(params$input$n_years_prior)
+
+# Mush together the training and assessment data and sort by PIN and sale date.
+# Note that "sales" from the assessment data (i.e. the constructed sale on the
+# lien date) will always be the last sale in the building, since they occur
+# after all the training data sales. We exploit this property to also calculate
+# the rolling means for the assessment data by simply taking the N year rolling
+# average of sales prior to the lien date
+bldg_rolling_means_dt <- training_data_clean %>%
+  mutate(data_source = "training") %>%
   select(
-    meta_pin10, meta_sale_price, meta_sale_date,
-    all_of(params$input$strata$group_var)
+    meta_pin10, meta_pin, meta_tieback_proration_rate,
+    meta_sale_date, meta_sale_price, meta_sale_document_num, sv_is_outlier,
+    meta_modeling_group, data_source
   ) %>%
-  mutate(
-    meta_sale_date_norm = rescale(
-      as.numeric(meta_sale_date),
-      params$input$strata$weight_min,
-      params$input$strata$weight_max
-    )
-  ) %>%
-  group_by(meta_pin10, across(any_of(params$input$strata$group_var))) %>%
-  summarise(
-    mean_log10_sale_price = weighted.mean(
-      log10(meta_sale_price),
-      meta_sale_date_norm,
-      na.rm = TRUE
-    ),
-    meta_pin10_5yr_num_sale = n()
-  ) %>%
-  ungroup()
-
-# Use either k-means clustering or simple quantiles to construct a condominium
-# building strata model. This model can be used to assign strata to buildings
-if (params$input$strata$type == "kmeans") {
-  # Set seed for k-means reproducibility
-  set.seed(params$input$strata$seed)
-
-  # For k-means, construct strata as a 1-dimensional cluster of the average
-  # sale price of the building
-  bldg_strata_model <- bldg_5yr_sales_avg %>%
-    group_by(across(all_of(params$input$strata$group_var))) %>%
-    summarize(
-      meta_strata_model_1 = list(kmeans(
-        mean_log10_sale_price,
-        centers = params$input$strata$k_1,
-        iter.max = 200,
-        nstart = 50,
-        algorithm = "MacQueen"
-      )$centers),
-      meta_strata_model_2 = list(kmeans(
-        mean_log10_sale_price,
-        centers = params$input$strata$k_2,
-        iter.max = 200,
-        nstart = 25,
-        algorithm = "MacQueen"
-      )$centers)
-    ) %>%
-    ungroup()
-} else if (params$input$strata$type == "ntile") {
-  # Construct strata as quantile bins of the average sale price of the building
-  bldg_strata_model <- bldg_5yr_sales_avg %>%
-    group_by(across(all_of(params$input$strata$group_var))) %>%
-    summarize(
-      meta_strata_model_1 = val_create_ntiles(
-        x = mean_log10_sale_price,
-        probs = seq(0, 1, 1 / params$input$strata$k_1)[
-          c(-1, -(params$input$strata$k_1 + 1))
-        ]
-      ),
-      meta_strata_model_2 = val_create_ntiles(
-        x = mean_log10_sale_price,
-        probs = seq(0, 1, 1 / params$input$strata$k_2)[
-          c(-1, -(params$input$strata$k_2 + 1))
-        ]
+  bind_rows(
+    assessment_data_clean %>%
+      mutate(data_source = "assessment") %>%
+      select(
+        meta_pin10, meta_pin, meta_tieback_proration_rate,
+        meta_sale_date,
+        meta_modeling_group, data_source
       )
-    ) %>%
-    ungroup()
-}
+  ) %>%
+  as.data.table() %>%
+  setkey(meta_pin10, meta_sale_date)
 
-# Save strata model to file in case we need to use it later
-bldg_strata_model %>%
-  write_parquet(paths$input$condo_strata$local)
+# Construct the time-weighted, leave-one-out rolling mean of building sale
+# prices. We use data.table here since it's MUCH faster than dplyr for this
+# task. The code here is a bit dense. View the output dataframe for debugging
+# (it helps a lot).
+bldg_rolling_means_dt[
+  ,
+  # Create initial time weights for the range of sales across the whole training
+  # date range. This is a logistic curve centered 3 years before the lien
+  # date and bounded between the min and max weights. The parameters here were
+  # discovered with some rough grid search
+  sale_wt := params$input$building$weight_max / (
+    params$input$building$weight_max +
+      exp(
+        -(0.002 * as.integer(meta_sale_date - (max(meta_sale_date) - years(3))))
+      )
+  ) * (1 - params$input$building$weight_min) + params$input$building$weight_min
+][
+  ,
+  # Scale weights so the max weight is 1
+  sale_wt := sale_wt / max(sale_wt)
+][
+  # Calculate the adaptive rolling window size using some tricky interval logic.
+  # To demo what's actually going on here with `findInterval()`:
+  #
+  # Given the following sales Y:
+  # 2015-12-01 2018-01-01 2022-06-15 2025-01-01
+  #
+  # And their 5-year offset X:
+  # 2010-12-01 2013-01-01 2017-06-15 2020-01-01
+  #
+  # For each element of X, find the _index position_ of the breaks in Y that
+  # contains that element e.g. for the first element of X:
+  #  2015-12-01 2018-01-01 2022-06-15 2025-01-01
+  # └── 2010-12-01 is outside any of the cuts, so the index is 0
+  #
+  # Or for the fourth element of X:
+  # 2015-12-01 2018-01-01 2022-06-15 2025-01-01
+  #                      └── 2020-01-01 is between these two, so the index is 2
+  #
+  # Using this technique, we can determine how many index positions we need to
+  # move before the offset current date (sale date - N years) finds prior sales
+  # that are within the N year time window. We then subtract that number of
+  # index positions from the window size, effectively shrinking the front of the
+  # window by N positions and excluding sales outside the N year window.
+  #
+  # In the case of the 4th element of Y, we end up with a window size of
+  # 4 - 2 == 2. This means that our rolling mean will include the last two sales
+  # in Y, the sales at positions 3 and 4. Since position 4 is the target sale,
+  # we will avoid data leakage later on in the pipeline by subtracting the
+  # target sale price from the mean (or subtracting 0 in the case of the
+  # assessment set, which does not have a sale price).
+  !sv_is_outlier & meta_modeling_group == "CONDO" | data_source == "assessment",
+  `:=`(
+    index_in_group = seq_len(.N),
+    shrink_win_by_n_positions = findInterval(
+      meta_sale_date %m-% offset, meta_sale_date
+    )
+  ),
+  by = .(meta_pin10)
+][
+  # This is the size of the rolling window relative to EACH sale i.e. for any
+  # given sale, how many index positions back do we need to go to get only sales
+  # from the past N years
+  !sv_is_outlier & meta_modeling_group == "CONDO" | data_source == "assessment",
+  window_size := index_in_group - shrink_win_by_n_positions,
+  by = .(meta_pin10)
+][
+  !sv_is_outlier & meta_modeling_group == "CONDO" | data_source == "assessment",
+  # Calculate the numerator and denominator of the weighted rolling mean, but
+  # EXCLUDE the current sale. This is the leave-one-out part. Note that we need
+  # to replace NA values with 0 in the denominator for cases where there's no
+  # current sale but we still want to create a mean of prior sales e.g. for
+  # the assessment data
+  `:=`(
+    cnt = data.table::frollsum(
+      as.numeric(!is.na(meta_sale_price)),
+      n = window_size,
+      algo = "exact",
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ) - as.numeric(!is.na(meta_sale_price)),
+    wtd_valsum = data.table::frollsum(
+      meta_sale_price * sale_wt,
+      n = window_size,
+      algo = "exact",
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ) - replace(meta_sale_price, is.na(meta_sale_price), 0) * sale_wt,
+    wtd_cnt = data.table::frollsum(
+      as.numeric(!is.na(meta_sale_price)) * sale_wt,
+      n = window_size,
+      algo = "exact",
+      align = "right",
+      adaptive = TRUE,
+      na.rm = TRUE,
+      hasNA = TRUE
+    ) - as.numeric(!is.na(meta_sale_price)) * sale_wt
+  ),
+  by = .(meta_pin10)
+][, wtd_mean := wtd_valsum / wtd_cnt][
+  ,
+  `:=`(
+    wtd_mean =
+      fifelse(is.nan(wtd_mean) | is.infinite(wtd_mean), NA_real_, wtd_mean),
+    cnt = fifelse(is.nan(cnt) | is.infinite(cnt), NA_real_, cnt)
+  )
+]
 
 
-## 5.2. Assign Strata ----------------------------------------------------------
+## 5.2. Re-attach to Original Data ---------------------------------------------
 
-# Use strata models to create strata of building-level, previous-5-year sale
-# prices. These strata are used as categorical variables in the model
-bldg_strata <- bldg_5yr_sales_avg %>%
-  left_join(bldg_strata_model, by = params$input$strata$group_var) %>%
+# Extract the constructed building means from the dedicated dataframe and
+# re-attach them to their respective datasets. Note that some PINs will
+# not have a mean (no sales in the building or no sales in the window). These
+# missing values get imputed during the training stage
+training_data_clean <- training_data_clean %>%
+  left_join(
+    bldg_rolling_means_dt %>%
+      filter(data_source == "training") %>%
+      select(
+        meta_pin10, meta_sale_document_num,
+        meta_pin10_bldg_roll_mean = wtd_mean,
+        meta_pin10_bldg_roll_count = cnt
+      ),
+    by = c("meta_pin10", "meta_sale_document_num")
+  ) %>%
   mutate(
-    meta_strata_1 = switch(params$input$strata$type,
-      kmeans = val_assign_center(mean_log10_sale_price, meta_strata_model_1),
-      ntile = val_assign_ntile(mean_log10_sale_price, meta_strata_model_1)
-    ),
-    meta_strata_2 = switch(params$input$strata$type,
-      kmeans = val_assign_center(mean_log10_sale_price, meta_strata_model_2),
-      ntile = val_assign_ntile(mean_log10_sale_price, meta_strata_model_2)
+    # Also construct a "percentage of units sold in the building" feature
+    meta_pin10_bldg_roll_pct_sold =
+      meta_pin10_bldg_roll_count / char_building_units,
+    meta_pin10_bldg_roll_pct_sold = ifelse(
+      is.na(meta_pin10_bldg_roll_pct_sold) |
+        is.nan(meta_pin10_bldg_roll_pct_sold) |
+        is.infinite(meta_pin10_bldg_roll_pct_sold),
+      NA_real_,
+      meta_pin10_bldg_roll_pct_sold
     )
   ) %>%
-  group_by(across(params$input$strata$group_var), meta_strata_1) %>%
-  mutate(meta_strata_1_5yr_num_sale = sum(meta_pin10_5yr_num_sale)) %>%
-  group_by(across(params$input$strata$group_var), meta_strata_2) %>%
-  mutate(meta_strata_2_5yr_num_sale = sum(meta_pin10_5yr_num_sale)) %>%
-  ungroup() %>%
-  select(
-    -c(mean_log10_sale_price, meta_strata_model_1, meta_strata_model_2),
-    -all_of(params$input$strata$group_var)
-  )
-
-# Attach the strata and sale counts for both assessment and training data
-training_data_w_strata <- training_data_clean %>%
-  left_join(bldg_strata, by = "meta_pin10") %>%
-  mutate(meta_pin10_5yr_num_sale = replace_na(meta_pin10_5yr_num_sale, 0)) %>%
-  relocate(
-    c(starts_with("meta_strata"), meta_pin10_5yr_num_sale),
-    .before = starts_with("ind_")
+  filter(
+    between(
+      meta_sale_date,
+      make_date(params$input$min_sale_year, 1, 1),
+      make_date(params$input$max_sale_year, 12, 31)
+    )
   ) %>%
+  as_tibble() %>%
   write_parquet(paths$input$training$local)
 
-assessment_data_w_strata <- assessment_data_clean %>%
-  left_join(bldg_strata, by = "meta_pin10") %>%
-  mutate(meta_pin10_5yr_num_sale = replace_na(meta_pin10_5yr_num_sale, 0)) %>%
-  relocate(
-    c(starts_with("meta_strata"), meta_pin10_5yr_num_sale),
-    .before = starts_with("ind_")
+assessment_data_clean <- assessment_data_clean %>%
+  left_join(
+    bldg_rolling_means_dt %>%
+      filter(data_source == "assessment") %>%
+      select(
+        meta_pin,
+        meta_pin10_bldg_roll_mean = wtd_mean,
+        meta_pin10_bldg_roll_count = cnt
+      ),
+    by = c("meta_pin")
   ) %>%
+  mutate(
+    meta_pin10_bldg_roll_pct_sold =
+      meta_pin10_bldg_roll_count / char_building_units,
+    meta_pin10_bldg_roll_pct_sold = ifelse(
+      is.na(meta_pin10_bldg_roll_pct_sold) |
+        is.nan(meta_pin10_bldg_roll_pct_sold) |
+        is.infinite(meta_pin10_bldg_roll_pct_sold),
+      NA_real_,
+      meta_pin10_bldg_roll_pct_sold
+    )
+  ) %>%
+  as_tibble() %>%
   write_parquet(paths$input$assessment$local)
 
-
-## 5.3. Missing Strata ---------------------------------------------------------
-
-# Condo buildings that don't have any recent sales will be missing strata.
-# We use KNN to assign strata for those buildings based on longitude, latitude,
-# year built, and number of livable building units.
-
-# This step is now performed via the Tidymodels recipes package. See R/recipes.R
+# Throw errors if any of the constructed mean features are negative
+if (any(training_data_clean$meta_pin10_bldg_roll_mean < 0, na.rm = TRUE)) {
+  stop("Negative building rolling mean detected in training data")
+} else if (any(assessment_data_clean$meta_pin10_bldg_roll_mean < 0, na.rm = TRUE)) { # nolint
+  stop("Negative building rolling mean detected in assessment data")
+}
 
 # Reminder to upload to DVC store
 message(
