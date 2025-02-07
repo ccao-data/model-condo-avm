@@ -468,7 +468,14 @@ bldg_rolling_means_dt[
   # move before the offset current date (sale date - N years) finds prior sales
   # that are within the N year time window. We then subtract that number of
   # index positions from the window size, effectively shrinking the front of the
-  # window by N positions and excluding sales that are outside the N year offset
+  # window by N positions and excluding sales outside the N year window.
+  #
+  # In the case of the 4th element of Y, we end up with a window size of
+  # 4 - 2 == 2. This means that our rolling mean will include the last two sales
+  # in Y, the sales at positions 3 and 4. Since position 4 is the target sale,
+  # we will avoid data leakage later on in the pipeline by subtracting the
+  # target sale price from the mean (or subtracting 0 in the case of the
+  # assessment set, which does not have a sale price).
   !sv_is_outlier & meta_modeling_group == "CONDO" | data_source == "assessment",
   `:=`(
     index_in_group = seq_len(.N),
