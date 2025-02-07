@@ -159,9 +159,6 @@ assessment_data_merged %>%
     meta_modeling_group, ends_with("_num_sale"), pred_card_initial_fmv,
     all_of(params$model$predictor$all), township_code
   ) %>%
-  mutate(
-    ccao_n_years_exe_homeowner = as.integer(ccao_n_years_exe_homeowner)
-  ) %>%
   ccao::vars_recode(
     cols = starts_with("char_"),
     code_type = "long",
