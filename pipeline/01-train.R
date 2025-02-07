@@ -255,7 +255,7 @@ if (cv_enable) {
       cat_l2              = lightsnip::cat_l2(lgbm_range$cat_l2),
       lambda_l1           = lightsnip::lambda_l1(lgbm_range$lambda_l1),
       lambda_l2           = lightsnip::lambda_l2(lgbm_range$lambda_l2),
-      trees               = dials::trees(lgbm_range$trees)
+      imp_trees           = dials::trees(lgbm_range$imp_trees)
       # nolint end
     )
 

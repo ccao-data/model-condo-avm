@@ -303,7 +303,7 @@ model:
       cat_l2: 0.017
       lambda_l1: 0.697
       lambda_l2: 0.002
-      trees: 25
+      imp_trees: 25
 
     # Range of possible hyperparameter values for tuning to explore
     range:
@@ -326,7 +326,7 @@ model:
       cat_l2: [-3, 2]  # 10 ^ X
       lambda_l1: [-3, 2]  # 10 ^ X
       lambda_l2: [-3, 2]  # 10 ^ X
-      trees: [5, 50]
+      imp_trees: [5, 50]
 
 
 # Post-Valuation ---------------------------------------------------------------

@@ -34,7 +34,7 @@ model_main_recipe <- function(data, pred_vars, cat_vars,
     # Impute missing values using a separate tree model
     step_impute_bag(
       all_of(imp),
-      trees = tune(),
+      trees = tune("imp_trees"),
       impute_with = imp_vars(all_of(imp_vars)),
       seed_val = seed
     ) %>%
@@ -87,7 +87,7 @@ model_lin_recipe <- function(data, pred_vars, cat_vars,
     # Impute missing values using a separate tree model
     step_impute_bag(
       all_of(imp),
-      trees = tune(),
+      trees = tune("imp_trees"),
       impute_with = imp_vars(all_of(imp_vars)),
       seed_val = seed
     ) %>%
