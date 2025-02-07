@@ -502,6 +502,7 @@ bldg_rolling_means_dt[
     cnt = data.table::frollsum(
       as.numeric(!is.na(meta_sale_price)),
       n = window_size,
+      algo = "exact",
       align = "right",
       adaptive = TRUE,
       na.rm = TRUE,
@@ -510,6 +511,7 @@ bldg_rolling_means_dt[
     wtd_valsum = data.table::frollsum(
       meta_sale_price * sale_wt,
       n = window_size,
+      algo = "exact",
       align = "right",
       adaptive = TRUE,
       na.rm = TRUE,
@@ -518,6 +520,7 @@ bldg_rolling_means_dt[
     wtd_cnt = data.table::frollsum(
       as.numeric(!is.na(meta_sale_price)) * sale_wt,
       n = window_size,
+      algo = "exact",
       align = "right",
       adaptive = TRUE,
       na.rm = TRUE,
@@ -600,9 +603,9 @@ assessment_data_clean <- assessment_data_clean %>%
   write_parquet(paths$input$assessment$local)
 
 # Throw errors if any of the constructed mean features are negative
-if (any(training_data_clean$meta_pin10_bldg_roll_mean < 0)) {
+if (any(training_data_clean$meta_pin10_bldg_roll_mean < 0, na.rm = TRUE)) {
   stop("Negative building rolling mean detected in training data")
-} else if (any(assessment_data_clean$meta_pin10_bldg_roll_mean < 0)) {
+} else if (any(assessment_data_clean$meta_pin10_bldg_roll_mean < 0, na.rm = TRUE)) { # nolint
   stop("Negative building rolling mean detected in assessment data")
 }
 
