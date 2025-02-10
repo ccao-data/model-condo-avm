@@ -44,17 +44,26 @@ lgbm_final_full_recipe <- readRDS(paths$output$workflow_recipe$local)
 assessment_data_pred <- read_parquet(paths$input$assessment$local) %>%
   as_tibble()
 
+# Save prepared data for later so we can extract imputed values
+assessment_data_baked <- bake(
+  lgbm_final_full_recipe,
+  new_data = assessment_data_pred,
+  all_predictors()
+)
+
+# Predict the initial FMV for each unit. Join the imputed bldg mean when missing
 assessment_data_pred <- assessment_data_pred %>%
   mutate(
     .,
     pred_card_initial_fmv = as.numeric(predict(
       lgbm_final_full_fit,
-      new_data = bake(
-        lgbm_final_full_recipe,
-        new_data = assessment_data_pred,
-        all_predictors()
-      )
-    )$.pred)
+      new_data = assessment_data_baked
+    )$.pred),
+    flag_pin10_bldg_roll_mean_imputed = is.na(meta_pin10_bldg_roll_mean),
+    meta_pin10_bldg_roll_mean = coalesce(
+      meta_pin10_bldg_roll_mean,
+      assessment_data_baked$meta_pin10_bldg_roll_mean
+    )
   )
 
 
@@ -284,7 +293,8 @@ assessment_data_pin <- assessment_data_merged %>%
     meta_pin10_bldg_roll_mean, meta_pin10_bldg_roll_count,
 
     # Keep PIN-level predicted values
-    pred_pin_final_fmv, pred_pin_final_fmv_round, township_code
+    pred_pin_final_fmv, pred_pin_final_fmv_round, township_code,
+    starts_with("flag_")
   ) %>%
   ungroup() %>%
   # Overwrite missing land values (only a few PINs)

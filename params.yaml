@@ -174,7 +174,6 @@ model:
       - "prox_nearest_road_highway_dist_ft"
       - "prox_nearest_road_arterial_dist_ft"
       - "prox_nearest_road_collector_dist_ft"
-      - "prox_nearest_road_highway_daily_traffic"
       - "prox_nearest_road_arterial_daily_traffic"
       - "prox_nearest_road_collector_daily_traffic"
       - "prox_nearest_new_construction_dist_ft"
@@ -281,27 +280,27 @@ model:
       # for setting this parameter is to discover a good fixed value using CV,
       # then manually set that value for non-CV runs (which don't use
       # early stopping by default)
-      num_iterations: 2275
-      learning_rate: 0.011
+      num_iterations: 1175
+      learning_rate: 0.0375
 
       # Maximum number of bins for discretizing continuous features. Lower uses
       # less memory and speeds up training
-      max_bin: 225
+      max_bin: 465
 
       # See docs for details on each of the remaining parameters:
       # https://lightgbm.readthedocs.io/en/latest/Parameters.html
-      num_leaves: 200
-      add_to_linked_depth: 2
-      feature_fraction: 0.661
-      min_gain_to_split: 1.58
-      min_data_in_leaf: 44
-      max_cat_threshold: 87
-      min_data_per_group: 200
-      cat_smooth: 140.85
-      cat_l2: 0.017
-      lambda_l1: 0.697
-      lambda_l2: 0.002
-      imp_trees: 25
+      num_leaves: 64
+      add_to_linked_depth: 3
+      feature_fraction: 0.559
+      min_gain_to_split: 0.312
+      min_data_in_leaf: 36
+      max_cat_threshold: 175
+      min_data_per_group: 215
+      cat_smooth: 92.06
+      cat_l2: 0.016
+      lambda_l1: 23.739
+      lambda_l2: 0.199
+      imp_trees: 15
 
     # Range of possible hyperparameter values for tuning to explore
     range:
