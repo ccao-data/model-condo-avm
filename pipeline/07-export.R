@@ -124,7 +124,7 @@ assessment_pin_prepped <- assessment_pin %>%
     sale_recent_2_num_parcels,
     char_yrblt, char_total_bldg_sf, char_land_sf,
     char_unit_sf, meta_pin10_bldg_roll_mean, meta_pin10_bldg_roll_count,
-    flag_nonlivable_space,
+    flag_pin10_bldg_roll_mean_imputed, flag_nonlivable_space,
     flag_pin10_5yr_num_sale, flag_proration_sum_not_1,
     flag_pin_is_multiland, flag_land_gte_95_percentile,
     flag_land_value_capped, flag_prior_near_to_pred_unchanged,
