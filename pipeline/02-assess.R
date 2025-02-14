@@ -210,13 +210,14 @@ sales_data_ratio_study <- sales_data %>%
 sales_data_two_most_recent <- sales_data %>%
   distinct(
     meta_pin, meta_year,
-    meta_sale_price, meta_sale_date, meta_sale_document_num,
+    meta_sale_price, meta_sale_date, meta_sale_document_num, sv_is_outlier,
     sv_outlier_reason1, sv_outlier_reason2, sv_outlier_reason3,
     meta_sale_num_parcels
   ) %>%
   # Include outliers, since these data are used for desk review and
   # not for modeling
   rename(
+    meta_sale_is_outlier = sv_is_outlier,
     meta_sale_outlier_reason1 = sv_outlier_reason1,
     meta_sale_outlier_reason2 = sv_outlier_reason2,
     meta_sale_outlier_reason3 = sv_outlier_reason3
@@ -231,6 +232,7 @@ sales_data_two_most_recent <- sales_data %>%
       meta_sale_date,
       meta_sale_price,
       meta_sale_document_num,
+      meta_sale_is_outlier,
       meta_sale_outlier_reason1,
       meta_sale_outlier_reason2,
       meta_sale_outlier_reason3,
