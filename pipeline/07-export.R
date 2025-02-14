@@ -117,7 +117,26 @@ assessment_pin_prepped <- assessment_pin %>%
   # Add assessable permit flag
   left_join(flag_assessable_permits, by = c("meta_pin" = "pin")) %>%
   mutate(
-    flag_has_recent_assessable_permit = as.numeric(has_recent_assessable_permit)
+    flag_has_recent_assessable_permit =
+      as.numeric(has_recent_assessable_permit),
+    sale_recent_1_outlier_reasons = str_remove_all(ifelse(
+      sale_recent_1_is_outlier,
+      paste(
+        str_replace_na(sale_recent_1_outlier_reason1, ""),
+        str_replace_na(sale_recent_1_outlier_reason2, ""),
+        sep = ", "
+      ),
+      NA_character_
+    ), ", $"),
+    sale_recent_2_outlier_reasons = str_remove_all(ifelse(
+      sale_recent_2_is_outlier,
+      paste(
+        str_replace_na(sale_recent_2_outlier_reason1, ""),
+        str_replace_na(sale_recent_2_outlier_reason2, ""),
+        sep = ", "
+      ),
+      NA_character_
+    ), ", $")
   ) %>%
   # Select fields for output to workbook
   select(
@@ -132,10 +151,10 @@ assessment_pin_prepped <- assessment_pin %>%
     prior_near_yoy_change_nom, prior_near_yoy_change_pct,
     sale_ratio, valuations_note,
     sale_recent_1_date, sale_recent_1_price,
-    sale_recent_1_outlier_type, sale_recent_1_document_num,
+    sale_recent_1_outlier_reasons, sale_recent_1_document_num,
     sale_recent_1_num_parcels,
     sale_recent_2_date, sale_recent_2_price,
-    sale_recent_2_outlier_type, sale_recent_2_document_num,
+    sale_recent_2_outlier_reasons, sale_recent_2_document_num,
     sale_recent_2_num_parcels,
     char_yrblt, char_total_bldg_sf, char_land_sf,
     char_unit_sf, meta_pin10_bldg_roll_mean, meta_pin10_bldg_roll_count,
