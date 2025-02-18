@@ -88,7 +88,9 @@ hardcoded_descriptions <- tribble(
   "sale_day_of_year", "Numeric encoding of day of year (1 - 365)",
   "sale_day_of_month", "Numeric encoding of day of month (1 - 31)",
   "sale_day_of_week", "Numeric encoding of day of week (1 - 7)",
-  "sale_post_covid", "Indicator for whether sale occurred after COVID-19 was widely publicized (around March 15, 2020)"
+  "sale_post_covid", "Indicator for whether sale occurred after COVID-19 was widely publicized (around March 15, 2020)",
+  "pin10_bldg_roll_mean", "Time-weighted five-year rolling average sale price for all units in the PIN10 (excluding the target sale)",
+  "pin10_bldg_roll_pct_sold", "Ratio of sale count in the PIN10 over the past five years to PIN10 unit count (excluding the target sale)"
 )
 # nolint end
 

@@ -9,8 +9,8 @@ Condominium Unit Bedrooms,char_bedrooms,Number of bedrooms in the building,Chara
 Condominium Unit Half Baths,char_half_baths,Number of half baths,Characteristic,numeric,TRUE
 Condominium Unit Full Baths,char_full_baths,Number of full bathrooms,Characteristic,numeric,TRUE
 Condominium % Ownership,meta_tieback_proration_rate,Proration rate applied to the PIN,Meta,numeric,TRUE
-Building Rolling Average Sale Price,meta_pin10_bldg_roll_mean,,Meta,numeric,TRUE
-Building Rolling Percent Units Sold,meta_pin10_bldg_roll_pct_sold,,Meta,numeric,TRUE
+Building Rolling Average Sale Price,meta_pin10_bldg_roll_mean,Time-weighted five-year rolling average sale price for all units in the PIN10 (excluding the target sale),Meta,numeric,TRUE
+Building Rolling Percent Units Sold,meta_pin10_bldg_roll_pct_sold,Ratio of sale count in the PIN10 over the past five years to PIN10 unit count (excluding the target sale),Meta,numeric,TRUE
 Standard Deviation Distance From Parcel Centroid to Vertices (Feet),shp_parcel_centroid_dist_ft_sd,Standard deviation of the distance from each major parcel vertex to the parcel centroid,Parcel Shape,numeric,TRUE
 Standard Deviation Parcel Edge Length (Feet),shp_parcel_edge_len_ft_sd,Standard deviation of the edge length between parcel vertices,Parcel Shape,numeric,TRUE
 Standard Deviation Parcel Interior Angle (Degrees),shp_parcel_interior_angle_sd,Standard deviation of the interior angles of the parcel polygon,Parcel Shape,numeric,TRUE
