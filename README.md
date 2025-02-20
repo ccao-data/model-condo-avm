@@ -73,9 +73,7 @@ The Cook County Assessor’s Office has started to track a limited number
 of characteristics (building-level square footage, unit-level square
 footage, bedrooms, and bathrooms) for condominiums, but the data we have
 ***varies in both the characteristics available and their
-completeness*** between triads. Staffing limitations have forced the
-office to prioritize smaller condo buildings less likely to have recent
-unit sales in certain parts of the county.
+completeness*** between triads.
 
 Like most assessors nationwide, our office staff cannot enter buildings
 to observe property characteristics. For condos, this means we cannot
@@ -96,7 +94,7 @@ Fortunately, condos have two qualities which make modeling a bit easier:
 
 We leverage these qualities to produce a time-weighted, rolling average
 sale price for each building which is then used as a predictor in the
-unit-level model.
+main unit-level model.
 
 ### Features Used
 
@@ -223,8 +221,8 @@ apply any [post-modeling
 adjustment](https://github.com/ccao-data/model-res-avm#post-modeling).
 
 However, because the CCAO has so [little information about individual
-units](#differences-compared-to-the-residential-model), we must rely on
-the [condominium percentage of ownership](#features-used) to
+condo units](#differences-compared-to-the-residential-model), we must
+rely on the [condominium percentage of ownership](#features-used) to
 differentiate between units in a building. This feature is effectively
 the proportion of the building’s overall value held by a unit. It is
 created when a condominium declaration is filed with the County (usually
@@ -310,7 +308,7 @@ for large buildings with many sales, but can break down when there are
 only 1 or 2 sales in a building. The primary danger here is
 *unrepresentative* sales, i.e. sales that deviate significantly from the
 real average value of a building’s units. When this happens, buildings
-can have their average unit sale value pegged too high or low.
+can have their average building sale price pegged too high or low.
 
 Fortunately, buildings without any recent sales are relatively rare, as
 condos have a higher turnover rate than single and multi-family
@@ -438,6 +436,13 @@ transactions in the training set as possible.
 - [condo_strata_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-03-11-pensive-manasi/condo_strata_data.parquet)
 - [land_nbhd_rate_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-03-11-pensive-manasi/land_nbhd_rate_data.parquet)
 - [training_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-03-11-pensive-manasi/training_data.parquet)
+
+#### 2025
+
+- [assessment_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2025/assessment_data.parquet)
+- [char_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2025/char_data.parquet)
+- [land_nbhd_rate_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2025/land_nbhd_rate_data.parquet)
+- [training_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2025/training_data.parquet)
 
 For other data from the CCAO, please visit the [Cook County Data
 Portal](https://datacatalog.cookcountyil.gov/).

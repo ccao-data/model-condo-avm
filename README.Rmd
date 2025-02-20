@@ -47,7 +47,7 @@ The repository itself contains the [code](./pipeline) for the Automated Valuatio
 
 ## Differences Compared to the Residential Model
 
-The Cook County Assessor's Office has started to track a limited number of characteristics (building-level square footage, unit-level square footage, bedrooms, and bathrooms) for condominiums, but the data we have ***varies in both the characteristics available and their completeness*** between triads. Staffing limitations have forced the office to prioritize smaller condo buildings less likely to have recent unit sales in certain parts of the county.
+The Cook County Assessor's Office has started to track a limited number of characteristics (building-level square footage, unit-level square footage, bedrooms, and bathrooms) for condominiums, but the data we have ***varies in both the characteristics available and their completeness*** between triads.
 
 Like most assessors nationwide, our office staff cannot enter buildings to observe property characteristics. For condos, this means we cannot observe amenities, quality, or any other interior characteristics which must instead be gathered from listings and a number of additional third-party sources.
 
@@ -57,7 +57,7 @@ The only _complete_ information our office currently has about individual condom
 2. Condos are pre-grouped into clusters of like units (buildings), and units within the same building usually have similar sale prices.
 
 We leverage these qualities to produce a time-weighted, rolling average sale price for
-each building which is then used as a predictor in the unit-level model.
+each building which is then used as a predictor in the main unit-level model.
 
 ### Features Used
 
@@ -214,7 +214,7 @@ We maintain a few useful resources for working with these features:
 
 For the most part, condos are valued the same way as single- and multi-family residential property. We [train a model](https://github.com/ccao-data/model-res-avm#how-it-works) using individual condo unit sales, predict the value of all units, and then apply any [post-modeling adjustment](https://github.com/ccao-data/model-res-avm#post-modeling).
 
-However, because the CCAO has so [little information about individual units](#differences-compared-to-the-residential-model), we must rely on the [condominium percentage of ownership](#features-used) to differentiate between units in a building. This feature is effectively the proportion of the building's overall value held by a unit. It is created when a condominium declaration is filed with the County (usually by the developer of the building). The critical assumption underlying the condo valuation process is that percentage of ownership correlates with the relative market value differences between units.
+However, because the CCAO has so [little information about individual condo units](#differences-compared-to-the-residential-model), we must rely on the [condominium percentage of ownership](#features-used) to differentiate between units in a building. This feature is effectively the proportion of the building's overall value held by a unit. It is created when a condominium declaration is filed with the County (usually by the developer of the building). The critical assumption underlying the condo valuation process is that percentage of ownership correlates with the relative market value differences between units.
 
 Percentage of ownership is used in two ways:
 
@@ -254,7 +254,7 @@ This problem is rare, but does occur in certain buildings with many heterogeneou
 
 ### Buildings With Few Sales
 
-The condo model relies on sales within the same building to calculate a weighted, rolling average building sale price. This method works well for large buildings with many sales, but can break down when there are only 1 or 2 sales in a building. The primary danger here is _unrepresentative_ sales, i.e. sales that deviate significantly from the real average value of a building's units. When this happens, buildings can have their average unit sale value pegged too high or low.
+The condo model relies on sales within the same building to calculate a weighted, rolling average building sale price. This method works well for large buildings with many sales, but can break down when there are only 1 or 2 sales in a building. The primary danger here is _unrepresentative_ sales, i.e. sales that deviate significantly from the real average value of a building's units. When this happens, buildings can have their average building sale price pegged too high or low.
 
 Fortunately, buildings without any recent sales are relatively rare, as condos have a higher turnover rate than single and multi-family property. Smaller buildings with low turnover are the most likely to not have recent sales.
 
@@ -338,6 +338,13 @@ The data issue caused some sales to be omitted from the `2024-02-16-silly-billy`
 - [condo_strata_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-03-11-pensive-manasi/condo_strata_data.parquet)
 - [land_nbhd_rate_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-03-11-pensive-manasi/land_nbhd_rate_data.parquet)
 - [training_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2024/run_id=2024-03-11-pensive-manasi/training_data.parquet)
+
+#### 2025
+
+- [assessment_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2025/assessment_data.parquet)
+- [char_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2025/char_data.parquet)
+- [land_nbhd_rate_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2025/land_nbhd_rate_data.parquet)
+- [training_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2025/training_data.parquet)
 
 For other data from the CCAO, please visit the [Cook County Data Portal](https://datacatalog.cookcountyil.gov/).
 
