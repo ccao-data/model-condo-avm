@@ -5,6 +5,8 @@ Table of Contents
 - [Model Overview](#model-overview)
   - [Differences Compared to the Residential
     Model](#differences-compared-to-the-residential-model)
+    - [Rolling Average Sale Price
+      Feature](#rolling-average-sale-price-feature)
     - [Features Used](#features-used)
     - [Valuation](#valuation)
     - [Multi-PIN Sales](#multi-pin-sales)
@@ -92,9 +94,50 @@ Fortunately, condos have two qualities which make modeling a bit easier:
 2.  Condos are pre-grouped into clusters of like units (buildings), and
     units within the same building usually have similar sale prices.
 
-We leverage these qualities to produce a time-weighted, rolling average
-sale price for each building which is then used as a predictor in the
-main unit-level model.
+### Rolling Average Sale Price Feature
+
+We leverage the qualities above to produce a leave-one-out,
+time-weighted, rolling average sale price for each building/sale. In
+layman’s terms, we take the average of the sales in the same building
+from the prior 5 years, *excluding the current sale*. Here’s what the
+rolling windows look like for sales in the training data, where the last
+row represents the actual assessment scenario (where the “sale” occurs
+on the lien date):
+
+![](./docs/figures/rolling_mean.png)
+
+This feature is similar to a spatial lag model. It captures the spatial
+relationship and price dependence of units within the same building,
+effectively giving the primary model a hint that “these units are
+related and should have a similar price.” Intuitively, this makes sense:
+if a unit in a building sells for \$500K, it’s likely that future sales
+in the same building will be around the same price (or at least trend
+together).
+
+Note however, that because this feature is a *building-level* average,
+it doesn’t account for unit-level differences. A unit on the top floor
+with a view of the lake will get (roughly) the same building-level
+average as a unit on the ground floor with no view. As such, we still
+need a main predictive model to determine unit-level values, and the
+rolling average feature is used as a predictor in that model.
+
+Some additional technical notes on this feature:
+
+- The time weights used to weight sales are *global*, rather than
+  building-specific. They follow a simple logistic curve centered 3
+  years before the most recent sale i.e. sales close to the lien date
+  are weighted most heavily.
+- The feature is calculated using sales from the *entire range* of the
+  training data. This means that the test set version of the feature has
+  seen training data sales from the same building, but not the sale
+  being predicted. We contend that this is not data leakage, as it
+  mirrors the real-world, production scenario where the models sees all
+  sales in the building from the five years prior to the lien date.
+- We contend that this feature is *not* sales chasing (in the IAAO
+  sense) because it excludes the *current* sale from the average. This
+  means that the model is not using the current sale to predict itself,
+  but rather using the *prior* sales to predict the current sale.
+- The average excludes outlier sales and sales of non-livable units.
 
 ### Features Used
 
@@ -118,19 +161,6 @@ assessment model.
 | Condominium % Ownership                                                     | meta_tieback_proration_rate                           | Proration rate applied to the PIN                                                                                                                     | Meta           | numeric   | X                     |
 | Building Rolling Average Sale Price                                         | meta_pin10_bldg_roll_mean                             | Time-weighted five-year rolling average sale price for all units in the PIN10 (excluding the target sale)                                             | Meta           | numeric   | X                     |
 | Building Rolling Percent Units Sold                                         | meta_pin10_bldg_roll_pct_sold                         | Ratio of sale count in the PIN10 over the past five years to PIN10 unit count (excluding the target sale)                                             | Meta           | numeric   | X                     |
-| Standard Deviation Distance From Parcel Centroid to Vertices (Feet)         | shp_parcel_centroid_dist_ft_sd                        | Standard deviation of the distance from each major parcel vertex to the parcel centroid                                                               | Parcel Shape   | numeric   | X                     |
-| Standard Deviation Parcel Edge Length (Feet)                                | shp_parcel_edge_len_ft_sd                             | Standard deviation of the edge length between parcel vertices                                                                                         | Parcel Shape   | numeric   | X                     |
-| Standard Deviation Parcel Interior Angle (Degrees)                          | shp_parcel_interior_angle_sd                          | Standard deviation of the interior angles of the parcel polygon                                                                                       | Parcel Shape   | numeric   | X                     |
-| Ratio of Parcel Area to Minimum Rotated Bounding Rectangle                  | shp_parcel_mrr_area_ratio                             | Ratio of the parcel’s area to the area of its minimum rotated bounding rectangle                                                                      | Parcel Shape   | numeric   | X                     |
-| Ratio of Parcel Minimum Rotated Bounding Rectangle Longest to Shortest Side | shp_parcel_mrr_side_ratio                             | Ratio of the longest to the shortest side of the parcel’s minimum rotated bounding rectangle                                                          | Parcel Shape   | numeric   | X                     |
-| Number of Parcel Vertices                                                   | shp_parcel_num_vertices                               | The number of vertices of the parcel                                                                                                                  | Parcel Shape   | numeric   | X                     |
-| Nearest Highway Distance (Feet)                                             | prox_nearest_road_highway_dist_ft                     | Distance to nearest highway road                                                                                                                      | Proximity      | numeric   | X                     |
-| Nearest Arterial Road Distance (Feet)                                       | prox_nearest_road_arterial_dist_ft                    | Distance to nearest arterial road                                                                                                                     | Proximity      | numeric   | X                     |
-| Nearest Collector Road Distance (Feet)                                      | prox_nearest_road_collector_dist_ft                   | Distance to nearest collector road                                                                                                                    | Proximity      | numeric   | X                     |
-| Average Daily Traffic Count on Nearest Arterial Road                        | prox_nearest_road_arterial_daily_traffic              | Daily traffic of nearest arterial road                                                                                                                | Proximity      | numeric   | X                     |
-| Average Daily Traffic Count on Nearest Collector Road                       | prox_nearest_road_collector_daily_traffic             | Daily traffic of nearest collector road                                                                                                               | Proximity      | numeric   | X                     |
-| Nearest New Construction (Feet)                                             | prox_nearest_new_construction_dist_ft                 | Nearest new construction distance (feet)                                                                                                              | Proximity      | numeric   | X                     |
-| Nearest Major Stadium (Feet)                                                | prox_nearest_stadium_dist_ft                          | Nearest stadium distance (feet)                                                                                                                       | Proximity      | numeric   | X                     |
 | Percent Population Age, Under 19 Years Old                                  | acs5_percent_age_children                             | Percent of the people 17 years or younger                                                                                                             | ACS5           | numeric   |                       |
 | Percent Population Age, Over 65 Years Old                                   | acs5_percent_age_senior                               | Percent of the people 65 years or older                                                                                                               | ACS5           | numeric   |                       |
 | Median Population Age                                                       | acs5_median_age_total                                 | Median age for whole population                                                                                                                       | ACS5           | numeric   |                       |
@@ -160,6 +190,12 @@ assessment model.
 | Township Code                                                               | meta_township_code                                    | Cook County township code                                                                                                                             | Meta           | character |                       |
 | Neighborhood Code                                                           | meta_nbhd_code                                        | Assessor neighborhood code                                                                                                                            | Meta           | character |                       |
 | Property Tax Bill Aggregate Rate                                            | other_tax_bill_rate                                   | Tax bill rate for the taxing district containing a given PIN                                                                                          | Other          | numeric   |                       |
+| Standard Deviation Distance From Parcel Centroid to Vertices (Feet)         | shp_parcel_centroid_dist_ft_sd                        | Standard deviation of the distance from each major parcel vertex to the parcel centroid                                                               | Parcel Shape   | numeric   |                       |
+| Standard Deviation Parcel Edge Length (Feet)                                | shp_parcel_edge_len_ft_sd                             | Standard deviation of the edge length between parcel vertices                                                                                         | Parcel Shape   | numeric   |                       |
+| Standard Deviation Parcel Interior Angle (Degrees)                          | shp_parcel_interior_angle_sd                          | Standard deviation of the interior angles of the parcel polygon                                                                                       | Parcel Shape   | numeric   |                       |
+| Ratio of Parcel Area to Minimum Rotated Bounding Rectangle                  | shp_parcel_mrr_area_ratio                             | Ratio of the parcel’s area to the area of its minimum rotated bounding rectangle                                                                      | Parcel Shape   | numeric   |                       |
+| Ratio of Parcel Minimum Rotated Bounding Rectangle Longest to Shortest Side | shp_parcel_mrr_side_ratio                             | Ratio of the longest to the shortest side of the parcel’s minimum rotated bounding rectangle                                                          | Parcel Shape   | numeric   |                       |
+| Number of Parcel Vertices                                                   | shp_parcel_num_vertices                               | The number of vertices of the parcel                                                                                                                  | Parcel Shape   | numeric   |                       |
 | Number of PINs in Half Mile                                                 | prox_num_pin_in_half_mile                             | Number of PINs within half mile                                                                                                                       | Proximity      | numeric   |                       |
 | Number of Bus Stops in Half Mile                                            | prox_num_bus_stop_in_half_mile                        | Number of bus stops within half mile                                                                                                                  | Proximity      | numeric   |                       |
 | Number of Foreclosures Per 1000 PINs (Past 5 Years)                         | prox_num_foreclosure_per_1000_pin_past_5_years        | Number of foreclosures per 1000 PINs, within half mile (past 5 years)                                                                                 | Proximity      | numeric   |                       |
@@ -178,6 +214,13 @@ assessment model.
 | Nearest Vacant Land Parcel Distance (Feet)                                  | prox_nearest_vacant_land_dist_ft                      | Nearest vacant land (class 100) parcel distance (feet)                                                                                                | Proximity      | numeric   |                       |
 | Nearest Water Distance (Feet)                                               | prox_nearest_water_dist_ft                            | Nearest water distance (feet)                                                                                                                         | Proximity      | numeric   |                       |
 | Nearest Golf Course Distance (Feet)                                         | prox_nearest_golf_course_dist_ft                      | Nearest golf course distance (feet)                                                                                                                   | Proximity      | numeric   |                       |
+| Nearest Highway Distance (Feet)                                             | prox_nearest_road_highway_dist_ft                     | Distance to nearest highway road                                                                                                                      | Proximity      | numeric   |                       |
+| Nearest Arterial Road Distance (Feet)                                       | prox_nearest_road_arterial_dist_ft                    | Distance to nearest arterial road                                                                                                                     | Proximity      | numeric   |                       |
+| Nearest Collector Road Distance (Feet)                                      | prox_nearest_road_collector_dist_ft                   | Distance to nearest collector road                                                                                                                    | Proximity      | numeric   |                       |
+| Average Daily Traffic Count on Nearest Arterial Road                        | prox_nearest_road_arterial_daily_traffic              | Daily traffic of nearest arterial road                                                                                                                | Proximity      | numeric   |                       |
+| Average Daily Traffic Count on Nearest Collector Road                       | prox_nearest_road_collector_daily_traffic             | Daily traffic of nearest collector road                                                                                                               | Proximity      | numeric   |                       |
+| Nearest New Construction (Feet)                                             | prox_nearest_new_construction_dist_ft                 | Nearest new construction distance (feet)                                                                                                              | Proximity      | numeric   |                       |
+| Nearest Major Stadium (Feet)                                                | prox_nearest_stadium_dist_ft                          | Nearest stadium distance (feet)                                                                                                                       | Proximity      | numeric   |                       |
 | Sale Year                                                                   | time_sale_year                                        | Sale year calculated as the number of years since 0 B.C.E                                                                                             | Time           | numeric   |                       |
 | Sale Day                                                                    | time_sale_day                                         | Sale day calculated as the number of days since January 1st, 1997                                                                                     | Time           | numeric   |                       |
 | Sale Quarter of Year                                                        | time_sale_quarter_of_year                             | Character encoding of quarter of year (Q1 - Q4)                                                                                                       | Time           | character |                       |
