@@ -5,6 +5,8 @@ Table of Contents
 - [Model Overview](#model-overview)
   - [Differences Compared to the Residential
     Model](#differences-compared-to-the-residential-model)
+    - [Rolling Average Sale Price
+      Feature](#rolling-average-sale-price-feature)
     - [Features Used](#features-used)
     - [Valuation](#valuation)
     - [Multi-PIN Sales](#multi-pin-sales)
@@ -92,9 +94,50 @@ Fortunately, condos have two qualities which make modeling a bit easier:
 2.  Condos are pre-grouped into clusters of like units (buildings), and
     units within the same building usually have similar sale prices.
 
-We leverage these qualities to produce a time-weighted, rolling average
-sale price for each building which is then used as a predictor in the
-main unit-level model.
+### Rolling Average Sale Price Feature
+
+We leverage the qualities above to produce a leave-one-out,
+time-weighted, rolling average sale price for each building/sale. In
+layman’s terms, we take the average of the sales in the same building
+from the prior 5 years, *excluding the current sale*. Here’s what the
+rolling windows look like for sales in the training data, where the last
+row represents the actual assessment scenario (where the “sale” occurs
+on the lien date):
+
+![](./docs/figures/rolling_mean.png)
+
+This feature is similar to a spatial lag model. It captures the spatial
+relationship and price dependence of units within the same building,
+effectively giving the primary model a hint that “these units are
+related and should have a similar price.” Intuitively, this makes sense:
+if a unit in a building sells for \$500K, it’s likely that future sales
+in the same building will be around the same price (or at least trend
+together).
+
+Note however, that because this feature is a *building-level* average,
+it doesn’t account for unit-level differences. A unit on the top floor
+with a view of the lake will get (roughly) the same building-level
+average as a unit on the ground floor with no view. As such, we still
+need a main predictive model to determine unit-level values, and the
+rolling average feature is used as a predictor in that model.
+
+Some additional technical notes on this feature:
+
+- The time weights used to weight sales are *global*, rather than
+  building-specific. They follow a simple logistic curve centered 3
+  years before the most recent sale i.e. sales close to the lien date
+  are weighted most heavily.
+- The feature is calculated using sales from the *entire range* of the
+  training data. This means that the test set version of the feature has
+  seen training data sales from the same building, but not the sale
+  being predicted. We contend that this is not data leakage, as it
+  mirrors the real-world, production scenario where the models sees all
+  sales in the building from the five years prior to the lien date.
+- We contend that this feature is *not* sales chasing (in the IAAO
+  sense) because it excludes the *current* sale from the average. This
+  means that the model is not using the current sale to predict itself,
+  but rather using the *prior* sales to predict the current sale.
+- The average excludes outlier sales and sales of non-livable units.
 
 ### Features Used
 
