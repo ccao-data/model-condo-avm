@@ -58,8 +58,8 @@ The only _complete_ information our office currently has about individual condom
 
 ### Rolling Average Sale Price Feature
 
-We leverage the qualities above to produce a leave-one-out, time-weighted, rolling average sale price for
-each building/sale. In layman's terms, we take the average of the sales in the same building from the prior 5 years, _excluding the current sale_. Here's what the rolling windows look like for sales in the training data, where the last row represents the actual assessment scenario (where the "sale" occurs on the lien date):
+We leverage the qualities above to produce a leave-one-out, time-weighted, rolling average building-level sale price for
+each sale. In layman's terms, we take the average of the sales in the same building from the prior 5 years, _excluding the current sale_. Here's what the rolling windows look like for sales in the training data, where the last row represents the actual assessment scenario (where the "sale" occurs on the lien date):
 
 ![](./docs/figures/rolling_mean.png)
 
