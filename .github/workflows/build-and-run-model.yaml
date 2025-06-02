@@ -80,10 +80,8 @@ jobs:
       # required in order to allow the reusable called workflow to push to
       # GitHub Container Registry
       packages: write
-    uses: ccao-data/actions/.github/workflows/build-and-run-batch-job.yaml@add-parameter-to-build-and-run-model-condo-workflow-to-run-ingest-on-batch
+    uses: ccao-data/actions/.github/workflows/build-and-run-batch-job.yaml@main
     with:
-      ref: add-parameter-to-build-and-run-model-condo-workflow-to-run-ingest-on-batch
-      command: ${{ needs.parse-command.outputs.command }}
       backend: "ec2"
       vcpu: "40"
       memory: "158000"
