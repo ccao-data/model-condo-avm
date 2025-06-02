@@ -68,7 +68,8 @@ jobs:
           else
             echo "command=" >> $GITHUB_OUTPUT
           fi
-    build-and-run-model:
+
+  build-and-run-model:
     needs: parse-command
     permissions:
       # contents:read and id-token:write permissions are needed to interact
