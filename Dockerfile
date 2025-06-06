@@ -40,7 +40,6 @@ RUN Rscript -e 'renv::restore(packages = "renv"); renv::restore()'
 RUN Rscript -e 'renv::restore(lockfile = "reporting-renv.lock")'
 RUN Rscript -e 'renv::restore(lockfile = "dev-renv.lock")'
 
-
 # Set the working directory to the model directory
 WORKDIR /model-condo-avm/
 
