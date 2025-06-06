@@ -16,6 +16,7 @@ RUN apt-get update && \
         libcurl4-openssl-dev libssl-dev libxml2-dev libgit2-dev git \
         libudunits2-dev python3-dev python3-pip libgdal-dev libgeos-dev \
         libproj-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev pandoc \
+        libglpk-dev libglpk40 \
         curl gdebi-core && \
     rm -rf /var/lib/apt/lists/*
 
@@ -30,12 +31,14 @@ RUN pip install --no-cache-dir dvc[s3]
 # Copy R bootstrap files into the image
 COPY renv.lock .Rprofile DESCRIPTION ./
 COPY renv/profiles/reporting/renv.lock reporting-renv.lock
+COPY renv/profiles/dev/renv.lock dev-renv.lock
 COPY renv/ renv/
 
 # Install R dependencies. Restoring renv first ensures that it's
 # using the same version as recorded in the lockfile
 RUN Rscript -e 'renv::restore(packages = "renv"); renv::restore()'
 RUN Rscript -e 'renv::restore(lockfile = "reporting-renv.lock")'
+RUN Rscript -e 'renv::restore(lockfile = "dev-renv.lock")'
 
 # Set the working directory to the model directory
 WORKDIR /model-condo-avm/
