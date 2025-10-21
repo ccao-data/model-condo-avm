@@ -150,7 +150,7 @@
       "Package": "backports",
       "Version": "1.5.0",
       "Source": "Repository",
-      "Repository": "https://packagemanager.posit.co/all/__linux__/jammy/latest",
+      "Repository": "CRAN",
       "Requirements": [
         "R"
       ],
@@ -257,7 +257,7 @@
       "Package": "callr",
       "Version": "3.7.6",
       "Source": "Repository",
-      "Repository": "https://packagemanager.posit.co/all/__linux__/jammy/latest",
+      "Repository": "CRAN",
       "Requirements": [
         "R",
         "R6",
@@ -410,7 +410,7 @@
       "Package": "desc",
       "Version": "1.4.3",
       "Source": "Repository",
-      "Repository": "https://packagemanager.posit.co/all/__linux__/jammy/latest",
+      "Repository": "CRAN",
       "Requirements": [
         "R",
         "R6",
@@ -970,7 +970,7 @@
       "Package": "lazyeval",
       "Version": "0.2.2",
       "Source": "Repository",
-      "Repository": "https://packagemanager.posit.co/all/__linux__/jammy/latest",
+      "Repository": "CRAN",
       "Requirements": [
         "R"
       ],
