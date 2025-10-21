@@ -227,6 +227,18 @@
       ],
       "Hash": "3fd29944b231036ad67c3edb32e02201"
     },
+    "fansi": {
+      "Package": "fansi",
+      "Version": "1.0.6",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "grDevices",
+        "utils"
+      ],
+      "Hash": "962174cf2aeb5b9eea581522286a911f"
+    },
     "fastmap": {
       "Package": "fastmap",
       "Version": "1.2.0",

@@ -1108,6 +1108,17 @@
       ],
       "Hash": "a4b659bd0528226724d55034f11ed7cb"
     },
+    "munsell": {
+      "Package": "munsell",
+      "Version": "0.5.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "colorspace",
+        "methods"
+      ],
+      "Hash": "4fd8900853b746af55b81fda99da7695"
+    },
     "nlme": {
       "Package": "nlme",
       "Version": "3.1-166",
