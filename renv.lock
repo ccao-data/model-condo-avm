@@ -161,11 +161,11 @@
       "Version": "0.6.0",
       "Source": "GitHub",
       "RemoteType": "github",
+      "RemoteHost": "api.github.com",
       "RemoteUsername": "ccao-data",
       "RemoteRepo": "assessr",
       "RemoteRef": "master",
       "RemoteSha": "82b3cca6374cc7300145e4345278329b7835086a",
-      "RemoteHost": "api.github.com",
       "Requirements": [
         "R",
         "stats"
@@ -634,7 +634,7 @@
     },
     "git2r": {
       "Package": "git2r",
-      "Version": "0.35.0",
+      "Version": "0.36.2",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -642,7 +642,7 @@
         "graphics",
         "utils"
       ],
-      "Hash": "8828605664949b92d0bf3f931e7c431b"
+      "Hash": "3e1959a7caa0af97272c04f8313cdf84"
     },
     "globals": {
       "Package": "globals",
@@ -780,13 +780,13 @@
     },
     "jsonlite": {
       "Package": "jsonlite",
-      "Version": "1.8.9",
+      "Version": "2.0.0",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
         "methods"
       ],
-      "Hash": "4e993b65c2c3ffbffce7bb3e2c6f832b"
+      "Hash": "b0776f526d36d8bd4a3344a88fe165c4"
     },
     "knitr": {
       "Package": "knitr",
@@ -1272,10 +1272,12 @@
     "renv": {
       "Package": "renv",
       "Version": "1.1.5",
-      "OS_type": null,
-      "NeedsCompilation": "no",
+      "Source": "Repository",
       "Repository": "CRAN",
-      "Source": "Repository"
+      "Requirements": [
+        "utils"
+      ],
+      "Hash": "770fcbc2c4616e8fbcb187cccd46a6b1"
     },
     "rlang": {
       "Package": "rlang",
@@ -1602,7 +1604,7 @@
       "Package": "vctrs",
       "Version": "0.6.5",
       "Source": "Repository",
-      "Repository": "RSPM",
+      "Repository": "https://packagemanager.rstudio.com/all/latest",
       "Requirements": [
         "R",
         "cli",
