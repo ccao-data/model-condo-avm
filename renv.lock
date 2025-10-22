@@ -1,6 +1,6 @@
 {
   "R": {
-    "Version": "4.4.2",
+    "Version": "4.5.1",
     "Repositories": [
       {
         "Name": "CRAN",
@@ -161,11 +161,11 @@
       "Version": "0.6.0",
       "Source": "GitHub",
       "RemoteType": "github",
+      "RemoteHost": "api.github.com",
       "RemoteUsername": "ccao-data",
       "RemoteRepo": "assessr",
       "RemoteRef": "master",
       "RemoteSha": "82b3cca6374cc7300145e4345278329b7835086a",
-      "RemoteHost": "api.github.com",
       "Requirements": [
         "R",
         "stats"
@@ -185,7 +185,7 @@
     },
     "aws.s3": {
       "Package": "aws.s3",
-      "Version": "0.3.21",
+      "Version": "0.3.22",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -198,7 +198,7 @@
         "utils",
         "xml2"
       ],
-      "Hash": "a0b873f71741bba67e3bc128d8f09fe3"
+      "Hash": "cbb6690391d3ac39dfdfb4bff7250b4e"
     },
     "aws.signature": {
       "Package": "aws.signature",
@@ -283,7 +283,16 @@
       "RemoteUsername": "ccao-data",
       "RemoteRepo": "ccao",
       "RemoteRef": "master",
-      "RemoteSha": "600f73a7161146762a9e9e156307c91a209ee637"
+      "RemoteSha": "600f73a7161146762a9e9e156307c91a209ee637",
+      "Requirements": [
+        "R",
+        "assessr",
+        "dplyr",
+        "magrittr",
+        "rlang",
+        "tidyr"
+      ],
+      "Hash": "4ba8f4f6a37b32b02ca53f25aff7b004"
     },
     "class": {
       "Package": "class",
@@ -625,7 +634,7 @@
     },
     "git2r": {
       "Package": "git2r",
-      "Version": "0.35.0",
+      "Version": "0.36.2",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -633,7 +642,7 @@
         "graphics",
         "utils"
       ],
-      "Hash": "8828605664949b92d0bf3f931e7c431b"
+      "Hash": "3e1959a7caa0af97272c04f8313cdf84"
     },
     "globals": {
       "Package": "globals",
@@ -771,13 +780,13 @@
     },
     "jsonlite": {
       "Package": "jsonlite",
-      "Version": "1.8.9",
+      "Version": "2.0.0",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
         "methods"
       ],
-      "Hash": "4e993b65c2c3ffbffce7bb3e2c6f832b"
+      "Hash": "b0776f526d36d8bd4a3344a88fe165c4"
     },
     "knitr": {
       "Package": "knitr",
@@ -1262,24 +1271,24 @@
     },
     "renv": {
       "Package": "renv",
-      "Version": "1.0.11",
+      "Version": "1.1.5",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
         "utils"
       ],
-      "Hash": "47623f66b4e80b3b0587bc5d7b309888"
+      "Hash": "770fcbc2c4616e8fbcb187cccd46a6b1"
     },
     "rlang": {
       "Package": "rlang",
-      "Version": "1.1.4",
+      "Version": "1.1.6",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
         "R",
         "utils"
       ],
-      "Hash": "3eec01f8b1dee337674b2e34ab1f9bc1"
+      "Hash": "892124978869b74935dc3934c42bfe5a"
     },
     "rpart": {
       "Package": "rpart",
@@ -1595,7 +1604,7 @@
       "Package": "vctrs",
       "Version": "0.6.5",
       "Source": "Repository",
-      "Repository": "RSPM",
+      "Repository": "https://packagemanager.rstudio.com/all/latest",
       "Requirements": [
         "R",
         "cli",
