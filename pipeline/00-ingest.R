@@ -106,6 +106,7 @@ training_data <- dbGetQuery(
       sale.sv_outlier_reason1,
       sale.sv_outlier_reason2,
       sale.sv_outlier_reason3,
+      sale.sv_run_id,
       condo.*
   FROM model.vw_pin_condo_input condo
   INNER JOIN default.vw_pin_sale sale
