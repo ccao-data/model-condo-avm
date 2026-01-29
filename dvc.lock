@@ -5,20 +5,20 @@ stages:
     deps:
     - path: pipeline/00-ingest.R
       hash: md5
-      md5: a5c233620ed8f1971cf5323ee6e1ec49
-      size: 23756
+      md5: 51848e7d7041a89925d0eba8b0a36086
+      size: 23640
     params:
       params.yaml:
         assessment:
-          year: '2026'
-          date: '2026-01-01'
-          triad: south
+          year: '2025'
+          date: '2025-01-01'
+          triad: north
           group: condo
-          data_year: '2025'
-          working_year: '2026'
+          data_year: '2024'
+          working_year: '2025'
         input:
-          min_sale_year: '2017'
-          max_sale_year: '2025'
+          min_sale_year: '2016'
+          max_sale_year: '2024'
           n_years_prior: 5
           building:
             weight_min: 0.1
@@ -26,31 +26,31 @@ stages:
     outs:
     - path: input/assessment_data.parquet
       hash: md5
-      md5: 3a39b2854771c5f32d76e8ece3ce1441
-      size: 51408431
+      md5: 619404aeaae4b462962007c35c8dcea2
+      size: 83139569
     - path: input/char_data.parquet
       hash: md5
-      md5: f6e47e9e43e38f9f22d710b4f15caaba
-      size: 129254742
+      md5: b291c4027d810c21e0b20ceb15250f82
+      size: 154409062
     - path: input/land_nbhd_rate_data.parquet
       hash: md5
-      md5: b4cfaf3d4a35c250990752024a88f3bb
-      size: 5709
+      md5: 5fe80edfabdfac91efe888a25ee4051c
+      size: 6019
     - path: input/training_data.parquet
       hash: md5
-      md5: 07d2e22ab86aeeddc541919fafe6a10f
-      size: 74315767
+      md5: 67b8cd49760b77fa4ece97817ebb4ab1
+      size: 78941195
   train:
     cmd: Rscript pipeline/01-train.R
     deps:
     - path: input/training_data.parquet
       hash: md5
-      md5: 07d2e22ab86aeeddc541919fafe6a10f
-      size: 74315767
+      md5: c65f1c3b32929dbea29e2def92206a47
+      size: 78194210
     - path: pipeline/01-train.R
       hash: md5
-      md5: 7911bca87d5c7ea6c582cc33b5dfe82e
-      size: 17338
+      md5: efcbae591ffc1e50041de19410a99013
+      size: 17242
     params:
       params.yaml:
         cv:
@@ -65,21 +65,21 @@ stages:
         model.engine: lightgbm
         model.hyperparameter:
           default:
-            num_iterations: 1175
-            learning_rate: 0.0375
-            max_bin: 465
-            num_leaves: 64
-            add_to_linked_depth: 3
-            feature_fraction: 0.559
-            min_gain_to_split: 0.312
-            min_data_in_leaf: 36
-            max_cat_threshold: 175
-            min_data_per_group: 215
-            cat_smooth: 92.06
-            cat_l2: 0.016
-            lambda_l1: 23.739
-            lambda_l2: 0.199
-            imp_trees: 15
+            num_iterations: 100
+            learning_rate: 0.011
+            max_bin: 225
+            num_leaves: 200
+            add_to_linked_depth: 2
+            feature_fraction: 0.661
+            min_gain_to_split: 1.58
+            min_data_in_leaf: 44
+            max_cat_threshold: 87
+            min_data_per_group: 200
+            cat_smooth: 140.85
+            cat_l2: 0.017
+            lambda_l1: 0.697
+            lambda_l2: 0.002
+            trees: 25
           range:
             num_iterations:
             - 100
@@ -123,7 +123,7 @@ stages:
             lambda_l2:
             - -3
             - 2
-            imp_trees:
+            trees:
             - 5
             - 50
         model.objective: rmse
@@ -178,6 +178,7 @@ stages:
           - prox_nearest_road_highway_dist_ft
           - prox_nearest_road_arterial_dist_ft
           - prox_nearest_road_collector_dist_ft
+          - prox_nearest_road_highway_daily_traffic
           - prox_nearest_road_arterial_daily_traffic
           - prox_nearest_road_collector_daily_traffic
           - prox_nearest_new_construction_dist_ft
@@ -214,7 +215,6 @@ stages:
           - shp_parcel_mrr_side_ratio
           - shp_parcel_num_vertices
           - meta_pin10_bldg_roll_mean
-          - meta_pin10_bldg_roll_pct_sold
           categorical:
           - meta_township_code
           - meta_nbhd_code
@@ -232,6 +232,7 @@ stages:
           - char_yrblt
           - meta_township_code
           - char_land_sf
+          - char_building_units
           - char_building_non_units
           - char_bldg_is_mixed_use
           - char_building_sf
@@ -242,13 +243,13 @@ stages:
           - meta_card_num
           - meta_lline_num
           - meta_sale_document_num
-        model.seed: 2026
+        model.seed: 2025
         model.verbose: -1
         ratio_study:
-          far_year: '2023'
+          far_year: '2022'
           far_stage: board
           far_column: meta_2yr_pri_board_tot
-          near_year: '2025'
+          near_year: '2024'
           near_stage: certified
           near_column: meta_certified_tot
           min_n_sales: 30
@@ -269,68 +270,68 @@ stages:
     outs:
     - path: output/intermediate/timing/model_timing_train.parquet
       hash: md5
-      md5: 4ce9981730182121dfce435b59793dad
-      size: 2484
+      md5: 4edd3123a15e6436ac7e96e1fcde961e
+      size: 2489
     - path: output/parameter_final/model_parameter_final.parquet
       hash: md5
-      md5: 4e88c21fbd94c9f5a598dcdf670dab7c
-      size: 6658
+      md5: 67819be6c5cf19c9e1f87aca8717132e
+      size: 6638
     - path: output/parameter_range/model_parameter_range.parquet
       hash: md5
-      md5: b378f8ae73167478032391c6cdd3bbad
+      md5: a47965c8cbafb84368f2a21a047bc7f2
       size: 501
     - path: output/parameter_search/model_parameter_search.parquet
       hash: md5
-      md5: b378f8ae73167478032391c6cdd3bbad
+      md5: a47965c8cbafb84368f2a21a047bc7f2
       size: 501
     - path: output/test_card/model_test_card.parquet
       hash: md5
-      md5: 61834738fd70bc0dea4a2257cf021da6
-      size: 1301312
+      md5: 48fff8bb08c9c3cba220fc29bafedc91
+      size: 1081005
     - path: output/workflow/fit/model_workflow_fit.zip
       hash: md5
-      md5: 325253bb0ec71072e8e18991b41f72f0
-      size: 2875689
+      md5: 483c97374e121c302d60d970034b1d9c
+      size: 710110
     - path: output/workflow/recipe/model_workflow_recipe.rds
       hash: md5
-      md5: 949a5e4e8edb6dfec98b2a36a43f6f71
-      size: 662614226
+      md5: 338e3eb58c5074c43d471814476c432d
+      size: 1128500306
   assess:
     cmd: Rscript pipeline/02-assess.R
     deps:
     - path: input/assessment_data.parquet
       hash: md5
-      md5: 3a39b2854771c5f32d76e8ece3ce1441
-      size: 51408431
+      md5: 02f1e9a9466060f6c9b2ab388fca0de6
+      size: 82056354
     - path: input/land_nbhd_rate_data.parquet
       hash: md5
-      md5: b4cfaf3d4a35c250990752024a88f3bb
-      size: 5709
+      md5: 5fe80edfabdfac91efe888a25ee4051c
+      size: 6019
     - path: input/training_data.parquet
       hash: md5
-      md5: 07d2e22ab86aeeddc541919fafe6a10f
-      size: 74315767
+      md5: c65f1c3b32929dbea29e2def92206a47
+      size: 78194210
     - path: output/workflow/fit/model_workflow_fit.zip
       hash: md5
-      md5: 325253bb0ec71072e8e18991b41f72f0
-      size: 2875689
+      md5: 483c97374e121c302d60d970034b1d9c
+      size: 710110
     - path: output/workflow/recipe/model_workflow_recipe.rds
       hash: md5
-      md5: 949a5e4e8edb6dfec98b2a36a43f6f71
-      size: 662614226
+      md5: 338e3eb58c5074c43d471814476c432d
+      size: 1128500306
     - path: pipeline/02-assess.R
       hash: md5
-      md5: 410702673f2978f523557c2a9bb0ed73
-      size: 16633
+      md5: 3d8f569a964928af134b032b8767dd05
+      size: 16233
     params:
       params.yaml:
         assessment:
-          year: '2026'
-          date: '2026-01-01'
-          triad: south
+          year: '2025'
+          date: '2025-01-01'
+          triad: north
           group: condo
-          data_year: '2025'
-          working_year: '2026'
+          data_year: '2024'
+          working_year: '2025'
         model.predictor.all:
         - meta_township_code
         - meta_nbhd_code
@@ -375,6 +376,7 @@ stages:
         - prox_nearest_road_highway_dist_ft
         - prox_nearest_road_arterial_dist_ft
         - prox_nearest_road_collector_dist_ft
+        - prox_nearest_road_highway_daily_traffic
         - prox_nearest_road_arterial_daily_traffic
         - prox_nearest_road_collector_daily_traffic
         - prox_nearest_new_construction_dist_ft
@@ -411,7 +413,6 @@ stages:
         - shp_parcel_mrr_side_ratio
         - shp_parcel_num_vertices
         - meta_pin10_bldg_roll_mean
-        - meta_pin10_bldg_roll_pct_sold
         pv:
           land_pct_of_total_cap: 0.5
           round_break:
@@ -423,10 +424,10 @@ stages:
           - 100
           round_type: ceiling
         ratio_study:
-          far_year: '2023'
+          far_year: '2022'
           far_stage: board
           far_column: meta_2yr_pri_board_tot
-          near_year: '2025'
+          near_year: '2024'
           near_stage: certified
           near_column: meta_certified_tot
           min_n_sales: 30
@@ -446,27 +447,27 @@ stages:
     outs:
     - path: output/assessment_card/model_assessment_card.parquet
       hash: md5
-      md5: a87a9c1988d889420c71c87702be788c
-      size: 23663144
+      md5: 09a3ef3e8b3bef60872b80d8d34dd251
+      size: 43729009
     - path: output/assessment_pin/model_assessment_pin.parquet
       hash: md5
-      md5: c97b594fbc4d7b3a1c0eebb6b662813e
-      size: 38862423
+      md5: c313bd4695c6b17c83a777d308132c3d
+      size: 39517679
     - path: output/intermediate/timing/model_timing_assess.parquet
       hash: md5
-      md5: 82d220362336466423237ce6c5c6aa7c
+      md5: a676482115bebdf36a57ddc8251a6ce7
       size: 2494
   evaluate:
     cmd: Rscript pipeline/03-evaluate.R
     deps:
     - path: output/assessment_pin/model_assessment_pin.parquet
       hash: md5
-      md5: c97b594fbc4d7b3a1c0eebb6b662813e
-      size: 38862423
+      md5: c313bd4695c6b17c83a777d308132c3d
+      size: 39517679
     - path: output/test_card/model_test_card.parquet
       hash: md5
-      md5: 61834738fd70bc0dea4a2257cf021da6
-      size: 1301312
+      md5: 48fff8bb08c9c3cba220fc29bafedc91
+      size: 1081005
     - path: pipeline/03-evaluate.R
       hash: md5
       md5: a1e765acbb7531bdfc17e0cc60508914
@@ -474,17 +475,17 @@ stages:
     params:
       params.yaml:
         assessment:
-          year: '2026'
-          date: '2026-01-01'
-          triad: south
+          year: '2025'
+          date: '2025-01-01'
+          triad: north
           group: condo
-          data_year: '2025'
-          working_year: '2026'
+          data_year: '2024'
+          working_year: '2025'
         ratio_study:
-          far_year: '2023'
+          far_year: '2022'
           far_stage: board
           far_column: meta_2yr_pri_board_tot
-          near_year: '2025'
+          near_year: '2024'
           near_stage: certified
           near_column: meta_certified_tot
           min_n_sales: 30
@@ -504,39 +505,39 @@ stages:
     outs:
     - path: output/intermediate/timing/model_timing_evaluate.parquet
       hash: md5
-      md5: a309be7828e5ef2b49316cb50d6d6493
+      md5: 95402d164ddc790cd557ed128e41ffc8
       size: 2509
     - path: output/performance/model_performance_assessment.parquet
       hash: md5
-      md5: a9ddc7c6abf420d6351b58f6b4e5303d
-      size: 299298
+      md5: 82cc9036c85e56e7e0dd2ecc6b74d40d
+      size: 258446
     - path: output/performance/model_performance_test.parquet
       hash: md5
-      md5: 595d338925b03fb9faab624b1f06d2f3
-      size: 998637
+      md5: e1fe19b18ed38846fcb18409be5b10cf
+      size: 1000121
     - path: output/performance_quantile/model_performance_quantile_assessment.parquet
       hash: md5
-      md5: c59091d4ecc865d477f05e489e51d8a5
-      size: 188005
+      md5: 77f31f73c26328a4b90f0064469f5a2b
+      size: 198599
     - path: output/performance_quantile/model_performance_quantile_test.parquet
       hash: md5
-      md5: 79311982afec1a3517d2748b91f27bf8
-      size: 983111
+      md5: e643ecb20e5b340eb1449c2d1ae4024d
+      size: 954434
   interpret:
     cmd: Rscript pipeline/04-interpret.R
     deps:
     - path: input/assessment_data.parquet
       hash: md5
-      md5: 3a39b2854771c5f32d76e8ece3ce1441
-      size: 51408431
+      md5: 02f1e9a9466060f6c9b2ab388fca0de6
+      size: 82056354
     - path: output/workflow/fit/model_workflow_fit.zip
       hash: md5
-      md5: 325253bb0ec71072e8e18991b41f72f0
-      size: 2875689
+      md5: 483c97374e121c302d60d970034b1d9c
+      size: 710110
     - path: output/workflow/recipe/model_workflow_recipe.rds
       hash: md5
-      md5: 949a5e4e8edb6dfec98b2a36a43f6f71
-      size: 662614226
+      md5: 338e3eb58c5074c43d471814476c432d
+      size: 1128500306
     - path: pipeline/04-interpret.R
       hash: md5
       md5: 51795fcf45dabc142f57c7b6e524b74b
@@ -587,6 +588,7 @@ stages:
         - prox_nearest_road_highway_dist_ft
         - prox_nearest_road_arterial_dist_ft
         - prox_nearest_road_collector_dist_ft
+        - prox_nearest_road_highway_daily_traffic
         - prox_nearest_road_arterial_daily_traffic
         - prox_nearest_road_collector_daily_traffic
         - prox_nearest_new_construction_dist_ft
@@ -623,40 +625,39 @@ stages:
         - shp_parcel_mrr_side_ratio
         - shp_parcel_num_vertices
         - meta_pin10_bldg_roll_mean
-        - meta_pin10_bldg_roll_pct_sold
         toggle.shap_enable: false
     outs:
     - path: output/feature_importance/model_feature_importance.parquet
       hash: md5
-      md5: 6d6044818ab61daa6b8cf3065c00b691
-      size: 6944
+      md5: 324ed5e9fdb575d00fba8172c93b1ad5
+      size: 7819
     - path: output/intermediate/timing/model_timing_interpret.parquet
       hash: md5
-      md5: 9f61f771c7c8fae5fa30cac786b316a4
-      size: 2519
+      md5: c3fcd4cb704324621749fa73a3a7cad5
+      size: 2524
     - path: output/shap/model_shap.parquet
       hash: md5
-      md5: b378f8ae73167478032391c6cdd3bbad
+      md5: a47965c8cbafb84368f2a21a047bc7f2
       size: 501
   finalize:
     cmd: Rscript pipeline/05-finalize.R
     deps:
     - path: output/intermediate/timing/model_timing_assess.parquet
       hash: md5
-      md5: 82d220362336466423237ce6c5c6aa7c
+      md5: a676482115bebdf36a57ddc8251a6ce7
       size: 2494
     - path: output/intermediate/timing/model_timing_evaluate.parquet
       hash: md5
-      md5: a309be7828e5ef2b49316cb50d6d6493
+      md5: 95402d164ddc790cd557ed128e41ffc8
       size: 2509
     - path: output/intermediate/timing/model_timing_interpret.parquet
       hash: md5
-      md5: 9f61f771c7c8fae5fa30cac786b316a4
-      size: 2519
+      md5: c3fcd4cb704324621749fa73a3a7cad5
+      size: 2524
     - path: output/intermediate/timing/model_timing_train.parquet
       hash: md5
-      md5: 4ce9981730182121dfce435b59793dad
-      size: 2484
+      md5: 4edd3123a15e6436ac7e96e1fcde961e
+      size: 2489
     - path: pipeline/05-finalize.R
       hash: md5
       md5: c25e5ec1a936d176a68f858033b9b136
@@ -673,8 +674,8 @@ stages:
           uncertain: 8
           best_metric: rmse
         input:
-          min_sale_year: '2017'
-          max_sale_year: '2025'
+          min_sale_year: '2016'
+          max_sale_year: '2024'
           n_years_prior: 5
           building:
             weight_min: 0.1
@@ -682,7 +683,7 @@ stages:
         model:
           engine: lightgbm
           objective: rmse
-          seed: 2026
+          seed: 2025
           deterministic: true
           force_row_wise: true
           verbose: -1
@@ -731,6 +732,7 @@ stages:
             - prox_nearest_road_highway_dist_ft
             - prox_nearest_road_arterial_dist_ft
             - prox_nearest_road_collector_dist_ft
+            - prox_nearest_road_highway_daily_traffic
             - prox_nearest_road_arterial_daily_traffic
             - prox_nearest_road_collector_daily_traffic
             - prox_nearest_new_construction_dist_ft
@@ -767,7 +769,6 @@ stages:
             - shp_parcel_mrr_side_ratio
             - shp_parcel_num_vertices
             - meta_pin10_bldg_roll_mean
-            - meta_pin10_bldg_roll_pct_sold
             categorical:
             - meta_township_code
             - meta_nbhd_code
@@ -785,6 +786,7 @@ stages:
             - char_yrblt
             - meta_township_code
             - char_land_sf
+            - char_building_units
             - char_building_non_units
             - char_bldg_is_mixed_use
             - char_building_sf
@@ -803,21 +805,21 @@ stages:
             stop_iter: 50
           hyperparameter:
             default:
-              num_iterations: 1175
-              learning_rate: 0.0375
-              max_bin: 465
-              num_leaves: 64
-              add_to_linked_depth: 3
-              feature_fraction: 0.559
-              min_gain_to_split: 0.312
-              min_data_in_leaf: 36
-              max_cat_threshold: 175
-              min_data_per_group: 215
-              cat_smooth: 92.06
-              cat_l2: 0.016
-              lambda_l1: 23.739
-              lambda_l2: 0.199
-              imp_trees: 15
+              num_iterations: 100
+              learning_rate: 0.011
+              max_bin: 225
+              num_leaves: 200
+              add_to_linked_depth: 2
+              feature_fraction: 0.661
+              min_gain_to_split: 1.58
+              min_data_in_leaf: 44
+              max_cat_threshold: 87
+              min_data_per_group: 200
+              cat_smooth: 140.85
+              cat_l2: 0.017
+              lambda_l1: 0.697
+              lambda_l2: 0.002
+              trees: 25
             range:
               num_iterations:
               - 100
@@ -861,7 +863,7 @@ stages:
               lambda_l2:
               - -3
               - 2
-              imp_trees:
+              trees:
               - 5
               - 50
         pv:
@@ -875,10 +877,10 @@ stages:
           - 100
           round_type: ceiling
         ratio_study:
-          far_year: '2023'
+          far_year: '2022'
           far_stage: board
           far_column: meta_2yr_pri_board_tot
-          near_year: '2025'
+          near_year: '2024'
           near_stage: certified
           near_column: meta_certified_tot
           min_n_sales: 30
@@ -895,7 +897,7 @@ stages:
           - loc_school_elementary_district_geoid
           - loc_school_secondary_district_geoid
           - loc_school_unified_district_geoid
-        run_note: Baseline 2026 model run
+        run_note: Preparing for 2025 model with 2024 data and updated sales
         toggle:
           cv_enable: false
           shap_enable: false
@@ -903,40 +905,35 @@ stages:
     outs:
     - path: output/intermediate/timing/model_timing_finalize.parquet
       hash: md5
-      md5: b8ef036fd29804e362a91b74ee058aba
-      size: 2504
+      md5: a17c53c9916f005df891c41c030ff570
+      size: 2514
     - path: output/metadata/model_metadata.parquet
       hash: md5
-      md5: 70da1ebe70e3c37f9482288db30d7132
-      size: 19069
+      md5: 1409ea6b029801c9aefd87dd5cbb909f
+      size: 19208
     - path: output/timing/model_timing.parquet
       hash: md5
-      md5: d7f7b9f506c72c49a988bc325d51d572
-      size: 5153
+      md5: e4a9a4d8bae3247af74dc5f6cace68e0
+      size: 5148
     - path: reports/performance/performance.html
       hash: md5
-      md5: 004b653e50e9513fc04ad1fc1d5ca544
-      size: 80
+      md5: 1aad56f5188476b2d21f87847e805258
+      size: 20874024
   export:
     cmd: Rscript pipeline/07-export.R
-    deps:
-    - path: pipeline/07-export.R
-      hash: md5
-      md5: 25b214fcc1b43dea2efe91fbe6b4e674
-      size: 20605
     params:
       params.yaml:
-        assessment.year: '2026'
+        assessment.year: '2024'
         export:
-          triad_code: '3'
-          run_id: 2025-02-10-cattywampus-christian
-        input.max_sale_year: '2025'
-        input.min_sale_year: '2017'
+          triad_code: '1'
+          run_id: 2024-03-11-pensive-manasi
+        input.max_sale_year: '2023'
+        input.min_sale_year: '2015'
         ratio_study:
-          far_year: '2023'
+          far_year: '2021'
           far_stage: board
           far_column: meta_2yr_pri_board_tot
-          near_year: '2025'
+          near_year: '2023'
           near_stage: certified
           near_column: meta_certified_tot
           min_n_sales: 30
@@ -949,6 +946,7 @@ stages:
           - meta_nbhd_code
           - loc_tax_municipality_name
           - loc_ward_num
+          - loc_census_puma_geoid
           - loc_census_tract_geoid
           - loc_school_elementary_district_geoid
           - loc_school_secondary_district_geoid
@@ -958,73 +956,73 @@ stages:
     deps:
     - path: output/assessment_card/model_assessment_card.parquet
       hash: md5
-      md5: a87a9c1988d889420c71c87702be788c
-      size: 23663144
+      md5: 09a3ef3e8b3bef60872b80d8d34dd251
+      size: 43729009
     - path: output/assessment_pin/model_assessment_pin.parquet
       hash: md5
-      md5: c97b594fbc4d7b3a1c0eebb6b662813e
-      size: 38862423
+      md5: c313bd4695c6b17c83a777d308132c3d
+      size: 39517679
     - path: output/feature_importance/model_feature_importance.parquet
       hash: md5
-      md5: 6d6044818ab61daa6b8cf3065c00b691
-      size: 6944
+      md5: 324ed5e9fdb575d00fba8172c93b1ad5
+      size: 7819
     - path: output/metadata/model_metadata.parquet
       hash: md5
-      md5: 70da1ebe70e3c37f9482288db30d7132
-      size: 19069
+      md5: 1409ea6b029801c9aefd87dd5cbb909f
+      size: 19208
     - path: output/parameter_final/model_parameter_final.parquet
       hash: md5
-      md5: 4e88c21fbd94c9f5a598dcdf670dab7c
-      size: 6658
+      md5: 67819be6c5cf19c9e1f87aca8717132e
+      size: 6638
     - path: output/parameter_range/model_parameter_range.parquet
       hash: md5
-      md5: b378f8ae73167478032391c6cdd3bbad
+      md5: a47965c8cbafb84368f2a21a047bc7f2
       size: 501
     - path: output/parameter_search/model_parameter_search.parquet
       hash: md5
-      md5: b378f8ae73167478032391c6cdd3bbad
+      md5: a47965c8cbafb84368f2a21a047bc7f2
       size: 501
     - path: output/performance/model_performance_assessment.parquet
       hash: md5
-      md5: a9ddc7c6abf420d6351b58f6b4e5303d
-      size: 299298
+      md5: 82cc9036c85e56e7e0dd2ecc6b74d40d
+      size: 258446
     - path: output/performance/model_performance_test.parquet
       hash: md5
-      md5: 595d338925b03fb9faab624b1f06d2f3
-      size: 998637
+      md5: e1fe19b18ed38846fcb18409be5b10cf
+      size: 1000121
     - path: output/performance_quantile/model_performance_quantile_assessment.parquet
       hash: md5
-      md5: c59091d4ecc865d477f05e489e51d8a5
-      size: 188005
+      md5: 77f31f73c26328a4b90f0064469f5a2b
+      size: 198599
     - path: output/performance_quantile/model_performance_quantile_test.parquet
       hash: md5
-      md5: 79311982afec1a3517d2748b91f27bf8
-      size: 983111
+      md5: e643ecb20e5b340eb1449c2d1ae4024d
+      size: 954434
     - path: output/shap/model_shap.parquet
       hash: md5
-      md5: b378f8ae73167478032391c6cdd3bbad
+      md5: a47965c8cbafb84368f2a21a047bc7f2
       size: 501
     - path: output/test_card/model_test_card.parquet
       hash: md5
-      md5: 61834738fd70bc0dea4a2257cf021da6
-      size: 1301312
+      md5: 48fff8bb08c9c3cba220fc29bafedc91
+      size: 1081005
     - path: output/timing/model_timing.parquet
       hash: md5
-      md5: d7f7b9f506c72c49a988bc325d51d572
-      size: 5153
+      md5: e4a9a4d8bae3247af74dc5f6cace68e0
+      size: 5148
     - path: output/workflow/fit/model_workflow_fit.zip
       hash: md5
-      md5: 325253bb0ec71072e8e18991b41f72f0
-      size: 2875689
+      md5: 483c97374e121c302d60d970034b1d9c
+      size: 710110
     - path: output/workflow/recipe/model_workflow_recipe.rds
       hash: md5
-      md5: 949a5e4e8edb6dfec98b2a36a43f6f71
-      size: 662614226
+      md5: 338e3eb58c5074c43d471814476c432d
+      size: 1128500306
     - path: pipeline/06-upload.R
       hash: md5
       md5: 613632039c6744d3132a8760c1b51099
       size: 10855
     - path: reports/performance/performance.html
       hash: md5
-      md5: 004b653e50e9513fc04ad1fc1d5ca544
-      size: 80
+      md5: 1aad56f5188476b2d21f87847e805258
+      size: 20874024
