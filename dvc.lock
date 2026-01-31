@@ -26,27 +26,27 @@ stages:
     outs:
     - path: input/assessment_data.parquet
       hash: md5
-      md5: d5cf9fd155b2759d0d2ac8f774833a37
-      size: 82960011
+      md5: 6d5b176584d29d045514a56a254352c8
+      size: 82247043
     - path: input/char_data.parquet
       hash: md5
-      md5: 65266248090869494ee7f037cb6bf32d
-      size: 156199251
+      md5: 960d5295abe9173e3d7758d27d745e65
+      size: 155753553
     - path: input/land_nbhd_rate_data.parquet
       hash: md5
       md5: b4cfaf3d4a35c250990752024a88f3bb
       size: 5709
     - path: input/training_data.parquet
       hash: md5
-      md5: 2eadf079e767da72b63abaffc35c3110
-      size: 75771037
+      md5: 876713d816303c590fe5b498a44622b9
+      size: 75767731
   train:
     cmd: Rscript pipeline/01-train.R
     deps:
     - path: input/training_data.parquet
       hash: md5
-      md5: 2eadf079e767da72b63abaffc35c3110
-      size: 75771037
+      md5: 876713d816303c590fe5b498a44622b9
+      size: 75767731
     - path: pipeline/01-train.R
       hash: md5
       md5: 7911bca87d5c7ea6c582cc33b5dfe82e
@@ -269,7 +269,7 @@ stages:
     outs:
     - path: output/intermediate/timing/model_timing_train.parquet
       hash: md5
-      md5: a51c3bae00127876110eae4c4c5f6e29
+      md5: e0413cb5f5146b16775c90e8239bcd2f
       size: 2489
     - path: output/parameter_final/model_parameter_final.parquet
       hash: md5
@@ -289,35 +289,35 @@ stages:
       size: 1301224
     - path: output/workflow/fit/model_workflow_fit.zip
       hash: md5
-      md5: 22919b1cd60345da58a701232b8c0770
+      md5: 798b27b92bbeb94b2340b3974825bae0
       size: 2868515
     - path: output/workflow/recipe/model_workflow_recipe.rds
       hash: md5
-      md5: f6c38e3bb87eb6f2470fb0e2ddabb324
-      size: 662614229
+      md5: d4017d22658b6dc19f0c67c620789d30
+      size: 662614222
   assess:
     cmd: Rscript pipeline/02-assess.R
     deps:
     - path: input/assessment_data.parquet
       hash: md5
-      md5: d5cf9fd155b2759d0d2ac8f774833a37
-      size: 82960011
+      md5: 6d5b176584d29d045514a56a254352c8
+      size: 82247043
     - path: input/land_nbhd_rate_data.parquet
       hash: md5
       md5: b4cfaf3d4a35c250990752024a88f3bb
       size: 5709
     - path: input/training_data.parquet
       hash: md5
-      md5: 2eadf079e767da72b63abaffc35c3110
-      size: 75771037
+      md5: 876713d816303c590fe5b498a44622b9
+      size: 75767731
     - path: output/workflow/fit/model_workflow_fit.zip
       hash: md5
-      md5: 22919b1cd60345da58a701232b8c0770
+      md5: 798b27b92bbeb94b2340b3974825bae0
       size: 2868515
     - path: output/workflow/recipe/model_workflow_recipe.rds
       hash: md5
-      md5: f6c38e3bb87eb6f2470fb0e2ddabb324
-      size: 662614229
+      md5: d4017d22658b6dc19f0c67c620789d30
+      size: 662614222
     - path: pipeline/02-assess.R
       hash: md5
       md5: 410702673f2978f523557c2a9bb0ed73
@@ -446,23 +446,23 @@ stages:
     outs:
     - path: output/assessment_card/model_assessment_card.parquet
       hash: md5
-      md5: 47b3e3c088ecceccdedf4abb972c2bf9
-      size: 45088140
+      md5: 971a2009d5cb3d1f033e5e05bda9d288
+      size: 44647592
     - path: output/assessment_pin/model_assessment_pin.parquet
       hash: md5
-      md5: 0a7e9ce89b109ebc4ce244b91196fea2
-      size: 39009805
+      md5: 32f2bf5e7037c1ca03ded876c3a2fbb5
+      size: 38869819
     - path: output/intermediate/timing/model_timing_assess.parquet
       hash: md5
-      md5: 10cb97da38f1af50d7dc1711d516dc7b
+      md5: 65ef2a69320139c8f29af8dce37fb9b9
       size: 2494
   evaluate:
     cmd: Rscript pipeline/03-evaluate.R
     deps:
     - path: output/assessment_pin/model_assessment_pin.parquet
       hash: md5
-      md5: 0a7e9ce89b109ebc4ce244b91196fea2
-      size: 39009805
+      md5: 32f2bf5e7037c1ca03ded876c3a2fbb5
+      size: 38869819
     - path: output/test_card/model_test_card.parquet
       hash: md5
       md5: bff417c864ef9665d2b7032fa54653cb
@@ -504,20 +504,20 @@ stages:
     outs:
     - path: output/intermediate/timing/model_timing_evaluate.parquet
       hash: md5
-      md5: 0e8fd270c7b1395c628298a529944e64
+      md5: 9e77b02137f7b17c03f08d28b2cb6c0b
       size: 2509
     - path: output/performance/model_performance_assessment.parquet
       hash: md5
-      md5: 54e2a4de6bb2f7033f38c85e193bc870
-      size: 299002
+      md5: 2094d59e8eef7d899b6797e6416dcc2e
+      size: 298994
     - path: output/performance/model_performance_test.parquet
       hash: md5
       md5: aa8f955b9c60fadb216db2e9ec862842
       size: 998789
     - path: output/performance_quantile/model_performance_quantile_assessment.parquet
       hash: md5
-      md5: 353d92d1aa3b0108be9f113df781c5d7
-      size: 188129
+      md5: 2766fe2265cde2df4c8cb5fd548b6741
+      size: 187881
     - path: output/performance_quantile/model_performance_quantile_test.parquet
       hash: md5
       md5: 7615ff2a413211849b99a835ee50162e
@@ -527,16 +527,16 @@ stages:
     deps:
     - path: input/assessment_data.parquet
       hash: md5
-      md5: d5cf9fd155b2759d0d2ac8f774833a37
-      size: 82960011
+      md5: 6d5b176584d29d045514a56a254352c8
+      size: 82247043
     - path: output/workflow/fit/model_workflow_fit.zip
       hash: md5
-      md5: 22919b1cd60345da58a701232b8c0770
+      md5: 798b27b92bbeb94b2340b3974825bae0
       size: 2868515
     - path: output/workflow/recipe/model_workflow_recipe.rds
       hash: md5
-      md5: f6c38e3bb87eb6f2470fb0e2ddabb324
-      size: 662614229
+      md5: d4017d22658b6dc19f0c67c620789d30
+      size: 662614222
     - path: pipeline/04-interpret.R
       hash: md5
       md5: 51795fcf45dabc142f57c7b6e524b74b
@@ -632,30 +632,30 @@ stages:
       size: 7794
     - path: output/intermediate/timing/model_timing_interpret.parquet
       hash: md5
-      md5: c6580b76615b791ef8267f62bac3ebef
+      md5: 38815b800911b20a6705150e02ca6ed3
       size: 2529
     - path: output/shap/model_shap.parquet
       hash: md5
-      md5: 961f528e43298e11736329a2992fbbae
-      size: 159194660
+      md5: de88ffe85538061e34d0b67a56e782d7
+      size: 159236204
   finalize:
     cmd: Rscript pipeline/05-finalize.R
     deps:
     - path: output/intermediate/timing/model_timing_assess.parquet
       hash: md5
-      md5: 10cb97da38f1af50d7dc1711d516dc7b
+      md5: 65ef2a69320139c8f29af8dce37fb9b9
       size: 2494
     - path: output/intermediate/timing/model_timing_evaluate.parquet
       hash: md5
-      md5: 0e8fd270c7b1395c628298a529944e64
+      md5: 9e77b02137f7b17c03f08d28b2cb6c0b
       size: 2509
     - path: output/intermediate/timing/model_timing_interpret.parquet
       hash: md5
-      md5: c6580b76615b791ef8267f62bac3ebef
+      md5: 38815b800911b20a6705150e02ca6ed3
       size: 2529
     - path: output/intermediate/timing/model_timing_train.parquet
       hash: md5
-      md5: a51c3bae00127876110eae4c4c5f6e29
+      md5: e0413cb5f5146b16775c90e8239bcd2f
       size: 2489
     - path: pipeline/05-finalize.R
       hash: md5
@@ -895,8 +895,8 @@ stages:
           - loc_school_elementary_district_geoid
           - loc_school_secondary_district_geoid
           - loc_school_unified_district_geoid
-        run_note: Potential baseline 2026 condo model run with fixed proximity data,
-          new acs, and shaps
+        run_note: Potential baseline 2026 condo model run with new DVC path and SHAP
+          values
         toggle:
           cv_enable: false
           shap_enable: true
@@ -904,16 +904,16 @@ stages:
     outs:
     - path: output/intermediate/timing/model_timing_finalize.parquet
       hash: md5
-      md5: 53936452043d0d2fbd19ddeba57cc437
-      size: 2504
+      md5: ea89bc39aa85d83333ce7188b316d1f7
+      size: 2509
     - path: output/metadata/model_metadata.parquet
       hash: md5
-      md5: 6d7f070e89826257c01f5572bb501259
-      size: 19694
+      md5: 0a397ba41ce7988955be9a3fa803bcd3
+      size: 19497
     - path: output/timing/model_timing.parquet
       hash: md5
-      md5: 259b696e895d88809742337301710829
-      size: 5133
+      md5: 967350920c35a456a284314d29a899de
+      size: 5148
     - path: reports/performance/performance.html
       hash: md5
       md5: 004b653e50e9513fc04ad1fc1d5ca544
@@ -959,20 +959,20 @@ stages:
     deps:
     - path: output/assessment_card/model_assessment_card.parquet
       hash: md5
-      md5: 47b3e3c088ecceccdedf4abb972c2bf9
-      size: 45088140
+      md5: 971a2009d5cb3d1f033e5e05bda9d288
+      size: 44647592
     - path: output/assessment_pin/model_assessment_pin.parquet
       hash: md5
-      md5: 0a7e9ce89b109ebc4ce244b91196fea2
-      size: 39009805
+      md5: 32f2bf5e7037c1ca03ded876c3a2fbb5
+      size: 38869819
     - path: output/feature_importance/model_feature_importance.parquet
       hash: md5
       md5: 46a063d03c67cc19bab2e9a23f07768b
       size: 7794
     - path: output/metadata/model_metadata.parquet
       hash: md5
-      md5: 6d7f070e89826257c01f5572bb501259
-      size: 19694
+      md5: 0a397ba41ce7988955be9a3fa803bcd3
+      size: 19497
     - path: output/parameter_final/model_parameter_final.parquet
       hash: md5
       md5: 4e88c21fbd94c9f5a598dcdf670dab7c
@@ -987,40 +987,40 @@ stages:
       size: 501
     - path: output/performance/model_performance_assessment.parquet
       hash: md5
-      md5: 54e2a4de6bb2f7033f38c85e193bc870
-      size: 299002
+      md5: 2094d59e8eef7d899b6797e6416dcc2e
+      size: 298994
     - path: output/performance/model_performance_test.parquet
       hash: md5
       md5: aa8f955b9c60fadb216db2e9ec862842
       size: 998789
     - path: output/performance_quantile/model_performance_quantile_assessment.parquet
       hash: md5
-      md5: 353d92d1aa3b0108be9f113df781c5d7
-      size: 188129
+      md5: 2766fe2265cde2df4c8cb5fd548b6741
+      size: 187881
     - path: output/performance_quantile/model_performance_quantile_test.parquet
       hash: md5
       md5: 7615ff2a413211849b99a835ee50162e
       size: 982743
     - path: output/shap/model_shap.parquet
       hash: md5
-      md5: 961f528e43298e11736329a2992fbbae
-      size: 159194660
+      md5: de88ffe85538061e34d0b67a56e782d7
+      size: 159236204
     - path: output/test_card/model_test_card.parquet
       hash: md5
       md5: bff417c864ef9665d2b7032fa54653cb
       size: 1301224
     - path: output/timing/model_timing.parquet
       hash: md5
-      md5: 259b696e895d88809742337301710829
-      size: 5133
+      md5: 967350920c35a456a284314d29a899de
+      size: 5148
     - path: output/workflow/fit/model_workflow_fit.zip
       hash: md5
-      md5: 22919b1cd60345da58a701232b8c0770
+      md5: 798b27b92bbeb94b2340b3974825bae0
       size: 2868515
     - path: output/workflow/recipe/model_workflow_recipe.rds
       hash: md5
-      md5: f6c38e3bb87eb6f2470fb0e2ddabb324
-      size: 662614229
+      md5: d4017d22658b6dc19f0c67c620789d30
+      size: 662614222
     - path: pipeline/06-upload.R
       hash: md5
       md5: 613632039c6744d3132a8760c1b51099

@@ -15,7 +15,7 @@ run_type: "test"
 
 # Note included with each run. Use this to summarize what changed about the run
 # or add context
-run_note: Potential baseline 2026 condo model run with fixed proximity data, new acs, and shaps
+run_note: Potential baseline 2026 condo model run with new DVC path and SHAP values
 
 toggle:
   # Should the train stage run full cross-validation? Otherwise, the model
