@@ -11,11 +11,11 @@
 
 # Model tag used to identify the purpose of the run. Must be one of:
 # "junk", "rejected", "test", "baseline", "candidate", or "final"
-run_type: "test"
+run_type: "baseline"
 
 # Note included with each run. Use this to summarize what changed about the run
 # or add context
-run_note: Baseline 2026 model run
+run_note: Potential baseline 2026 condo model run with SHAP values
 
 toggle:
   # Should the train stage run full cross-validation? Otherwise, the model
@@ -24,7 +24,7 @@ toggle:
 
   # Should SHAP values be calculated for this run in the interpret stage? Can be
   # desirable to save time when testing many models
-  shap_enable: false
+  shap_enable: true
 
   # Upload all modeling artifacts and results to S3 in the upload stage. Set
   # to false if you are not a CCAO employee
@@ -383,4 +383,4 @@ ratio_study:
 # upload
 export:
   triad_code: "3"
-  run_id: "2025-02-10-cattywampus-christian"
+  run_id: "2026-02-03-silly-bowen"

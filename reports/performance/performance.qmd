@@ -20,8 +20,8 @@ knitr:
     out.width: "100%"
 editor: source
 params:
-  run_id: "2025-02-10-cattywampus-christian"
-  year: "2025"
+  run_id: "2026-02-03-silly-bowen"
+  year: "2026"
 ---
 
 ```{r _setup_script}
