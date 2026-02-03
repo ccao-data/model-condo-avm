@@ -123,8 +123,6 @@ message("Pulling data from Athena")
 #   re-reviewed between model runs, in which case the review tables in our
 #   data lake would not exactly match the review data that existed at the
 #   time of a historical model run.)
-
-
 tictoc::tic("Training data pulled")
 training_data <- dbGetQuery(
   conn = AWS_ATHENA_CONN_NOCTUA, glue("
