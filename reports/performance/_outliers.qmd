@@ -50,6 +50,8 @@ training_data_outlier_analysis <-
         "Algorithm: Outlier, High price",
       str_detect(sv_outlier_reason, "Low price") ~
         "Algorithm: Outlier, Low price",
+      str_detect(sv_outlier_reason, "Non-livable area") ~
+        "Non-livable area",
       TRUE ~ sv_outlier_reason
     )
   )
