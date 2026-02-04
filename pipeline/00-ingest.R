@@ -91,6 +91,38 @@ message("Pulling data from Athena")
 # Pull the training data, which contains actual sales + attached characteristics
 # from the condominium input view. We want to get sales spanning multiple
 # parcels only for sales that sell with deeded parking spots
+
+# Many of these columns come from our sales validation workflow. Some notes
+# about these columns:
+#
+# - `sv_is_outlier` combines our algorithmic sales validation flags with
+#   findings from human review to produce a final boolean outlier decision.
+#   It is never null, even when a sale has not been flagged or reviewed.
+#
+# - `sv_outlier_reason` is a verbose explanation of the decision behind
+#   `sv_is_outlier`. If a sale has not been flagged or reviewed, it will be
+#   null.
+#
+# - `sv_outlier_reason{N}`, where 1 <= N <= 3, are three columns that we query
+#   directly from the output of our algorithmic sales validation pipeline,
+#   recording the reasons why the pipeline flagged the sale as an outlier.
+#   The names of these columns are somewhat confusing given their similarity to
+#   the `sv_outlier_reason` column, but they are important for backwards
+#   compatibility. Since `sv_is_outlier` factors in findings from reviewers in
+#   addition to this algorithmic pipeline, this field may not match up
+#   intuitively with the boolean decision in `sv_is_outlier`.
+#
+# - `sv_review_json` is a JSON string storing the raw findings from sale review.
+#   Its schema is not guaranteed to have a consistent structure, so it's not
+#   useful for serious analysis or programming tasks. However, since the field
+#   is intended to act only as an archival record of the exact state of the
+#   review findings  at the point in time of a given model run, we think it is
+#   preferable for the field to have a simple-but-maintainable format instead of
+#   a sophisticated-but-complex format. (This kind of archival record is
+#   important because it is theoretically possible that a sale may get
+#   re-reviewed between model runs, in which case the review tables in our
+#   data lake would not exactly match the review data that existed at the
+#   time of a historical model run.)
 tictoc::tic("Training data pulled")
 training_data <- dbGetQuery(
   conn = AWS_ATHENA_CONN_NOCTUA, glue("
@@ -102,11 +134,16 @@ training_data <- dbGetQuery(
       sale.seller_name AS meta_sale_seller_name,
       sale.buyer_name AS meta_sale_buyer_name,
       sale.num_parcels_sale AS meta_sale_num_parcels,
-      sale.sv_is_outlier,
-      sale.sv_outlier_reason1,
-      sale.sv_outlier_reason2,
-      sale.sv_outlier_reason3,
-      sale.sv_run_id,
+      sale.is_outlier AS sv_is_outlier,
+      sale.outlier_reason AS sv_outlier_reason,
+      sale.flag_outlier_reason1 AS sv_outlier_reason1,
+      sale.flag_outlier_reason2 AS sv_outlier_reason2,
+      sale.flag_outlier_reason3 AS sv_outlier_reason3,
+      sale.flag_run_id AS sv_run_id,
+      CASE
+        WHEN sale.has_review
+          THEN review_json
+      END AS sv_review_json,
       condo.*
   FROM model.vw_pin_condo_input condo
   INNER JOIN default.vw_pin_sale sale
@@ -268,9 +305,6 @@ training_data_clean <- training_data_fil %>%
       sv_outlier_reason3
     )
   ) %>%
-  # Only exclude explicit outliers from training. Sales with missing validation
-  # outcomes will be considered non-outliers
-  mutate(sv_is_outlier = replace_na(sv_is_outlier, FALSE)) %>%
   # Some Athena columns are stored as arrays but are converted to string on
   # ingest. In such cases, take the first element and clean the string
   # Apply the helper function to process array columns
