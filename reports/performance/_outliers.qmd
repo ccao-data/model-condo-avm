@@ -271,6 +271,7 @@ outliers_ratio_comparison <- training_data %>%
     ),
     triad = ccao::town_get_triad(meta_township_name, name = TRUE)
   ) %>%
+  ungroup() %>%
   distinct(meta_township_name, percent, above_below, triad)
 
 axis_limit_outlier_ratio_comparison <- outliers_ratio_comparison %>%
