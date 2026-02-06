@@ -303,6 +303,11 @@ training_data_clean <- training_data_fil %>%
       meta_modeling_group == "NONLIVABLE",
       NA_character_,
       sv_outlier_reason3
+    ),
+    sv_outlier_reason = ifelse(
+      meta_modeling_group == "NONLIVABLE",
+      "Non-livable area",
+      sv_outlier_reason
     )
   ) %>%
   # Some Athena columns are stored as arrays but are converted to string on
