@@ -323,8 +323,6 @@ outliers_ratio_comparison %>%
 
 :::
 
-:::
-
 ## Visualized on a map
 
 ```{r _outlier_proportion_by_nbhd_on_map}
