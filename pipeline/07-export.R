@@ -122,7 +122,8 @@ assessment_pin_prepped <- assessment_pin %>%
     sale_recent_1_outlier_reason =
       if_else(sale_recent_1_is_outlier, sale_recent_1_outlier_reason, ""),
     sale_recent_2_outlier_reason =
-      if_else(sale_recent_2_is_outlier, sale_recent_2_outlier_reason, "")) %>%
+      if_else(sale_recent_2_is_outlier, sale_recent_2_outlier_reason, "")
+  ) %>%
   # Select fields for output to workbook
   select(
     township_code, meta_pin, meta_class, meta_nbhd_code,
