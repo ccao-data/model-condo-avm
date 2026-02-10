@@ -119,15 +119,10 @@ assessment_pin_prepped <- assessment_pin %>%
   mutate(
     flag_has_recent_assessable_permit =
       as.numeric(has_recent_assessable_permit),
-    sale_recent_1_outlier_reasons = str_replace_na(
-      sale_recent_1_outlier_reason,
-      ""
-    ),
-    sale_recent_2_outlier_reasons = str_replace_na(
-      sale_recent_1_outlier_reason,
-      ""
-    ),
-  ) %>%
+    sale_recent_1_outlier_reason =
+      if_else(sale_recent_1_is_outlier, sale_recent_1_outlier_reason, ""),
+    sale_recent_2_outlier_reason =
+      if_else(sale_recent_2_is_outlier, sale_recent_2_outlier_reason, "")) %>%
   # Select fields for output to workbook
   select(
     township_code, meta_pin, meta_class, meta_nbhd_code,
@@ -141,10 +136,10 @@ assessment_pin_prepped <- assessment_pin %>%
     prior_near_yoy_change_nom, prior_near_yoy_change_pct,
     sale_ratio, valuations_note,
     sale_recent_1_date, sale_recent_1_price,
-    sale_recent_1_outlier_reasons, sale_recent_1_document_num,
+    sale_recent_1_outlier_reason, sale_recent_1_document_num,
     sale_recent_1_num_parcels,
     sale_recent_2_date, sale_recent_2_price,
-    sale_recent_2_outlier_reasons, sale_recent_2_document_num,
+    sale_recent_2_outlier_reason, sale_recent_2_document_num,
     sale_recent_2_num_parcels,
     char_yrblt, char_total_bldg_sf, char_land_sf,
     char_unit_sf, meta_pin10_bldg_roll_mean, meta_pin10_bldg_roll_count,
@@ -269,14 +264,14 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     tibble::rowid_to_column("row_id") %>%
     mutate(row_id = row_id + num_head)
 
-  # Calculate AVs so we can store them as separate, hidden columns for use
+  # Calculate MVs so we can store them as separate, hidden columns for use
   # in the neighborhood breakouts pivot table
-  assessment_pin_avs <- assessment_pin_w_row_ids %>%
+  assessment_pin_mvs <- assessment_pin_w_row_ids %>%
     mutate(
-      total_av = glue::glue("=R{row_id} * 0.1"),
-      av_difference = glue::glue("=(R{row_id} * 0.1) - (K{row_id} * 0.1)")
+      total_mv = glue::glue("=R{row_id}"),
+      mv_difference = glue::glue("=(R{row_id}) - (K{row_id})")
     ) %>%
-    select(total_av, av_difference)
+    select(total_mv, mv_difference)
 
   # Calculate sales ratios, and use a formula so that they update dynamically
   # if the spreadsheet user updates the FMV
@@ -289,11 +284,11 @@ for (town in unique(assessment_pin_prepped$township_code)) {
 
   # Mark AV fields and sales ratio fields as formulas, since these fields
   # compute values based on other fields
-  class(assessment_pin_avs$total_av) <- c(
-    class(assessment_pin_avs$total_av), "formula"
+  class(assessment_pin_mvs$total_mv) <- c(
+    class(assessment_pin_mvs$total_mv), "formula"
   )
-  class(assessment_pin_avs$av_difference) <- c(
-    class(assessment_pin_avs$av_difference), "formula"
+  class(assessment_pin_mvs$mv_difference) <- c(
+    class(assessment_pin_mvs$mv_difference), "formula"
   )
   class(assessment_pin_sale_ratios$sale_ratio) <- c(
     class(assessment_pin_sale_ratios$sale_ratio), "formula"
@@ -458,13 +453,13 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   # Write hidden formulas
   writeFormula(
     wb, pin_sheet_name,
-    assessment_pin_avs$total_av,
+    assessment_pin_mvs$total_mv,
     startCol = 53,
     startRow = 7
   )
   writeFormula(
     wb, pin_sheet_name,
-    assessment_pin_avs$av_difference,
+    assessment_pin_mvs$mv_difference,
     startCol = 54,
     startRow = 7
   )
