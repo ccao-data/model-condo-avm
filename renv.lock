@@ -392,13 +392,13 @@
     },
     "curl": {
       "Package": "curl",
-      "Version": "6.0.1",
+      "Version": "7.0.0",
       "Source": "Repository",
-      "Repository": "CRAN",
+      "Repository": "RSPM",
       "Requirements": [
         "R"
       ],
-      "Hash": "e8ba62486230951fcd2b881c5be23f96"
+      "Hash": "aa27e963d3deccf4bade44d06b976977"
     },
     "data.table": {
       "Package": "data.table",
@@ -733,6 +733,27 @@
         "openssl"
       ],
       "Hash": "ac107251d9d9fd72f0ca8049988f1d7f"
+    },
+    "httr2": {
+      "Package": "httr2",
+      "Version": "1.2.1",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "R",
+        "R6",
+        "cli",
+        "curl",
+        "glue",
+        "lifecycle",
+        "magrittr",
+        "openssl",
+        "rappdirs",
+        "rlang",
+        "vctrs",
+        "withr"
+      ],
+      "Hash": "6e29f1ed132b927f7d52e9fd8869f0ea"
     },
     "ipred": {
       "Package": "ipred",
@@ -1069,42 +1090,43 @@
     },
     "paws.analytics": {
       "Package": "paws.analytics",
-      "Version": "0.7.0",
+      "Version": "0.10.0",
       "Source": "Repository",
-      "Repository": "CRAN",
+      "Repository": "https://paws-r-builds.s3.amazonaws.com/packages/0.10.0",
       "Requirements": [
         "paws.common"
       ],
-      "Hash": "0b550ad3a3196182b3972d87f67ee52f"
+      "Hash": "7d181b30d14ef34589ca20bbb7361fde"
     },
     "paws.application.integration": {
       "Package": "paws.application.integration",
-      "Version": "0.7.0",
+      "Version": "0.10.0",
       "Source": "Repository",
-      "Repository": "CRAN",
+      "Repository": "https://paws-r-builds.s3.amazonaws.com/packages/0.10.0",
       "Requirements": [
         "paws.common"
       ],
-      "Hash": "56caa9cc142939976c23d618de875fad"
+      "Hash": "6cde06aeae9f2a6f193886a7756afa7f"
     },
     "paws.common": {
       "Package": "paws.common",
-      "Version": "0.7.7",
+      "Version": "0.8.6",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
+        "R",
         "Rcpp",
         "base64enc",
         "curl",
         "digest",
-        "httr",
+        "httr2",
         "jsonlite",
         "methods",
         "stats",
         "utils",
         "xml2"
       ],
-      "Hash": "d184fea5f7f48426720b84f5b488380d"
+      "Hash": "a1065af4daa842eb7eb4c720cf569e82"
     },
     "pillar": {
       "Package": "pillar",
@@ -1188,6 +1210,16 @@
         "vctrs"
       ],
       "Hash": "1cba04a4e9414bdefc9dcaa99649a8dc"
+    },
+    "rappdirs": {
+      "Package": "rappdirs",
+      "Version": "0.3.3",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R"
+      ],
+      "Hash": "5e3c5dc0b071b21fa128676560dbe94d"
     },
     "recipes": {
       "Package": "recipes",
