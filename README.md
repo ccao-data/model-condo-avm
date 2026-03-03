@@ -152,7 +152,7 @@ assessment model.
 
 | Feature Name | Variable Name | Description | Category | Type | Unique to Condo Model |
 |:---|:---|:---|:---|:---|:---|
-| Condominium Building Year Built | char_yrblt | Year the property was constructed | Characteristic | numeric | X |
+| Condominium Building Year Built | char_yrblt | Year the property was constructed | Characteristic | numeric |  |
 | Total Condominium Building Livable Parcels | char_building_units | Count of livable 14-digit PINs (AKA condo units) | Characteristic | numeric | X |
 | Total Condominium Building Non-Livable Parcels | char_building_non_units | Count of non-livable 14-digit PINs | Characteristic | numeric | X |
 | Condominium Building Is Mixed Use | char_bldg_is_mixed_use | The 10-digit PIN (building) contains a 14-digit PIN that is neither class 299 nor 399 | Characteristic | logical | X |
