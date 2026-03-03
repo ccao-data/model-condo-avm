@@ -370,7 +370,7 @@ The data issue caused some sales to be omitted from the `2024-02-16-silly-billy`
 - [land_nbhd_rate_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2026/land_nbhd_rate_data.parquet)
 - [training_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2026/training_data.parquet)
 
-For other data from the CCAO, please visit the [Cook County Data Portal](https://datacatalog.cookcountyil.gov/).
+For other data from the CCAO, please visit the [Cook County Data Portal](https://datacatalog.cookcountyil.gov/). 
 
 # License
 
