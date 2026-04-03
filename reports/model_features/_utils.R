@@ -1,0 +1,192 @@
+library(arrow)
+library(data.table)
+library(dplyr)
+library(DT)
+library(ggplot2)
+library(glue)
+library(here)
+library(kableExtra)
+library(knitr)
+library(leaflet)
+library(noctua)
+library(stringr)
+library(tidyr)
+library(yaml)
+
+conflicted::conflicts_prefer(glue::glue, dplyr::filter)
+
+# We want sub-reports to be able to be run on their own. This ensures
+# that if `model_features.qmd` isn't the report run and no param is created,
+# we create the params object from the frontmatter of the main report file.
+#
+# WARNING: This function definition is a duplicate of a function with the same
+# name in `reports/_setup.R`, so if you change this function, you should
+# change that one too
+parse_params_from_frontmatter <- function(path, defaults = NULL) {
+  fm <- rmarkdown::yaml_front_matter(path)
+
+  p <- fm$params
+
+  # Ensure a regular named list
+  p <- as.list(p)
+
+  if (!is.null(defaults)) {
+    defaults <- as.list(defaults)
+    # params override defaults
+    p <- utils::modifyList(defaults, p)
+  }
+
+  p
+}
+
+# We only want to parse the params if they are not-defined
+if (!exists("params")) {
+  params <- parse_params_from_frontmatter(
+    here::here("reports", "model_features", "model_features.qmd")
+  )
+}
+
+# list of file names, local paths,
+# and mirrored S3 location URIs from file_dict.csv
+source(here::here("R", "helpers.R"))
+
+# TODO: Catch for weird Arrow bug with SIGPIPE. Need to permanently fix later
+# https://github.com/apache/arrow/issues/32026
+cpp11::cpp_source(code = "
+#include <csignal>
+#include <cpp11.hpp>
+
+[[cpp11::register]] void ignore_sigpipes() {
+  signal(SIGPIPE, SIG_IGN);
+}
+")
+
+ignore_sigpipes()
+
+paths <- model_file_dict()
+
+# Text sizes for small multiples
+axis_title_size <- 6
+strip_text_size <- 4
+axis_text_size <- 3
+
+# Number of small multiples per line for each type of chart
+ncol_histogram <- 6
+ncol_violin <- 3
+ncol_line <- 6
+
+# Function to plot a set of small multiple histograms of char values
+plot_small_multiple_histograms <- function(new, old = NULL, stat = "bin") {
+  # Add grouping labels
+  new <- new %>% mutate(data = "new")
+  if (!is.null(old)) {
+    old <- old %>% mutate(data = "old")
+    df_all <- bind_rows(old, new)
+    alpha_val <- 0.5
+  } else {
+    df_all <- new
+    alpha_val <- 1
+  }
+
+  # Plot
+  df_all %>%
+    ggplot(aes(x = value, fill = data)) +
+    geom_histogram(
+      stat = stat,
+      position = "identity",
+      alpha = alpha_val
+    ) +
+    facet_wrap(
+      ~predictor,
+      scales = "free",
+      ncol = ncol_histogram
+    ) +
+    scale_y_continuous(labels = scales::comma) +
+    theme(
+      strip.text = element_text(size = strip_text_size),
+      axis.text = element_text(size = axis_text_size),
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      axis.title = element_text(size = axis_title_size)
+    )
+}
+
+# Base function for plotting small multiple violins and lines
+plot_small_multiple_base <- function(
+    new_df,
+    old_df = NULL,
+    y,
+    ncol,
+    y_axis_label = "FMV",
+    range = NULL) {
+  new_df$data <- "new"
+  if (!is.null(old_df)) {
+    old_df$data <- "old"
+    df <- dplyr::bind_rows(old_df, new_df)
+    alpha_val <- 0.3
+  } else {
+    df <- new_df
+    alpha_val <- 1
+  }
+  ggplot(df, aes(x = value, y = .data[[y]], fill = data)) +
+    facet_wrap(
+      ~predictor,
+      scales = "free",
+      ncol = ncol
+    ) +
+    scale_y_continuous(
+      limits = range,
+      labels = scales::label_currency()
+    ) +
+    labs(x = "Value", y = y_axis_label) +
+    theme_minimal() +
+    theme(
+      strip.text = element_text(size = strip_text_size),
+      axis.text = element_text(size = axis_text_size),
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      axis.title = element_text(size = axis_title_size)
+    )
+}
+
+plot_small_multiple_violins <- function(new_df,
+                                        old_df = NULL,
+                                        y,
+                                        y_axis_label = "FMV",
+                                        range = NULL) {
+  alpha_val <- if (is.null(old_df)) 1 else 0.3
+
+  plot_small_multiple_base(
+    new_df,
+    old_df,
+    y,
+    ncol_violin,
+    y_axis_label,
+    range
+  ) +
+    geom_violin(alpha = alpha_val, position = "identity") +
+    guides(color = "none")
+}
+
+plot_small_multiple_lines <- function(new_df,
+                                      old_df = NULL,
+                                      y,
+                                      y_axis_label = "FMV",
+                                      range = NULL) {
+  plot_small_multiple_base(
+    new_df,
+    old_df,
+    y,
+    ncol_line,
+    y_axis_label,
+    range
+  ) +
+    geom_smooth(linewidth = 0.5, se = TRUE, aes(color = data), fill = NA) +
+    guides(fill = "none")
+}
+
+# Function to compute figure height for a code chunk that is using a dataframe
+# to produce small multiples based on a `predictor` X axis. This is important
+# to allow the small multiple container to flex vertically as much as is
+# necessary to display all of the plots
+fig_height <- function(df, ncol = ncol_histogram) {
+  return(1.5 * ceiling(length(unique(df$predictor)) / ncol))
+}
