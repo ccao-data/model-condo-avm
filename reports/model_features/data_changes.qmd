@@ -59,7 +59,9 @@ base_tol <- c(
   year = 1,
   prox_nearest_park_dist_ft = 100,
   prox_nearest_vacant_land_dist_ft = 100,
-  meta_sale_count_past_n_years = 1
+  meta_sale_count_past_n_years = 1,
+  meta_pin10_bldg_roll_mean = 10000,
+  meta_pin10_bldg_roll_pct_sold = 0.1
 )
 
 make_tol <- function(cols) {
