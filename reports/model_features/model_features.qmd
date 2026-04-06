@@ -12,8 +12,9 @@ params:
   run_id: "2026-02-12-gallant-bowen"
 ---
 
+```{r}
 # This report will error if it is missing valid data for `_old` data.
-
+```
 {{< include data_changes.qmd >}}
 
 {{< include continuous.qmd >}}
