@@ -1,0 +1,22 @@
+---
+title: "Model QC"
+subtitle: "Run ID: `r params$run_id`"
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+execute:
+  echo: false
+  warning: false
+format:
+  html:
+    embed-resources: true
+params:
+  run_id: "2026-02-12-gallant-bowen"
+---
+
+{{< include data_changes.qmd >}}
+
+{{< include continuous.qmd >}}
+
+{{< include categorical.qmd >}}
+
+{{< include missingness.qmd >}}
+
