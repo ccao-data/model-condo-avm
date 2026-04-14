@@ -72,11 +72,18 @@ if (!exists("metadata_old")) {
     from model.metadata model
     join model.final_model final
       on model.run_id = final.run_id
-    where final.type = 'res'
+    where final.type = 'condo'
       and CAST(final.year AS INTEGER) = {model_params$assessment$year} - 1
     order by final.date_finalized desc
     limit 1
   ")
+  )
+}
+
+# Include an error if for some reason we do not get valid old metadata
+if (is.null(metadata_old) || nrow(metadata_old) == 0) {
+  stop(
+    "Missing prior year data for comparison."
   )
 }
 
