@@ -35,6 +35,8 @@ This repository contains code, data, and documentation for the Cook County Asses
 | 2022    | North    | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2022-assessment-year)                                                             |
 | 2023    | South    | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2023-assessment-year)                                                             |
 | 2024    | City     | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) | [Link](https://github.com/ccao-data/model-condo-avm/tree/2024-assessment-year)                                                             |
+| 2025    | North    | County-wide LightGBM model                  | R (Tidyverse / Tidymodels) |
+[Link](https://github.com/ccao-data/model-condo-avm/tree/2025-assessment-year)
 
 # Model Overview
 
@@ -361,7 +363,14 @@ The data issue caused some sales to be omitted from the `2024-02-16-silly-billy`
 - [land_nbhd_rate_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2025/land_nbhd_rate_data.parquet)
 - [training_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2025/training_data.parquet)
 
-For other data from the CCAO, please visit the [Cook County Data Portal](https://datacatalog.cookcountyil.gov/).
+#### 2026
+
+- [assessment_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2026/assessment_data.parquet)
+- [char_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2026/char_data.parquet)
+- [land_nbhd_rate_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2026/land_nbhd_rate_data.parquet)
+- [training_data.parquet](https://ccao-data-public-us-east-1.s3.amazonaws.com/models/inputs/condo/2026/training_data.parquet)
+
+For other data from the CCAO, please visit the [Cook County Data Portal](https://datacatalog.cookcountyil.gov/). 
 
 # License
 
