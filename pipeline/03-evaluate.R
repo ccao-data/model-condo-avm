@@ -24,14 +24,6 @@ if (supportsMulticore()) {
 # Increase the max size of globals exported to future workers,  │
 #      since rlang                                                     │
 #  condition-handling functions can be large                    │
-#
-# AI suggestion, to handle the pmap error with the function around lines
-# from lines 399 to 433
-# for a furrr / pmap issue
-#  code starts with message("Calculating test set quantile statistics")
-#  pwalk(
-# remove this later
-options(future.globals.maxSize = 1000 * 1024^2) # 1 GiB
 
 # Renaming dictionary for input columns. We want the actual value of the column
 # to become geography_id and the NAME of the column to become geography_name
