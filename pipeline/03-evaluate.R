@@ -21,6 +21,18 @@ if (supportsMulticore()) {
   plan(multisession, workers = 5)
 }
 
+# Increase the max size of globals exported to future workers,  │
+#      since rlang                                                     │
+#  condition-handling functions can be large                    │
+#
+# AI suggestion, to handle the pmap error with the function around lines
+# from lines 399 to 433
+# for a furrr / pmap issue
+#  code starts with message("Calculating test set quantile statistics")
+#  pwalk(
+# remove this later
+options(future.globals.maxSize = 1000 * 1024^2) # 1 GiB
+
 # Renaming dictionary for input columns. We want the actual value of the column
 # to become geography_id and the NAME of the column to become geography_name
 col_rename_dict <- c(
@@ -132,14 +144,18 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
     q25         = \(x) quantile(x, na.rm = TRUE, probs = 0.25),
     median      = \(x) median(x, na.rm = TRUE),
     q75         = \(x) quantile(x, na.rm = TRUE, probs = 0.75),
-    max         = \(x) max(x, na.rm = TRUE)
+    max         = \(x) max(x, na.rm = TRUE),
+    mean        = \(x) mean(x, na.rm = TRUE),
+    sd          = \(x) sd(x, na.rm = TRUE)
   )
   sum_sqft_fns_list <- list(
     min         = \(x, y) min(x / y, na.rm = TRUE),
     q25         = \(x, y) quantile(x / y, na.rm = TRUE, probs = 0.25),
     median      = \(x, y) median(x / y, na.rm = TRUE),
     q75         = \(x, y) quantile(x / y, na.rm = TRUE, probs = 0.75),
-    max         = \(x, y) max(x / y, na.rm = TRUE)
+    max         = \(x, y) max(x / y, na.rm = TRUE),
+    mean        = \(x, y) mean(x / y, na.rm = TRUE),
+    sd          = \(x, y) sd(x / y, na.rm = TRUE)
   )
   yoy_fns_list <- list(
     min         = \(x, y) min((x - y) / y, na.rm = TRUE),
@@ -486,3 +502,4 @@ bind_rows(tictoc::tic.log(format = FALSE)) %>%
     paths$intermediate$timing$local,
     "model_timing_evaluate.parquet"
   )))
+
