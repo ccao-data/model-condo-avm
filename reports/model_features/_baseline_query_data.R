@@ -66,7 +66,7 @@ if (!exists("metadata_old")) {
     select
       final.run_id
     from model.final_model final
-    where final.type = 'res'
+    where final.type = 'condo'
       and CAST(final.year AS INTEGER) = {model_params$assessment$year} - 1
     order by final.date_finalized desc
     limit 1
