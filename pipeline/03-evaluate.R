@@ -21,10 +21,6 @@ if (supportsMulticore()) {
   plan(multisession, workers = 5)
 }
 
-# Increase the max size of globals exported to future workers,  │
-#      since rlang                                                     │
-#  condition-handling functions can be large                    │
-
 # Renaming dictionary for input columns. We want the actual value of the column
 # to become geography_id and the NAME of the column to become geography_name
 col_rename_dict <- c(
@@ -494,4 +490,3 @@ bind_rows(tictoc::tic.log(format = FALSE)) %>%
     paths$intermediate$timing$local,
     "model_timing_evaluate.parquet"
   )))
-
