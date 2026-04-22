@@ -12,6 +12,9 @@ AWS_ATHENA_CONN_NOCTUA <- dbConnect(
 # We use an new vs old nomenclature to differentiate data from the current
 # model run (new) to a model run that we want to compare it to (old).
 
+model_params <- read_yaml(here("params.yaml"))
+paths <- model_file_dict(model_params$run_id, model_params$year)
+
 # Grab metadata to check output data <> params alignment
 metadata <- read_parquet(paths$output$metadata$local)
 
@@ -21,10 +24,6 @@ if (metadata$run_id != params$run_id) {
     "should run model_fetch_run() to fetch model outputs from S3"
   )
 }
-
-model_params <- read_yaml(here("params.yaml"))
-
-paths <- model_file_dict(model_params$run_id, model_params$year)
 
 if (!exists("model_predictor_all_name")) {
   model_predictor_all_name <- model_params$model$predictor$all %>%
@@ -65,14 +64,9 @@ if (!exists("metadata_old")) {
     conn = AWS_ATHENA_CONN_NOCTUA,
     statement = glue::glue("
     select
-      model.run_id,
-      model.model_predictor_all_name,
-      model.assessment_year,
-      model.model_predictor_categorical_name
-    from model.metadata model
-    join model.final_model final
-      on model.run_id = final.run_id
-    where final.type = 'condo'
+      final.run_id
+    from model.final_model final
+    where final.type = 'res'
       and CAST(final.year AS INTEGER) = {model_params$assessment$year} - 1
     order by final.date_finalized desc
     limit 1
@@ -91,10 +85,7 @@ if (is.null(metadata_old) || nrow(metadata_old) == 0) {
 
 # Get assessment set chars for new and old data
 if (!exists("assessment_data_new")) {
-  assessment_data_new <- ccao_download_model_input_data(
-    params$run_id,
-    "assessment"
-  ) %>%
+  assessment_data_new <- read_parquet(paths$input$assessment$local) %>%
     select(
       meta_pin,
       meta_card_num,
@@ -102,8 +93,7 @@ if (!exists("assessment_data_new")) {
       meta_class,
       # We use any of since predictors can change year over year
       any_of(model_predictor_all_name)
-    ) %>%
-    collect()
+    )
 }
 
 if (!exists("assessment_data_old")) {
@@ -117,8 +107,7 @@ if (!exists("assessment_data_old")) {
       meta_year,
       meta_class,
       any_of(model_predictor_all_name)
-    ) %>%
-    collect()
+    )
 }
 
 # SHAPs ------------------------------------------------------------------------
@@ -134,7 +123,6 @@ if (!exists("shaps_new")) {
 
     if (shap_exists) {
       shaps_new <- shap_df %>%
-        collect() %>%
         left_join(
           assessment_data_new,
           by = c("meta_pin", "meta_card_num"),
@@ -172,8 +160,7 @@ if (!exists("training_data_old")) {
       meta_sale_date,
       meta_class,
       any_of(model_predictor_all_name)
-    ) %>%
-    collect()
+    )
 }
 
 if (!exists("training_data_new")) {
@@ -186,6 +173,5 @@ if (!exists("training_data_new")) {
       meta_sale_date,
       meta_class,
       all_of(model_predictor_all_name)
-    ) %>%
-    collect()
+    )
 }
