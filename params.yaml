@@ -28,7 +28,7 @@ toggle:
 
   # Upload all modeling artifacts and results to S3 in the upload stage. Set
   # to false if you are not a CCAO employee
-  upload_enable: true
+  upload_enable: false
 
   # Should the feature report be run, which compares the inputs to the previous
   # year's model inputs?
@@ -73,6 +73,16 @@ input:
     # the least recent sale counts half as much as the most recent one
     weight_min: 0.1
     weight_max: 1.0
+
+  # Parameters for running the pipeline with a stratified subset of training
+  # data. Useful for faster development iterations. The subset is stratified
+  # by year, township, and class to maintain representation across categories
+  subset:
+    # Whether to use a subset of the training data instead of the full dataset
+    enable: false
+
+    # Fraction of the training data to keep (between 0 and 1)
+    fraction: 0.25
 
 
 # Cross-validation -------------------------------------------------------------

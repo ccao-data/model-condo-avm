@@ -69,6 +69,8 @@ metadata <- tibble::tibble(
   input_min_sale_year = params$input$min_sale_year,
   input_max_sale_year = params$input$max_sale_year,
   input_n_years_prior = params$input$n_years_prior,
+  input_subset_enable = params$input$subset$enable,
+  input_subset_fraction = params$input$subset$fraction,
   input_building_weight_min = params$input$building$weight_min,
   input_building_weight_max = params$input$building$weight_max,
   ratio_study_far_year = params$ratio_study$far_year,
