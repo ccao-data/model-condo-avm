@@ -44,6 +44,8 @@ stages:
         cache: false
     - output/test_card/model_test_card.parquet:
         cache: false
+    - output/train_card/model_train_card.parquet:
+        cache: false
     - output/workflow/fit/model_workflow_fit.zip:
         cache: false
     - output/workflow/recipe/model_workflow_recipe.rds:
@@ -86,6 +88,7 @@ stages:
     - pipeline/03-evaluate.R
     - output/assessment_pin/model_assessment_pin.parquet
     - output/test_card/model_test_card.parquet
+    - output/train_card/model_train_card.parquet
     params:
     - assessment
     - ratio_study
@@ -98,6 +101,14 @@ stages:
         cache: false
     - output/performance_quantile/model_performance_quantile_assessment.parquet:
         cache: false
+    - output/performance/model_performance_train.parquet:
+         cache: false
+    - output/performance/model_performance_train_linear.parquet:
+         cache: false
+    - output/performance_quantile/model_performance_quantile_train.parquet:
+         cache: false
+    - output/performance_quantile/model_performance_quantile_train_linear.parquet:
+         cache: false
     - output/intermediate/timing/model_timing_evaluate.parquet:
         cache: false
 
