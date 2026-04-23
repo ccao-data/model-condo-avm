@@ -179,12 +179,17 @@ stages:
     - output/workflow/fit/model_workflow_fit.zip
     - output/workflow/recipe/model_workflow_recipe.rds
     - output/test_card/model_test_card.parquet
+    - output/train_card/model_train_card.parquet
     - output/assessment_card/model_assessment_card.parquet
     - output/assessment_pin/model_assessment_pin.parquet
     - output/performance/model_performance_test.parquet
     - output/performance_quantile/model_performance_quantile_test.parquet
     - output/performance/model_performance_assessment.parquet
     - output/performance_quantile/model_performance_quantile_assessment.parquet
+    - output/performance/model_performance_train.parquet
+    - output/performance/model_performance_train_linear.parquet
+    - output/performance_quantile/model_performance_quantile_train.parquet
+    - output/performance_quantile/model_performance_quantile_train_linear.parquet
     - output/shap/model_shap.parquet
     - output/feature_importance/model_feature_importance.parquet
     - output/metadata/model_metadata.parquet
