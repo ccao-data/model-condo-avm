@@ -336,7 +336,10 @@ model_ratio_distribution_triad_plot <- ggplot(
   ) +
   geom_hline(yintercept = 1, linetype = "dashed", color = "darkgray") +
   labs(x = "Decile", y = "Median Ratio", color = "Model Type") +
-  scale_x_continuous(breaks = model_ratio_distribution_breaks, labels = model_ratio_distribution_labels) +
+  scale_x_continuous(
+    breaks = model_ratio_distribution_breaks,
+    labels = model_ratio_distribution_labels
+  ) +
   scale_color_manual(
     values = c(
       "Main Model" = plot_colors$main,
@@ -420,7 +423,10 @@ generate_model_ratio_township_graph <- function(data, township, lims) {
       lims$min_value,
       lims$max_value + 0.08
     )) +
-    scale_x_continuous(breaks = data_to_plot_breaks, labels = data_to_plot_labels) +
+    scale_x_continuous(
+      breaks = data_to_plot_breaks,
+      labels = data_to_plot_labels
+    ) +
     scale_color_manual(
       values = c(
         "Main Model" = plot_colors$main,
