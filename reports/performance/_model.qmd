@@ -297,9 +297,11 @@ model_ratio_distribution_df <- model_performance_test_quantile_merged %>%
     )
   )
 
-model_ratio_distribution_labels <- model_ratio_distribution_df %>%
+model_ratio_distribution_main <- model_ratio_distribution_df %>%
   filter(stage == "Main Model") %>%
-  pull(custom_label)
+  arrange(quantile)
+model_ratio_distribution_breaks <- model_ratio_distribution_main$quantile
+model_ratio_distribution_labels <- model_ratio_distribution_main$custom_label
 
 # Manually set axes to highest and lowest contained in the data
 model_ratio_distribution_lims <- model_performance_test_quantile_merged %>%
@@ -334,7 +336,7 @@ model_ratio_distribution_triad_plot <- ggplot(
   ) +
   geom_hline(yintercept = 1, linetype = "dashed", color = "darkgray") +
   labs(x = "Decile", y = "Median Ratio", color = "Model Type") +
-  scale_x_continuous(breaks = 1:10, labels = model_ratio_distribution_labels) +
+  scale_x_continuous(breaks = model_ratio_distribution_breaks, labels = model_ratio_distribution_labels) +
   scale_color_manual(
     values = c(
       "Main Model" = plot_colors$main,
@@ -382,9 +384,11 @@ generate_model_ratio_township_graph <- function(data, township, lims) {
       )
     )
 
-  data_to_plot_labels <- data_to_plot %>%
+  data_to_plot_main <- data_to_plot %>%
     filter(stage == "Main Model") %>%
-    pull(custom_label)
+    arrange(quantile)
+  data_to_plot_breaks <- data_to_plot_main$quantile
+  data_to_plot_labels <- data_to_plot_main$custom_label
 
   ggplot(
     data = data_to_plot,
@@ -416,7 +420,7 @@ generate_model_ratio_township_graph <- function(data, township, lims) {
       lims$min_value,
       lims$max_value + 0.08
     )) +
-    scale_x_continuous(breaks = 1:10, labels = data_to_plot_labels) +
+    scale_x_continuous(breaks = data_to_plot_breaks, labels = data_to_plot_labels) +
     scale_color_manual(
       values = c(
         "Main Model" = plot_colors$main,
