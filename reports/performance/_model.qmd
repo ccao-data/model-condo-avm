@@ -297,11 +297,11 @@ model_ratio_distribution_df <- model_performance_test_quantile_merged %>%
     )
   )
 
-model_ratio_distribution_main <- model_ratio_distribution_df %>%
+model_ratio_distribution <- model_ratio_distribution_df %>%
   filter(stage == "Main Model") %>%
   arrange(quantile)
-model_ratio_distribution_breaks <- model_ratio_distribution_main$quantile
-model_ratio_distribution_labels <- model_ratio_distribution_main$custom_label
+model_ratio_distribution_breaks <- model_ratio_distribution$quantile
+model_ratio_distribution_labels <- model_ratio_distribution$custom_label
 
 # Manually set axes to highest and lowest contained in the data
 model_ratio_distribution_lims <- model_performance_test_quantile_merged %>%
