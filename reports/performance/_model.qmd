@@ -963,11 +963,10 @@ model_big_misses_test <- test_card %>%
   ) %>%
   mutate(
     Difference = abs(`Sale Price` - `Est. FMV`),
-    `Qnt.` = cut(
-      `Sale Price`,
-      breaks = quantile(`Sale Price`, probs = c(0, 0.25, 0.5, 0.75, 1)),
-      labels = c("Q1", "Q2", "Q3", "Q4"),
-      include.lowest = TRUE
+    `Qnt.` = factor(
+      ntile(`Sale Price`, n = 4),
+      levels = 1:4,
+      labels = c("Q1", "Q2", "Q3", "Q4")
     ),
     .by = Town
   ) %>%
@@ -1021,11 +1020,10 @@ model_big_misses_assessment <- assessment_pin %>%
   ) %>%
   mutate(
     Difference = abs(`Sale 1 Price` - `Est. FMV`),
-    `Qnt.` = cut(
-      `Sale 1 Price`,
-      breaks = quantile(`Sale 1 Price`, probs = c(0, 0.25, 0.5, 0.75, 1)),
-      labels = c("Q1", "Q2", "Q3", "Q4"),
-      include.lowest = TRUE
+    `Qnt.` = factor(
+      ntile(`Sale 1 Price`, n = 4),
+      levels = 1:4,
+      labels = c("Q1", "Q2", "Q3", "Q4")
     ),
     .by = Town
   ) %>%
