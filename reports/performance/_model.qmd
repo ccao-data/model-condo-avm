@@ -349,7 +349,7 @@ generate_model_ratio_township_graph <- function(data, township, lims) {
     filter(
       geography_type == "township_code",
       triad_code == run_triad_code,
-      num_quantile == "5",
+      num_quantile == "10",
       township_name == township,
       !by_class
     ) %>%
@@ -400,7 +400,7 @@ generate_model_ratio_township_graph <- function(data, township, lims) {
       lims$min_value,
       lims$max_value + 0.08
     )) +
-    scale_x_continuous(breaks = 1:5, labels = data_to_plot_labels) +
+    scale_x_continuous(breaks = 1:10, labels = data_to_plot_labels) +
     scale_color_manual(
       values = c(
         "Main Model" = plot_colors$main,
