@@ -74,7 +74,7 @@ if (upload_enable) {
     mutate(run_id = !!run_id) %>%
     relocate(run_id) %>%
     write_parquet(paths$output$train_card$s3)
-  
+
 
   # Upload the parameter search objects if CV was enabled. Requires some
   # cleaning since the Tidymodels output is stored as a nested data frame
@@ -184,7 +184,7 @@ if (upload_enable) {
     mutate(run_id = !!run_id) %>%
     relocate(run_id) %>%
     write_parquet(paths$output$performance_quantile_train$s3)
- 
+
   message("Uploading training linear baseline")
   read_parquet(paths$output$performance_train_linear$local) %>%
     mutate(run_id = !!run_id) %>%
