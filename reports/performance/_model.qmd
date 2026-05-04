@@ -204,7 +204,7 @@ model_township_stats_assessment_df %>%
 
 :::
 
-Prior year values (latest stage available for each year) compared to target year sales and estimates.
+Prior year values (latest stage available for each year) compared to ***target year*** sales and estimates.
 The median percent change is comparing the nearest assessed value to the estimated value.
 PIN and sale counts include residential, regression-class properties only.
 
