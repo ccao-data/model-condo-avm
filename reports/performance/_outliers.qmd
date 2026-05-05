@@ -300,9 +300,10 @@ outliers_ratio_comparison <- training_data_outlier_analysis %>%
   ungroup() %>%
   distinct(meta_township_name, percent, above_below, triad)
 
-axis_limit_outlier_ratio_comparison <- outliers_ratio_comparison %>%
-  slice_max(percent, n = 1) %>%
-  pull(percent)
+axis_limit_outlier_ratio_comparison <- max(
+  outliers_ratio_comparison$percent,
+  na.rm = TRUE
+)
 
 outliers_ratio_comparison %>%
   ggplot(aes(x = reorder(meta_township_name, percent), y = percent)) +
