@@ -56,7 +56,7 @@ model_fetch_run <- function(run_id, year) {
   tictoc::tic(paste0("Fetched run: ", run_id))
 
   paths <- model_file_dict(run_id, year)
-  s3_objs <- grep("s3://", unlist(paths), value = TRUE)
+  s3_objs <- grep("s3://", unlist(paths$output), value = TRUE)
   bucket <- strsplit(s3_objs[1], "/")[[1]][3]
 
   for (path in paths$output) {

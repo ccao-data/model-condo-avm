@@ -2,6 +2,22 @@
 source("../_setup.R")
 ```
 
+```{r _subset_warning, results='asis'}
+if (isTRUE(metadata$input_subset_enable)) {
+  cat(paste0(
+    "\n\n::: {.callout-warning}\n",
+    "## Subset Mode Active\n\n",
+    "This model was trained on a **",
+    scales::percent(metadata$input_subset_fraction, accuracy = 1),
+    " stratified subset** of the training data. ",
+    "Test set performance metrics are based on the subset and may not ",
+    "reflect full model performance. Assessment set performance uses the ",
+    "full assessment data.\n",
+    ":::\n\n"
+  ))
+}
+```
+
 # Model
 
 The following document describes performance for ```r metadata$run_id```, a ```r model_parameter_final$engine``` model built to re-assess the ```r metadata$assessment_triad``` triad in ```r metadata$assessment_year```. The document uses four sets of data to measure performance:
@@ -188,7 +204,7 @@ model_township_stats_assessment_df %>%
 
 :::
 
-Prior year values (latest stage available for each year) compared to target year sales and estimates.
+Prior year values (latest stage available for each year) compared to ***target year*** sales and estimates.
 The median percent change is comparing the nearest assessed value to the estimated value.
 PIN and sale counts include residential, regression-class properties only.
 
@@ -281,9 +297,11 @@ model_ratio_distribution_df <- model_performance_test_quantile_merged %>%
     )
   )
 
-model_ratio_distribution_labels <- model_ratio_distribution_df %>%
+model_ratio_distribution <- model_ratio_distribution_df %>%
   filter(stage == "Main Model") %>%
-  pull(custom_label)
+  arrange(quantile)
+model_ratio_distribution_breaks <- model_ratio_distribution$quantile
+model_ratio_distribution_labels <- model_ratio_distribution$custom_label
 
 # Manually set axes to highest and lowest contained in the data
 model_ratio_distribution_lims <- model_performance_test_quantile_merged %>%
@@ -318,7 +336,10 @@ model_ratio_distribution_triad_plot <- ggplot(
   ) +
   geom_hline(yintercept = 1, linetype = "dashed", color = "darkgray") +
   labs(x = "Decile", y = "Median Ratio", color = "Model Type") +
-  scale_x_continuous(breaks = 1:10, labels = model_ratio_distribution_labels) +
+  scale_x_continuous(
+    breaks = model_ratio_distribution_breaks,
+    labels = model_ratio_distribution_labels
+  ) +
   scale_color_manual(
     values = c(
       "Main Model" = plot_colors$main,
@@ -366,9 +387,11 @@ generate_model_ratio_township_graph <- function(data, township, lims) {
       )
     )
 
-  data_to_plot_labels <- data_to_plot %>%
+  data_to_plot_main <- data_to_plot %>%
     filter(stage == "Main Model") %>%
-    pull(custom_label)
+    arrange(quantile)
+  data_to_plot_breaks <- data_to_plot_main$quantile
+  data_to_plot_labels <- data_to_plot_main$custom_label
 
   ggplot(
     data = data_to_plot,
@@ -400,7 +423,10 @@ generate_model_ratio_township_graph <- function(data, township, lims) {
       lims$min_value,
       lims$max_value + 0.08
     )) +
-    scale_x_continuous(breaks = 1:10, labels = data_to_plot_labels) +
+    scale_x_continuous(
+      breaks = data_to_plot_breaks,
+      labels = data_to_plot_labels
+    ) +
     scale_color_manual(
       values = c(
         "Main Model" = plot_colors$main,
@@ -937,11 +963,10 @@ model_big_misses_test <- test_card %>%
   ) %>%
   mutate(
     Difference = abs(`Sale Price` - `Est. FMV`),
-    `Qnt.` = cut(
-      `Sale Price`,
-      breaks = quantile(`Sale Price`, probs = c(0, 0.25, 0.5, 0.75, 1)),
-      labels = c("Q1", "Q2", "Q3", "Q4"),
-      include.lowest = TRUE
+    `Qnt.` = factor(
+      ntile(`Sale Price`, n = 4),
+      levels = 1:4,
+      labels = c("Q1", "Q2", "Q3", "Q4")
     ),
     .by = Town
   ) %>%
@@ -995,11 +1020,10 @@ model_big_misses_assessment <- assessment_pin %>%
   ) %>%
   mutate(
     Difference = abs(`Sale 1 Price` - `Est. FMV`),
-    `Qnt.` = cut(
-      `Sale 1 Price`,
-      breaks = quantile(`Sale 1 Price`, probs = c(0, 0.25, 0.5, 0.75, 1)),
-      labels = c("Q1", "Q2", "Q3", "Q4"),
-      include.lowest = TRUE
+    `Qnt.` = factor(
+      ntile(`Sale 1 Price`, n = 4),
+      levels = 1:4,
+      labels = c("Q1", "Q2", "Q3", "Q4")
     ),
     .by = Town
   ) %>%
