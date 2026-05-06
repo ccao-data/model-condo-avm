@@ -381,13 +381,15 @@ lgbm_wflow_final_full_fit <- lgbm_wflow %>%
 
 
 
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 5. Finalize Models -----------------------------------------------------------
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# 5. Finalize Models ---------------------------------------------------------
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 message("Finalizing and saving trained model")
 
-# Get predictions on both the test and training set using the training data model. These
-# predictions are used to evaluate model performance on the unseen test set, and to evaluate overfitting.
+# Get predictions on both the test and training set using the
+# training data model.
+# These predictions are used to evaluate model
+# performance on the unseen test set, and to evaluate overfitting.
 # Keep only the variables necessary for evaluation
 walk2(
   list(test, train),
@@ -409,9 +411,11 @@ walk2(
           "prior_near_tot" = params$ratio_study$near_column
         )),
         pred_card_initial_fmv, pred_card_initial_fmv_lin,
-        meta_sale_price, meta_sale_date, meta_sale_document_num, meta_modeling_group
+        meta_sale_price, meta_sale_date, meta_sale_document_num,
+        meta_modeling_group
       ) %>%
-      # Prior year values are AV, not FMV. Multiply by 10 to get FMV for residential
+      # Prior year values are AV, not FMV. Multiply by 10 to
+      # get FMV for residential
       mutate(
         prior_far_tot = prior_far_tot * 10,
         prior_near_tot = prior_near_tot * 10
