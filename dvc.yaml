@@ -98,6 +98,10 @@ stages:
         cache: false
     - output/performance_quantile/model_performance_quantile_test.parquet:
         cache: false
+    - output/performance/model_performance_test_linear.parquet:
+        cache: false
+    - output/performance_quantile/model_performance_quantile_test_linear.parquet:
+        cache: false
     - output/performance/model_performance_assessment.parquet:
         cache: false
     - output/performance_quantile/model_performance_quantile_assessment.parquet:
@@ -185,6 +189,8 @@ stages:
     - output/assessment_pin/model_assessment_pin.parquet
     - output/performance/model_performance_test.parquet
     - output/performance_quantile/model_performance_quantile_test.parquet
+    - output/performance/model_performance_test_linear.parquet
+    - output/performance_quantile/model_performance_quantile_test_linear.parquet
     - output/performance/model_performance_assessment.parquet
     - output/performance_quantile/model_performance_quantile_assessment.parquet
     - output/performance/model_performance_train.parquet
