@@ -235,6 +235,10 @@ m_train_n_sales_prop <- (
 m_train_med_sp <- training_data$meta_sale_price %>%
   median() %>%
   scales::dollar()
+m_test_split_stratified_prop <- scales::percent(
+  as.numeric(metadata$cv_stratified_prop),
+  accuracy = 0.01
+)
 m_train_n_outliers <- training_data$sv_is_outlier %>%
   sum() %>%
   scales::comma()
