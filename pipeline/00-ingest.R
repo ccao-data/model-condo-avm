@@ -146,7 +146,7 @@ training_data <- dbGetQuery(
       END AS sv_review_json,
       condo.*
   FROM model.vw_pin_condo_input condo
-  INNER JOIN default.vw_pin_sale sale
+  INNER JOIN z_ci_add_additional_mydec_sales_to_vw_pin_sale_default.vw_pin_sale sale
       ON sale.pin = condo.meta_pin
       AND sale.year = condo.year
   WHERE CAST(condo.year AS int)
