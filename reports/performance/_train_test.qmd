@@ -52,7 +52,7 @@ train_test_comparison_tbl %>%
     estimate_fmv_mean, estimate_fmv_sd
   ) %>%
   mutate(across(c(
-    rmse, starts_with("sale_fmv_"),
+    rmse, mae, starts_with("sale_fmv_"),
     starts_with("estimate_fmv_")
   ), scales::dollar)) %>%
   kable(
