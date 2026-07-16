@@ -93,15 +93,29 @@ if (upload_enable) {
       relocate(run_id) %>%
       write_parquet(paths$output$parameter_range$s3)
 
-    # Clean and unnest the raw parameters data, then write the results to S3
+    # Clean and unnest the raw parameters data, then write the results to S3.
+    # Notes (warnings/errors captured by tune during CV) are collapsed to one
+    # row per resample + iteration before joining. A single resample can emit
+    # one note per fit (e.g. the custom objective prediction warning), and
+    # those notes aren't attributable to individual configs, so a natural join
+    # on the unnested rows would fan out the metrics side and break the
+    # row alignment assumed by bind_cols() below
     bind_cols(
       read_parquet(paths$output$parameter_raw$local) %>%
         tidyr::unnest(cols = .metrics) %>%
         mutate(run_id = !!run_id) %>%
         left_join(
-          rename(., notes = .notes) %>%
-            tidyr::unnest(cols = notes) %>%
-            rename(notes = note)
+          read_parquet(paths$output$parameter_raw$local) %>%
+            select(id, .iter, .notes) %>%
+            tidyr::unnest(cols = .notes) %>%
+            group_by(id, .iter) %>%
+            summarize(
+              location = paste(unique(location), collapse = "; "),
+              type = paste(unique(type), collapse = "; "),
+              notes = paste(unique(note), collapse = "; "),
+              .groups = "drop"
+            ),
+          by = c("id", ".iter")
         ) %>%
         select(-.notes) %>%
         rename_with(~ gsub("^\\.", "", .x)) %>%
