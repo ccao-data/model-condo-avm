@@ -93,17 +93,15 @@ if (upload_enable) {
       relocate(run_id) %>%
       write_parquet(paths$output$parameter_range$s3)
 
-    # Clean and unnest the raw parameters data, then write the results to S3.
-    # Notes (warnings/errors captured by tune during CV) are collapsed to one
-    # row per resample + iteration before joining. A single resample can emit
-    # one note per fit (e.g. the custom objective prediction warning), and
-    # those notes aren't attributable to individual configs, so a natural join
-    # on the unnested rows would fan out the metrics side and break the
-    # row alignment assumed by bind_cols() below
+    # Clean and unnest the raw parameters data, then write the results to S3
     bind_cols(
       read_parquet(paths$output$parameter_raw$local) %>%
         tidyr::unnest(cols = .metrics) %>%
         mutate(run_id = !!run_id) %>%
+        # Notes aren't keyed to configs (tune records one per fit, e.g. custom
+        # objective warnings), so collapse them to one row per resample +
+        # iteration before joining. Joining them unnested would fan out the
+        # metrics rows and break the bind_cols() alignment below
         left_join(
           read_parquet(paths$output$parameter_raw$local) %>%
             select(id, .iter, .notes) %>%
