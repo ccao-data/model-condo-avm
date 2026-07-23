@@ -98,10 +98,12 @@ if (upload_enable) {
       read_parquet(paths$output$parameter_raw$local) %>%
         tidyr::unnest(cols = .metrics) %>%
         mutate(run_id = !!run_id) %>%
-        # Notes aren't keyed to configs (tune records one per fit, e.g. custom
-        # objective warnings), so collapse them to one row per resample +
-        # iteration before joining. Joining them unnested would fan out the
-        # metrics rows and break the bind_cols() alignment below
+        # Each model fit can leave a warning in .notes (e.g. the custom
+        # objective warning), but notes don't record which config produced
+        # them. At .iter = 0 each fold holds all 20 initial configs, so
+        # joining the notes unnested would attach all 20 warnings to every
+        # metrics row for that fold. Collapse notes to one row per fold and
+        # iteration first so the join can't multiply rows
         left_join(
           read_parquet(paths$output$parameter_raw$local) %>%
             select(id, .iter, .notes) %>%
