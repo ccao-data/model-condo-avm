@@ -28,6 +28,9 @@ message("Pulling model data from Athena")
 
 # Pull the PIN-level assessment data, which contains all the fields needed to
 # create the review spreadsheets
+# Sale columns are pulled from a separate run with the mydec sales
+MISSING_SALES_RUN_ID <- "2026-06-17-intelligent-gabe"
+
 assessment_pin <- dbGetQuery(
   conn = AWS_ATHENA_CONN_NOCTUA, glue("
   SELECT *
@@ -36,6 +39,39 @@ assessment_pin <- dbGetQuery(
   AND meta_triad_code = '{params$export$triad_code}'
   ")
 )
+
+assessment_pin_sales <- dbGetQuery(
+  conn = AWS_ATHENA_CONN_NOCTUA, glue("
+  SELECT
+      meta_pin,
+      sale_recent_1_date,
+      sale_recent_1_price,
+      sale_recent_1_outlier_reason,
+      sale_recent_1_document_num,
+      sale_recent_1_is_outlier,
+      sale_recent_1_num_parcels,
+      sale_recent_2_date,
+      sale_recent_2_price,
+      sale_recent_2_outlier_reason,
+      sale_recent_2_document_num,
+      sale_recent_2_is_outlier,
+      sale_recent_2_num_parcels
+  FROM model.assessment_pin
+  WHERE run_id = '{MISSING_SALES_RUN_ID}'
+  AND meta_triad_code = '{params$export$triad_code}'
+  ")
+)
+
+assessment_pin <- assessment_pin %>%
+  select(-c(
+    sale_recent_1_date, sale_recent_1_price,
+    sale_recent_1_outlier_reason, sale_recent_1_document_num,
+    sale_recent_1_is_outlier, sale_recent_1_num_parcels,
+    sale_recent_2_date, sale_recent_2_price,
+    sale_recent_2_outlier_reason, sale_recent_2_document_num,
+    sale_recent_2_is_outlier, sale_recent_2_num_parcels
+  )) %>%
+  left_join(assessment_pin_sales, by = "meta_pin")
 
 # Pull card-level data only for all PINs. Needed for upload, since values are
 # tracked by card, even though they're presented by PIN
@@ -532,7 +568,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   workbook_name <- glue(
     params$assessment$year,
     str_replace(town_convert(town), " ", "_"),
-    "Initial_Model_Values_Condo.xlsx",
+    "Initial_Model_Values_Condo_Updated_Sales.xlsx",
     .sep = "_"
   )
   saveWorkbook(
