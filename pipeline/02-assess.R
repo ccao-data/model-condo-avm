@@ -66,6 +66,12 @@ assessment_data_pred <- assessment_data_pred %>%
     )
   )
 
+# Exponentiate predictions back to raw dollar scale
+if (log_transform_enable) {
+  assessment_data_pred <- assessment_data_pred %>%
+    mutate(pred_card_initial_fmv = exp(pred_card_initial_fmv))
+}
+
 
 
 

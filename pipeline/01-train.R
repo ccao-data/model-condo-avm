@@ -30,6 +30,15 @@ training_data_full <- read_parquet(paths$input$training$local) %>%
   filter(!sv_is_outlier) %>%
   arrange(meta_sale_date)
 
+# Log-transform sale prices for LightGBM; stash originals for evaluation
+if (log_transform_enable) {
+  training_data_full <- training_data_full %>%
+    mutate(
+      meta_sale_price_original = meta_sale_price,
+      meta_sale_price = log(meta_sale_price)
+    )
+}
+
 # Create train/test split by time, with most recent observations in the test set
 # We want our best model(s) to be predictive of the future, since properties are
 # assessed on the basis of past sales
@@ -80,10 +89,14 @@ train_recipe <- model_main_recipe(
 message("Creating and fitting linear baseline model")
 
 # Create a linear model recipe with additional imputation, transformations,
-# and feature interactions
+# and feature interactions. Linear baseline always fits on log(price);
+# apply here if global transform is off
 lin_recipe <- model_lin_recipe(
-  data = training_data_full %>%
-    mutate(meta_sale_price = log(meta_sale_price)),
+  data = if (log_transform_enable) {
+    training_data_full
+  } else {
+    training_data_full %>% mutate(meta_sale_price = log(meta_sale_price))
+  },
   pred_vars = params$model$predictor$all,
   cat_vars = params$model$predictor$categorical,
   imp = params$model$predictor$imp,
@@ -103,12 +116,16 @@ lin_wflow <- workflow() %>%
     blueprint = hardhat::default_recipe_blueprint(allow_novel_levels = TRUE)
   )
 
-# Fit the linear model on the training data
+# Fit linear baseline; apply log transform to train if global transform is off
 lin_wflow_final_fit <- lin_wflow %>%
   finalize_workflow(
     list(imp_trees = params$model$hyperparameter$default$imp_trees)
   ) %>%
-  fit(data = train %>% mutate(meta_sale_price = log(meta_sale_price)))
+  fit(data = if (log_transform_enable) {
+    train
+  } else {
+    train %>% mutate(meta_sale_price = log(meta_sale_price))
+  })
 
 
 
@@ -150,8 +167,12 @@ lgbm_model <- parsnip::boost_tree(
     num_threads = num_threads,
     verbose = params$model$verbose,
 
-    # Set the objective function. This is what lightgbm will try to minimize
+    # Set the objective function. This is what lightgbm will try to minimize.
+    # When set to "mse_cov", lightsnip swaps in a custom MSE + rho*Cov(r,y)^2
+    # objective and uses `mse_cov_rho` (below) as the penalty weight. For
+    # standard LightGBM objectives the rho value is silently ignored.
     objective = params$model$objective,
+    mse_cov_rho = params$model$parameter$mse_cov_rho,
 
     # Names of integer-encoded categorical columns. This is CRITICAL or else
     # lightgbm will treat these columns as numeric
@@ -414,14 +435,28 @@ walk2(
   list(test, train),
   list(paths$output$test_card$local, paths$output$train_card$local),
   \(data, path) {
-    data %>%
+    preds <- data %>%
       mutate(
         pred_card_initial_fmv = predict(lgbm_wflow_final_fit, data)$.pred,
         pred_card_initial_fmv_lin = exp(predict(
           lin_wflow_final_fit,
-          data %>% mutate(meta_sale_price = log(meta_sale_price))
+          if (log_transform_enable) {
+            data
+          } else {
+            data %>% mutate(meta_sale_price = log(meta_sale_price))
+          }
         )$.pred)
-      ) %>%
+      )
+
+    if (log_transform_enable) {
+      preds <- preds %>%
+        mutate(
+          pred_card_initial_fmv = exp(pred_card_initial_fmv),
+          meta_sale_price = meta_sale_price_original
+        )
+    }
+
+    preds %>%
       select(
         meta_year, meta_pin, meta_class, meta_card_num, meta_triad_code,
         all_of(params$ratio_study$geographies), char_building_sf, char_unit_sf,
