@@ -36,7 +36,6 @@ AWS_ATHENA_CONN_NOCTUA <- dbConnect(
 )
 
 
-
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 2. Define Functions ----------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -79,8 +78,6 @@ process_array_column <- function(x) {
     }
   })
 }
-
-
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -200,8 +197,6 @@ tictoc::toc()
 # Close connection to Athena
 dbDisconnect(AWS_ATHENA_CONN_NOCTUA)
 rm(AWS_ATHENA_CONN_NOCTUA)
-
-
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -411,8 +406,6 @@ message("Saving land rates")
 land_nbhd_rate_data %>%
   select(meta_nbhd = town_nbhd, meta_class = class, land_rate_per_sqft) %>%
   write_parquet(paths$input$land_nbhd_rate$local)
-
-
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
