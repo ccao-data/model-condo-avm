@@ -168,7 +168,6 @@ gen_agg_stats <- function(data, truth, estimate, bldg_sqft,
     # Aggregate including class
     group_by({{ triad }}, {{ geography }}, {{ class }}) %>%
     summarize(
-
       # Basic summary stats, counts, proportions, etc
       num_pin = n(),
       num_sale = sum(!is.na({{ truth }})),

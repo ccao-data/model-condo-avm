@@ -203,8 +203,6 @@ assessment_pin10_prepped <- assessment_pin_prepped %>%
   arrange(meta_pin10)
 
 
-
-
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 4. Export Desk Review --------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -554,8 +552,6 @@ for (town in unique(assessment_pin_prepped$township_code)) {
 #    Number Format.
 
 
-
-
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 5. Prep iasWorld Upload ------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -606,8 +602,6 @@ upload_data_prepped <- assessment_pin %>%
     MV = pred_pin10_final_fmv_bldg
   ) %>%
   arrange(township_code, PARID)
-
-
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

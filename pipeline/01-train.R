@@ -72,8 +72,6 @@ train_recipe <- model_main_recipe(
 )
 
 
-
-
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 3. Linear Model --------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -109,8 +107,6 @@ lin_wflow_final_fit <- lin_wflow %>%
     list(imp_trees = params$model$hyperparameter$default$imp_trees)
   ) %>%
   fit(data = train %>% mutate(meta_sale_price = log(meta_sale_price)))
-
-
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

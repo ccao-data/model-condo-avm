@@ -117,8 +117,6 @@ metadata <- tibble::tibble(
   arrow::write_parquet(paths$output$metadata$local)
 
 
-
-
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 3. Generate reports ----------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
