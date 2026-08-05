@@ -305,7 +305,7 @@ if (upload_enable) {
       ) %>%
       mutate(township_name = town_convert(geography_id)) %>%
       select(cod, township_name) %>%
-      mutate(across(where(is.numeric), round, 2)) %>%
+      mutate(across(where(is.numeric), \(x) round(x, 2))) %>%
       arrange(cod) %>%
       knitr::kable(format = "rst") %>%
       as.character() %>%

@@ -33,18 +33,21 @@ model_main_recipe <- function(data, pred_vars, cat_vars,
     step_rm(-all_outcomes(), -all_predictors(), -has_role("ID")) %>%
     # Impute missing values using a separate tree model
     step_impute_bag(
-      all_of(imp),
+      # Inject `imp` with !! so the selector holds a plain character vector,
+      # since tune_args() evaluates step selectors outside of a selecting
+      # context, where all_of() is deprecated
+      !!imp,
       trees = tune("imp_trees"),
       impute_with = imp_vars(all_of(imp_vars)),
       seed_val = seed
     ) %>%
     # Replace novel levels with "new"
-    step_novel(all_of(cat_vars), -has_role("ID")) %>%
+    step_novel(!!cat_vars, -has_role("ID")) %>%
     # Replace NA in factors with "unknown"
-    step_unknown(all_of(cat_vars), -has_role("ID")) %>%
+    step_unknown(!!cat_vars, -has_role("ID")) %>%
     # Convert factors to 0-indexed integers
     step_integer(
-      all_of(cat_vars), -has_role("ID"),
+      !!cat_vars, -has_role("ID"),
       strict = TRUE, zero_based = TRUE
     )
 }
