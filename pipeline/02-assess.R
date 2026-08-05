@@ -67,8 +67,6 @@ assessment_data_pred <- assessment_data_pred %>%
   )
 
 
-
-
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 3. Post-Modeling Adjustments -------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -152,8 +150,6 @@ assessment_data_merged <- assessment_data_pred %>%
   )
 
 
-
-
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 4. Card-Level Data -----------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -174,8 +170,6 @@ assessment_data_merged %>%
     as_factor = FALSE
   ) %>%
   write_parquet(paths$output$assessment_card$local)
-
-
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

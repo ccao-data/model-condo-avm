@@ -352,7 +352,6 @@ training_data_clean <- training_data_fil %>%
   relocate(starts_with("char_"), .after = starts_with("ind_"))
 
 
-
 ## 4.2. Assessment Data --------------------------------------------------------
 
 # Clean the assessment data. This is the target data that the trained model is
