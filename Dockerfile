@@ -18,7 +18,6 @@ RUN /rocker_scripts/install_pandoc.sh 3.1.3
 RUN /rocker_scripts/install_geospatial.sh
 RUN /rocker_scripts/install_tidyverse.sh
 
-# Install system dependencies
 # Install additional system dependencies
 RUN apt-get update && \
     apt-get install --no-install-recommends -y \
