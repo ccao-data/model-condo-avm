@@ -318,3 +318,59 @@ create_rolling_origin_splits <- function(data,
   )
   return(rset)
 }
+
+
+# Schema helper functions for workbook creation --------------------------------
+
+col_pos <- function(schema, col_name) {
+  which(names(schema) == col_name)
+}
+
+cols_with_style <- function(schema, style_name) {
+  which(vapply(schema, function(x) identical(x$style, style_name), logical(1)))
+}
+
+cols_with_cond <- function(schema, cond_name) {
+  which(vapply(schema, function(x) identical(x$cond, cond_name), logical(1)))
+}
+
+cols_hidden <- function(schema) {
+  which(vapply(schema, function(x) isTRUE(x$hidden), logical(1)))
+}
+
+validate_schema_vs_template <- function(schema, template_path, sheet_name,
+                                        header_row) {
+  normalize <- function(x) gsub("\\s+", " ", trimws(x))
+  wb_tmpl <- loadWorkbook(template_path)
+  tmpl_df <- readWorkbook(
+    wb_tmpl,
+    sheet = sheet_name,
+    colNames = FALSE,
+    skipEmptyRows = FALSE
+  )
+  tmpl_headers <- normalize(as.character(unlist(tmpl_df[header_row, ])))
+  schema_names <- normalize(
+    vapply(schema, function(x) x$display_name, character(1))
+  )
+  n_schema <- length(schema_names)
+  n_tmpl <- length(tmpl_headers)
+  if (n_schema != n_tmpl) {
+    stop(glue::glue(
+      "Schema has {n_schema} columns but '{sheet_name}' template has ",
+      "{n_tmpl}. Update the schema or template so they match."
+    ))
+  }
+  mismatches <- which(schema_names != tmpl_headers)
+  if (length(mismatches) > 0) {
+    mismatch_msg <- paste(vapply(mismatches, function(i) {
+      glue::glue(
+        "  Col {i}: schema='{schema_names[i]}'",
+        " vs template='{tmpl_headers[i]}'"
+      )
+    }, character(1)), collapse = "\n")
+    stop(glue::glue(
+      "Column display name mismatches in '{sheet_name}':\n{mismatch_msg}"
+    ))
+  }
+  invisible(NULL)
+}

@@ -81,7 +81,206 @@ flag_assessable_permits <- dbGetQuery(
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 3. Prep Desk Review ----------------------------------------------------------
+# 3. Define Workbook Schemas ---------------------------------------------------
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Each entry in the schema specifies:
+#   display_name  - column header text (must match the template header row)
+#   style         - named style from wb_styles (price, 2digit_price, 2digit_num,
+#                   pct, comma, link)
+#   formula       - TRUE if this column is written via writeFormula
+#   cond          - named conditional-formatting group (color_scale,
+#                   sale_outlier_1, sale_outlier_2)
+#   hidden        - TRUE if the column is hidden in Excel (formula-only columns
+#                   not present in the source data frame)
+
+pin_detail_schema <- list(
+  meta_pin = list(formula = TRUE, display_name = "PIN"),
+  meta_class = list(display_name = "Class"),
+  meta_nbhd_code = list(display_name = "Nbhd."),
+  property_full_address = list(display_name = "Street Address"),
+  loc_tax_municipality_name = list(display_name = "Municipality"),
+  meta_pin10 = list(formula = TRUE, display_name = "Condo Building ID (PIN10)"),
+  meta_tieback_key_pin = list(display_name = "Tieback Key PIN"),
+  meta_tieback_proration_rate = list(
+    style = "pct", display_name = "Tieback Percent Ownership"
+  ),
+  prior_near_land = list(style = "price", display_name = "Land"),
+  prior_near_bldg = list(style = "price", display_name = "Building"),
+  prior_near_tot = list(style = "price", display_name = "Total"),
+  prior_near_land_rate = list(
+    style = "2digit_price", display_name = "Lnd. Rate S. F."
+  ),
+  prior_near_bldg_rate = list(
+    style = "2digit_price", display_name = "Unit Rate S. F."
+  ),
+  prior_near_land_pct_total = list(
+    style = "pct", display_name = "Lnd. % of Total"
+  ),
+  pred_pin_final_fmv = list(style = "price", display_name = "Before Rounding"),
+  pred_pin_final_fmv_land = list(style = "price", display_name = "Land"),
+  pred_pin_final_fmv_bldg = list(style = "price", display_name = "Building"),
+  pred_pin_final_fmv_round = list(style = "price", display_name = "Total"),
+  land_rate_per_sqft = list(
+    style = "2digit_price", display_name = "Lnd. Rate Original"
+  ),
+  pred_pin_land_rate_effective = list(
+    style = "2digit_price", display_name = "Lnd. Rate Effective"
+  ),
+  pred_pin_bldg_rate_effective = list(
+    style = "2digit_price", display_name = "Unit Rate S. F."
+  ),
+  pred_pin_land_pct_total = list(
+    style = "pct", display_name = "Lnd. % of Tot."
+  ),
+  prior_near_yoy_change_nom = list(
+    style = "price", display_name = "YoY ∆ $"
+  ),
+  prior_near_yoy_change_pct = list(
+    style = "pct", cond = "color_scale", display_name = "YoY ∆ %"
+  ),
+  sale_ratio = list(
+    formula = TRUE, style = "2digit_num", display_name = "Sale Ratio"
+  ),
+  valuations_note = list(display_name = "Valuations Notes"),
+  sale_recent_1_date = list(
+    cond = "sale_outlier_1", display_name = "Sale Date 1"
+  ),
+  sale_recent_1_price = list(
+    style = "price", cond = "sale_outlier_1", display_name = "Sale Amount 1"
+  ),
+  sale_recent_1_outlier_reason = list(
+    cond = "sale_outlier_1",
+    display_name = "Non-Arm's-Length Sale Flag 1"
+  ),
+  sale_recent_1_document_num = list(
+    cond = "sale_outlier_1", display_name = "Sale Doc. 1"
+  ),
+  sale_recent_1_num_parcels = list(
+    cond = "sale_outlier_1", display_name = "Sale Num. Parcels 1"
+  ),
+  sale_recent_2_date = list(
+    cond = "sale_outlier_2", display_name = "Sale Date 2"
+  ),
+  sale_recent_2_price = list(
+    style = "price", cond = "sale_outlier_2", display_name = "Sale Amount 2"
+  ),
+  sale_recent_2_outlier_reason = list(
+    cond = "sale_outlier_2",
+    display_name = "Non-Arm's-Length Sale Flag 2"
+  ),
+  sale_recent_2_document_num = list(
+    cond = "sale_outlier_2", display_name = "Sale Doc. 2"
+  ),
+  sale_recent_2_num_parcels = list(
+    cond = "sale_outlier_2", display_name = "Sale Num. Parcels 2"
+  ),
+  char_yrblt = list(display_name = "Year Built"),
+  char_total_bldg_sf = list(
+    style = "comma", display_name = "Total Bld. S. F."
+  ),
+  char_land_sf = list(style = "comma", display_name = "Lnd. S. F."),
+  char_unit_sf = list(style = "comma", display_name = "Condo Unit S. F."),
+  meta_pin10_bldg_roll_mean = list(
+    style = "price", display_name = "5-Year Bldg. Sale Price Avg."
+  ),
+  meta_pin10_bldg_roll_count = list(
+    style = "comma", display_name = "5-Year Bldg. Sale Count"
+  ),
+  flag_pin10_bldg_roll_mean_imputed = list(
+    display_name = "Bldg. Sale Avg. was Imputed"
+  ),
+  flag_nonlivable_space = list(display_name = "Condo Non-Livable Space"),
+  flag_proration_sum_not_1 = list(
+    display_name = "% Ownership Sum Not Equal to 1"
+  ),
+  flag_pin_is_multiland = list(display_name = "Multi-Land"),
+  flag_land_gte_95_percentile = list(
+    display_name = "Lnd. >= 95% in Town"
+  ),
+  flag_land_value_capped = list(display_name = "Land Value Capped"),
+  flag_prior_near_to_pred_unchanged = list(display_name = "Value Unchanged"),
+  flag_prior_near_yoy_inc_gt_50_pct = list(
+    display_name = "YoY Change >= 50%"
+  ),
+  flag_prior_near_yoy_dec_gt_5_pct = list(
+    display_name = "YoY Change <= -5%"
+  ),
+  flag_has_recent_assessable_permit = list(
+    display_name = "Recent Assessable Permit"
+  ),
+  total_mv = list(
+    formula = TRUE, style = "price", hidden = TRUE, display_name = "Total MV"
+  ),
+  mv_difference = list(
+    formula = TRUE, style = "price", hidden = TRUE,
+    display_name = "MV Difference"
+  )
+)
+
+bldg_schema <- list(
+  meta_pin10 = list(display_name = "PIN10"),
+  meta_nbhd_code = list(display_name = "Nbhd."),
+  property_full_address = list(display_name = "Street Address"),
+  loc_tax_municipality_name = list(display_name = "Municipality"),
+  num_pin_livable = list(style = "comma", display_name = "Num. Livable PINs"),
+  num_pin_nonlivable = list(
+    style = "comma", display_name = "Num. Non-Livable PINs"
+  ),
+  total_tieback_proration_rate = list(
+    style = "pct", display_name = "Total Res. % Ownership"
+  ),
+  prior_near_bldg_total = list(
+    style = "price", display_name = "Building Total FMV"
+  ),
+  pred_pin_final_fmv_bldg_total = list(
+    style = "price", display_name = "Building Total FMV"
+  ),
+  prior_near_yoy_change_nom_total = list(
+    style = "price", display_name = "YoY ∆ $"
+  ),
+  prior_near_yoy_change_pct = list(
+    style = "pct", cond = "color_scale", display_name = "YoY ∆ %"
+  ),
+  char_yrblt = list(display_name = "Year Built"),
+  char_total_bldg_sf = list(style = "comma", display_name = "Bld. Total S. F.")
+)
+
+# Validate that the schemas match the template column headers
+validate_schema_vs_template(
+  pin_detail_schema,
+  here("misc", "desk_review_template.xlsx"),
+  "PIN Detail",
+  header_row = 4
+)
+validate_schema_vs_template(
+  bldg_schema,
+  here("misc", "desk_review_template.xlsx"),
+  "Buildings",
+  header_row = 4
+)
+
+# Precompute Excel column letters used in formula strings and cond. formatting
+fmv_round_col <- int2col(col_pos(pin_detail_schema, "pred_pin_final_fmv_round"))
+prior_near_tot_col <- int2col(col_pos(pin_detail_schema, "prior_near_tot"))
+sale1_price_col <- int2col(col_pos(pin_detail_schema, "sale_recent_1_price"))
+sale1_outlier_col <- int2col(
+  col_pos(pin_detail_schema, "sale_recent_1_outlier_reason")
+)
+sale2_outlier_col <- int2col(
+  col_pos(pin_detail_schema, "sale_recent_2_outlier_reason")
+)
+sale1_num_parcels_col <- int2col(
+  col_pos(pin_detail_schema, "sale_recent_1_num_parcels")
+)
+sale2_num_parcels_col <- int2col(
+  col_pos(pin_detail_schema, "sale_recent_2_num_parcels")
+)
+
+
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# 4. Prep Desk Review ----------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 message("Preparing data for Desk Review export")
 
@@ -110,7 +309,6 @@ assessment_pin_prepped <- assessment_pin %>%
       ~ as.numeric(.x)
     ),
     # Empty fields to be filled out via other means
-    char_type_resd = NA,
     valuations_note = NA,
     sale_ratio = NA
   ) %>%
@@ -124,32 +322,12 @@ assessment_pin_prepped <- assessment_pin %>%
     sale_recent_2_outlier_reason =
       if_else(sale_recent_2_is_outlier, sale_recent_2_outlier_reason, "")
   ) %>%
-  # Select fields for output to workbook
+  # Select fields for output to workbook using schema order
   select(
-    township_code, meta_pin, meta_class, meta_nbhd_code,
-    property_full_address, loc_tax_municipality_name, meta_pin10,
-    meta_tieback_key_pin, meta_tieback_proration_rate,
-    prior_near_land, prior_near_bldg, prior_near_tot,
-    prior_near_land_rate, prior_near_bldg_rate, prior_near_land_pct_total,
-    pred_pin_final_fmv, pred_pin_final_fmv_land, pred_pin_final_fmv_bldg,
-    pred_pin_final_fmv_round, land_rate_per_sqft, pred_pin_land_rate_effective,
-    pred_pin_bldg_rate_effective, pred_pin_land_pct_total,
-    prior_near_yoy_change_nom, prior_near_yoy_change_pct,
-    sale_ratio, valuations_note,
-    sale_recent_1_date, sale_recent_1_price,
-    sale_recent_1_outlier_reason, sale_recent_1_document_num,
-    sale_recent_1_num_parcels,
-    sale_recent_2_date, sale_recent_2_price,
-    sale_recent_2_outlier_reason, sale_recent_2_document_num,
-    sale_recent_2_num_parcels,
-    char_yrblt, char_total_bldg_sf, char_land_sf,
-    char_unit_sf, meta_pin10_bldg_roll_mean, meta_pin10_bldg_roll_count,
-    flag_pin10_bldg_roll_mean_imputed, flag_nonlivable_space,
-    flag_proration_sum_not_1,
-    flag_pin_is_multiland, flag_land_gte_95_percentile,
-    flag_land_value_capped, flag_prior_near_to_pred_unchanged,
-    flag_prior_near_yoy_inc_gt_50_pct, flag_prior_near_yoy_dec_gt_5_pct,
-    flag_has_recent_assessable_permit
+    township_code,
+    all_of(names(pin_detail_schema)[
+      !vapply(pin_detail_schema, function(x) isTRUE(x$hidden), logical(1))
+    ])
   ) %>%
   mutate(
     across(starts_with("flag_"), as.numeric),
@@ -206,19 +384,20 @@ assessment_pin10_prepped <- assessment_pin_prepped %>%
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 4. Export Desk Review --------------------------------------------------------
+# 5. Export Desk Review --------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Write raw data to sheets for parcel details
 for (town in unique(assessment_pin_prepped$township_code)) {
   message("Now processing: ", town_convert(town))
 
-  ## 4.1. PIN-Level ------------------------------------------------------------
+  ## 5.1. PIN-Level ------------------------------------------------------------
 
   # Filter building data to specific township
   assessment_pin10_filtered <- assessment_pin10_prepped %>%
     filter(township_code == town) %>%
-    select(-township_code)
+    select(-township_code) %>%
+    select(all_of(names(bldg_schema)))
 
   building_coords <- assessment_pin10_filtered %>%
     # Handle a rare edge case where neighborhoods span multiple townships
@@ -259,7 +438,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   num_head <- 6
   pin_row_range <- (num_head + 1):(nrow(assessment_pin_filtered) + num_head)
   pin_row_range_w_header <- c(num_head, pin_row_range)
-  pin_col_range <- 1:54
+  pin_col_range <- seq_along(pin_detail_schema)
 
   assessment_pin_w_row_ids <- assessment_pin_filtered %>%
     tibble::rowid_to_column("row_id") %>%
@@ -269,8 +448,10 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   # in the neighborhood breakouts pivot table
   assessment_pin_mvs <- assessment_pin_w_row_ids %>%
     mutate(
-      total_mv = glue::glue("=R{row_id}"),
-      mv_difference = glue::glue("=(R{row_id}) - (K{row_id})")
+      total_mv = glue::glue("={fmv_round_col}{row_id}"),
+      mv_difference = glue::glue(
+        "=({fmv_round_col}{row_id}) - ({prior_near_tot_col}{row_id})"
+      )
     ) %>%
     select(total_mv, mv_difference)
 
@@ -279,7 +460,8 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   assessment_pin_sale_ratios <- assessment_pin_w_row_ids %>%
     mutate(
       sale_ratio = glue::glue(
-        '=IF(ISBLANK(AB{row_id}), "", R{row_id} / AB{row_id})'
+        '=IF(ISBLANK({sale1_price_col}{row_id}), "",',
+        ' {fmv_round_col}{row_id} / {sale1_price_col}{row_id})'
       )
     )
 
@@ -318,50 +500,30 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   wb <- loadWorkbook(here("misc", "desk_review_template.xlsx"))
 
   # Create formatting styles
-  style_price <- createStyle(numFmt = "$#,##0")
-  style_2digit_price <- createStyle(numFmt = "$#,##0.00")
-  style_2digit_num <- createStyle(numFmt = "0.00")
-  style_pct <- createStyle(numFmt = "PERCENTAGE")
-  style_comma <- createStyle(numFmt = "COMMA")
-  style_link <- createStyle(fontColour = "blue", textDecoration = "underline")
+  wb_styles <- list(
+    price = createStyle(numFmt = "$#,##0"),
+    "2digit_price" = createStyle(numFmt = "$#,##0.00"),
+    "2digit_num" = createStyle(numFmt = "0.00"),
+    pct = createStyle(numFmt = "PERCENTAGE"),
+    comma = createStyle(numFmt = "COMMA"),
+    link = createStyle(fontColour = "blue", textDecoration = "underline")
+  )
 
-  # Add styles to PIN sheet
-  addStyle(
-    wb, pin_sheet_name,
-    style = style_price,
-    rows = pin_row_range,
-    cols = c(9:11, 15:18, 23, 28, 33, 41, 53, 54), gridExpand = TRUE
-  )
-  addStyle(
-    wb, pin_sheet_name,
-    style = style_2digit_price,
-    rows = pin_row_range, cols = c(12:13, 19:21), gridExpand = TRUE
-  )
-  addStyle(
-    wb, pin_sheet_name,
-    style = style_2digit_num,
-    rows = pin_row_range, cols = c(25), gridExpand = TRUE
-  )
-  addStyle(
-    wb, pin_sheet_name,
-    style = style_pct,
-    rows = pin_row_range, cols = c(8, 14, 22, 24), gridExpand = TRUE
-  )
-  addStyle(
-    wb, pin_sheet_name,
-    style = style_comma,
-    rows = pin_row_range, cols = c(38, 39, 40, 42), gridExpand = TRUE
-  )
-  addStyle(
-    wb, pin_sheet_name,
-    style = style_link,
-    rows = pin_row_range, cols = c(6), gridExpand = TRUE
-  )
-  addFilter(wb, pin_sheet_name, 6, pin_col_range)
+  # Add styles to PIN sheet using schema
+  for (style_name in names(wb_styles)) {
+    style_cols <- cols_with_style(pin_detail_schema, style_name)
+    if (length(style_cols) == 0) next
+    addStyle(
+      wb, pin_sheet_name,
+      style = wb_styles[[style_name]],
+      rows = pin_row_range, cols = style_cols, gridExpand = TRUE
+    )
+  }
+  addFilter(wb, pin_sheet_name, num_head, pin_col_range)
 
   # Format YoY % change column with a range of colors from low to high
   walk(
-    c(24),
+    cols_with_cond(pin_detail_schema, "color_scale"),
     ~ conditionalFormatting(
       wb, pin_sheet_name,
       cols = .x,
@@ -374,28 +536,28 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   # Format sale such that they are orange for adjusted multi-PIN sales
   conditionalFormatting(
     wb, pin_sheet_name,
-    cols = 27:31,
+    cols = cols_with_cond(pin_detail_schema, "sale_outlier_1"),
     rows = pin_row_range,
     style = createStyle(bgFill = "#FFCC99"),
-    rule = "$AE7=2",
+    rule = paste0("$", sale1_num_parcels_col, num_head + 1, "=2"),
     type = "expression"
   )
   conditionalFormatting(
     wb, pin_sheet_name,
-    cols = 32:37,
+    cols = cols_with_cond(pin_detail_schema, "sale_outlier_2"),
     rows = pin_row_range,
     style = createStyle(bgFill = "#FFCC99"),
-    rule = "$AJ7=2",
+    rule = paste0("$", sale2_num_parcels_col, num_head + 1, "=2"),
     type = "expression"
   )
 
   # Format sale columns such that they are red if the sale has an outlier flag
   conditionalFormatting(
     wb, pin_sheet_name,
-    cols = 27:31,
+    cols = cols_with_cond(pin_detail_schema, "sale_outlier_1"),
     rows = pin_row_range,
     style = createStyle(bgFill = "#FF9999"),
-    rule = '$AC7!=""',
+    rule = paste0('$', sale1_outlier_col, num_head + 1, '!=""'),
     type = "expression"
   )
   # For some reason vector cols don't work with expressions, so we have
@@ -403,36 +565,37 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   # to apply it to the second range of columns
   conditionalFormatting(
     wb, pin_sheet_name,
-    cols = 32:37,
+    cols = cols_with_cond(pin_detail_schema, "sale_outlier_2"),
     rows = pin_row_range,
     style = createStyle(bgFill = "#FF9999"),
-    rule = '$AH7!=""',
+    rule = paste0('$', sale2_outlier_col, num_head + 1, '!=""'),
     type = "expression"
   )
 
   # Write PIN-level data to workbook
   writeData(
     wb, pin_sheet_name, assessment_pin_filtered,
-    startCol = 1, startRow = 7, colNames = FALSE
+    startCol = 1, startRow = num_head + 1, colNames = FALSE
   )
 
   # Write formulas and headers to workbook
   writeFormula(
     wb, pin_sheet_name,
     assessment_pin_filtered$meta_pin,
-    startCol = 1,
-    startRow = 7
+    startCol = col_pos(pin_detail_schema, "meta_pin"),
+    startRow = num_head + 1
   )
   writeFormula(
     wb, pin_sheet_name,
     assessment_pin_filtered$meta_pin10,
-    startCol = 6,
-    startRow = 7
+    startCol = col_pos(pin_detail_schema, "meta_pin10"),
+    startRow = num_head + 1
   )
   writeFormula(
     wb, pin_sheet_name,
     assessment_pin_sale_ratios$sale_ratio,
-    startCol = 25, startRow = 7
+    startCol = col_pos(pin_detail_schema, "sale_ratio"),
+    startRow = num_head + 1
   )
   writeData(
     wb, pin_sheet_name, tibble(sheet_header),
@@ -444,31 +607,34 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   )
   writeData(
     wb, pin_sheet_name, tibble(comp_header),
-    startCol = 9, startRow = 5, colNames = FALSE
+    startCol = col_pos(pin_detail_schema, "prior_near_land"),
+    startRow = num_head - 1, colNames = FALSE
   )
   writeData(
     wb, pin_sheet_name, tibble(model_header),
-    startCol = 15, startRow = 5, colNames = FALSE
+    startCol = col_pos(pin_detail_schema, "pred_pin_final_fmv"),
+    startRow = num_head - 1, colNames = FALSE
   )
 
   # Write hidden formulas
   writeFormula(
     wb, pin_sheet_name,
     assessment_pin_mvs$total_mv,
-    startCol = 53,
-    startRow = 7
+    startCol = col_pos(pin_detail_schema, "total_mv"),
+    startRow = num_head + 1
   )
   writeFormula(
     wb, pin_sheet_name,
     assessment_pin_mvs$mv_difference,
-    startCol = 54,
-    startRow = 7
+    startCol = col_pos(pin_detail_schema, "mv_difference"),
+    startRow = num_head + 1
   )
+  hidden_cols <- cols_hidden(pin_detail_schema)
   setColWidths(
     wb, pin_sheet_name,
-    c(53, 54),
-    widths = 1,
-    hidden = c(TRUE, TRUE), ignoreMergedCells = FALSE
+    hidden_cols,
+    widths = rep(1, length(hidden_cols)),
+    hidden = rep(TRUE, length(hidden_cols)), ignoreMergedCells = FALSE
   )
 
   # Add a named range for the PIN-level data, which the template will use
@@ -479,37 +645,34 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     name = "pin_detail_range", overwrite = TRUE
   )
 
-  # 4.2. Building-Level --------------------------------------------------------
+  # 5.2. Building-Level --------------------------------------------------------
 
   # Get range of rows in the building data + number of header rows
   bldg_row_range <- 5:(nrow(assessment_pin10_filtered) + 6)
 
-  # Add styles to bldg sheet
-  addStyle(
-    wb, bldg_sheet_name,
-    style = style_price,
-    rows = bldg_row_range, cols = c(8:10), gridExpand = TRUE
-  )
-  addStyle(
-    wb, bldg_sheet_name,
-    style = style_pct,
-    rows = bldg_row_range, cols = c(7, 11), gridExpand = TRUE
-  )
-  addStyle(
-    wb, bldg_sheet_name,
-    style = style_comma,
-    rows = bldg_row_range, cols = c(5:6, 13), gridExpand = TRUE
-  )
-  addFilter(wb, bldg_sheet_name, 4, 1:13)
+  # Add styles to bldg sheet using schema
+  for (style_name in names(wb_styles)) {
+    style_cols <- cols_with_style(bldg_schema, style_name)
+    if (length(style_cols) == 0) next
+    addStyle(
+      wb, bldg_sheet_name,
+      style = wb_styles[[style_name]],
+      rows = bldg_row_range, cols = style_cols, gridExpand = TRUE
+    )
+  }
+  addFilter(wb, bldg_sheet_name, 4, seq_along(bldg_schema))
 
   # Format YoY % change column with a range of colors from low to high
-  conditionalFormatting(
-    wb, bldg_sheet_name,
-    cols = c(11),
-    rows = bldg_row_range,
-    style = c("#F8696B", "#FFFFFF", "#00B0F0"),
-    rule = c(-1, 0, 1),
-    type = "colourScale"
+  walk(
+    cols_with_cond(bldg_schema, "color_scale"),
+    ~ conditionalFormatting(
+      wb, bldg_sheet_name,
+      cols = .x,
+      rows = bldg_row_range,
+      style = c("#F8696B", "#FFFFFF", "#00B0F0"),
+      rule = c(-1, 0, 1),
+      type = "colourScale"
+    )
   )
 
   # Write bldg-level data to workbook
@@ -521,11 +684,13 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   # Write formulas and headers to workbook
   writeData(
     wb, bldg_sheet_name, tibble(comp_header),
-    startCol = 8, startRow = 3, colNames = FALSE
+    startCol = col_pos(bldg_schema, "prior_near_bldg_total"),
+    startRow = 3, colNames = FALSE
   )
   writeData(
     wb, bldg_sheet_name, tibble(model_header),
-    startCol = 9, startRow = 3, colNames = FALSE
+    startCol = col_pos(bldg_schema, "pred_pin_final_fmv_bldg_total"),
+    startRow = 3, colNames = FALSE
   )
 
   # Save workbook to file based on town name
@@ -557,7 +722,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 5. Prep iasWorld Upload ------------------------------------------------------
+# 6. Prep iasWorld Upload ------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Prepare data for iasWorld upload
@@ -611,7 +776,7 @@ upload_data_prepped <- assessment_pin %>%
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# 6. Export iasWorld Upload ----------------------------------------------------
+# 7. Export iasWorld Upload ----------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Write each town to a headerless CSV for mass upload
