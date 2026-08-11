@@ -2037,13 +2037,13 @@
     },
     "zip": {
       "Package": "zip",
-      "Version": "3.0.1",
+      "Version": "3.0.2",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
         "cli"
       ],
-      "Hash": "2c4eff2acdb28a05588a5fee7b35921c"
+      "Hash": "5807bea03035bfdd7535c1d3eb258cb0"
     }
   }
 }
