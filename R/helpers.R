@@ -324,7 +324,11 @@ create_rolling_origin_splits <- function(data,
 
 col_pos <- function(schema, col_name) {
   idx <- which(names(schema) == col_name)
-  if (length(idx) == 0) stop(glue::glue("Column '{col_name}' not found in schema"))
+  if (length(idx) == 0) {
+    stop(glue::glue(
+      "Column '{col_name}' not found in schema"
+    ))
+  }
   idx
 }
 
