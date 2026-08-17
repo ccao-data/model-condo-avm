@@ -16,8 +16,6 @@ purrr::walk(list.files("R/", "\\.R$", full.names = TRUE), source)
 set.seed(NULL)
 
 
-
-
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 2. Save Metadata -------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -37,7 +35,6 @@ run_end_timestamp <- lubridate::now()
 
 # Get the commit of the current reference
 git_commit <- git2r::revparse_single(git2r::repository(), "HEAD")
-
 
 
 ## 2.2. DVC Hashes -------------------------------------------------------------
@@ -117,8 +114,6 @@ metadata <- tibble::tibble(
   arrow::write_parquet(paths$output$metadata$local)
 
 
-
-
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 3. Generate reports ----------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -157,7 +152,6 @@ tryCatch(
     sink()
   }
 )
-
 
 
 ## 3.2. Model Features Report --------------------------------------------------

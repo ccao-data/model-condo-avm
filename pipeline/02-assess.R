@@ -27,8 +27,6 @@ land_nbhd_rate <- read_parquet(
 )
 
 
-
-
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 2. Predict Values ------------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -65,8 +63,6 @@ assessment_data_pred <- assessment_data_pred %>%
       assessment_data_baked$meta_pin10_bldg_roll_mean
     )
   )
-
-
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -152,8 +148,6 @@ assessment_data_merged <- assessment_data_pred %>%
   )
 
 
-
-
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 4. Card-Level Data -----------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -174,8 +168,6 @@ assessment_data_merged %>%
     as_factor = FALSE
   ) %>%
   write_parquet(paths$output$assessment_card$local)
-
-
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
