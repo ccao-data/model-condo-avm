@@ -323,7 +323,9 @@ create_rolling_origin_splits <- function(data,
 # Schema helper functions for workbook creation --------------------------------
 
 col_pos <- function(schema, col_name) {
-  which(names(schema) == col_name)
+  idx <- which(names(schema) == col_name)
+  if (length(idx) == 0) stop(glue::glue("Column '{col_name}' not found in schema"))
+  idx
 }
 
 cols_with_style <- function(schema, style_name) {
