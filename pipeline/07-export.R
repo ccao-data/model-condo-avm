@@ -274,7 +274,6 @@ sale2_num_parcels_col <- int2col(
 )
 
 
-
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 4. Prep Desk Review ----------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -455,7 +454,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     mutate(
       sale_ratio = glue::glue(
         '=IF(ISBLANK({sale1_price_col}{row_id}), "",',
-        ' {fmv_round_col}{row_id} / {sale1_price_col}{row_id})'
+        " {fmv_round_col}{row_id} / {sale1_price_col}{row_id})"
       )
     )
 
@@ -551,7 +550,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     cols = cols_with_cond(pin_detail_schema, "sale_outlier_1"),
     rows = pin_row_range,
     style = createStyle(bgFill = "#FF9999"),
-    rule = paste0('$', sale1_outlier_col, num_head + 1, '!=""'),
+    rule = paste0("$", sale1_outlier_col, num_head + 1, '!=""'),
     type = "expression"
   )
   # For some reason vector cols don't work with expressions, so we have
@@ -562,7 +561,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
     cols = cols_with_cond(pin_detail_schema, "sale_outlier_2"),
     rows = pin_row_range,
     style = createStyle(bgFill = "#FF9999"),
-    rule = paste0('$', sale2_outlier_col, num_head + 1, '!=""'),
+    rule = paste0("$", sale2_outlier_col, num_head + 1, '!=""'),
     type = "expression"
   )
 
