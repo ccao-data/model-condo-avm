@@ -322,26 +322,16 @@ create_rolling_origin_splits <- function(data,
 
 # Schema helper functions for workbook creation --------------------------------
 
+# Find a column's 1-based position in a schema list by name
 col_pos <- function(schema, col_name) {
-  idx <- which(names(schema) == col_name)
-  if (length(idx) == 0) {
-    stop(glue::glue(
-      "Column '{col_name}' not found in schema"
-    ))
-  }
-  idx
+  pos <- which(names(schema) == col_name)
+  if (length(pos) == 0L) stop("Column '", col_name, "' not found in schema")
+  pos
 }
 
+# Indices of all schema columns whose `style` field equals `style_name`
 cols_with_style <- function(schema, style_name) {
   which(vapply(schema, function(x) identical(x$style, style_name), logical(1)))
-}
-
-cols_with_cond <- function(schema, cond_name) {
-  which(vapply(schema, function(x) identical(x$cond, cond_name), logical(1)))
-}
-
-cols_hidden <- function(schema) {
-  which(vapply(schema, function(x) isTRUE(x$hidden), logical(1)))
 }
 
 validate_schema_vs_template <- function(schema, template_path, sheet_name,

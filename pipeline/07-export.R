@@ -380,6 +380,16 @@ assessment_pin10_prepped <- assessment_pin_prepped %>%
 # 5. Export Desk Review --------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+# Indices of all schema columns whose `cond` field equals `cond_name`
+cols_with_cond <- function(schema, cond_name) {
+  which(vapply(schema, function(x) identical(x$cond, cond_name), logical(1)))
+}
+
+# Indices of all schema columns marked hidden = TRUE
+cols_hidden <- function(schema) {
+  which(vapply(schema, function(x) isTRUE(x$hidden), logical(1)))
+}
+
 # Write raw data to sheets for parcel details
 for (town in unique(assessment_pin_prepped$township_code)) {
   message("Now processing: ", town_convert(town))
@@ -641,7 +651,8 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   # 5.2. Building-Level --------------------------------------------------------
 
   # Get range of rows in the building data + number of header rows
-  bldg_row_range <- 5:(nrow(assessment_pin10_filtered) + 6)
+  num_head_bldg <- 4
+  bldg_row_range <- (num_head_bldg + 1):(nrow(assessment_pin10_filtered) + num_head_bldg)
 
   # Add styles to bldg sheet using schema
   for (style_name in names(wb_styles)) {
@@ -653,7 +664,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
       rows = bldg_row_range, cols = style_cols, gridExpand = TRUE
     )
   }
-  addFilter(wb, bldg_sheet_name, 4, seq_along(bldg_schema))
+  addFilter(wb, bldg_sheet_name, num_head_bldg, seq_along(bldg_schema))
 
   # Format YoY % change column with a range of colors from low to high
   walk(
@@ -671,19 +682,19 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   # Write bldg-level data to workbook
   writeData(
     wb, bldg_sheet_name, assessment_pin10_filtered,
-    startCol = 1, startRow = 5, colNames = FALSE
+    startCol = 1, startRow = num_head_bldg + 1, colNames = FALSE
   )
 
   # Write formulas and headers to workbook
   writeData(
     wb, bldg_sheet_name, tibble(comp_header),
     startCol = col_pos(bldg_schema, "prior_near_bldg_total"),
-    startRow = 3, colNames = FALSE
+    startRow = num_head_bldg - 1, colNames = FALSE
   )
   writeData(
     wb, bldg_sheet_name, tibble(model_header),
     startCol = col_pos(bldg_schema, "pred_pin_final_fmv_bldg_total"),
-    startRow = 3, colNames = FALSE
+    startRow = num_head_bldg - 1, colNames = FALSE
   )
 
   # Save workbook to file based on town name
