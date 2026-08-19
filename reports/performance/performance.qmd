@@ -44,3 +44,5 @@ if (shap_exists) {
   cat(shap_qmd, sep = "\n")
 }
 ```
+
+{{< include _train_test.qmd >}}

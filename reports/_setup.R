@@ -142,9 +142,16 @@ if (!exists("assessment_pin")) {
 if (!exists("test_card")) {
   test_card <- read_parquet(paths$output$test_card$local)
 }
+if (!exists("train_card")) {
+  train_card <- read_parquet(paths$output$train_card$local)
+}
 if (!exists("model_performance_test")) {
   model_performance_test <-
     arrow::read_parquet(paths$output$performance_test$local)
+}
+if (!exists("model_performance_train")) {
+  model_performance_train <-
+    arrow::read_parquet(paths$output$performance_train$local)
 }
 if (!exists("model_performance_test_linear")) {
   model_performance_test_linear <-
