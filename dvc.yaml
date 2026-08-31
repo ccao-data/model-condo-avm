@@ -26,6 +26,7 @@ stages:
     - cv
     - model.engine
     - model.hyperparameter
+    - model.log_sale_price
     - model.objective
     - model.parameter
     - model.predictor
@@ -66,6 +67,7 @@ stages:
     - output/workflow/recipe/model_workflow_recipe.rds
     params:
     - assessment
+    - model.log_sale_price
     - model.predictor.all
     - pv
     - ratio_study
