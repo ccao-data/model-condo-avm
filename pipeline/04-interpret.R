@@ -40,8 +40,6 @@ if (shap_enable) {
 }
 
 
-
-
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 3. Calculate SHAP Values -----------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -84,8 +82,6 @@ if (shap_enable) {
   # so DVC doesn't complain
   arrow::write_parquet(data.frame(), paths$output$shap$local)
 }
-
-
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

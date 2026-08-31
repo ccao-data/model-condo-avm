@@ -19,8 +19,6 @@ suppressPackageStartupMessages({
 AWS_ATHENA_CONN_NOCTUA <- dbConnect(noctua::athena(), rstudio_conn_tab = FALSE)
 
 
-
-
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 2. Pull Model Data -----------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -76,8 +74,6 @@ flag_assessable_permits <- dbGetQuery(
   WHERE year = '{params$assessment$data_year}'
   ")
 )
-
-
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -201,8 +197,6 @@ assessment_pin10_prepped <- assessment_pin_prepped %>%
   ) %>%
   ungroup() %>%
   arrange(meta_pin10)
-
-
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -554,8 +548,6 @@ for (town in unique(assessment_pin_prepped$township_code)) {
 #    Number Format.
 
 
-
-
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 5. Prep iasWorld Upload ------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -606,8 +598,6 @@ upload_data_prepped <- assessment_pin %>%
     MV = pred_pin10_final_fmv_bldg
   ) %>%
   arrange(township_code, PARID)
-
-
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

@@ -36,7 +36,6 @@ AWS_ATHENA_CONN_NOCTUA <- dbConnect(
 )
 
 
-
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 2. Define Functions ----------------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -79,8 +78,6 @@ process_array_column <- function(x) {
     }
   })
 }
-
-
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -200,8 +197,6 @@ tictoc::toc()
 # Close connection to Athena
 dbDisconnect(AWS_ATHENA_CONN_NOCTUA)
 rm(AWS_ATHENA_CONN_NOCTUA)
-
-
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -352,7 +347,6 @@ training_data_clean <- training_data_fil %>%
   relocate(starts_with("char_"), .after = starts_with("ind_"))
 
 
-
 ## 4.2. Assessment Data --------------------------------------------------------
 
 # Clean the assessment data. This is the target data that the trained model is
@@ -412,8 +406,6 @@ message("Saving land rates")
 land_nbhd_rate_data %>%
   select(meta_nbhd = town_nbhd, meta_class = class, land_rate_per_sqft) %>%
   write_parquet(paths$input$land_nbhd_rate$local)
-
-
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
