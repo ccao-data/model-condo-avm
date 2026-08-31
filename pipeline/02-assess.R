@@ -64,9 +64,8 @@ assessment_data_pred <- assessment_data_pred %>%
     )
   )
 
-# Exponentiate predictions back to raw dollar scale, preserving the raw
-# log-scale prediction alongside its dollar equivalent. NA when the transform
-# is off, since no log-space model output exists in that case
+# Exponentiate predictions back to raw dollar scale, preserving
+# original log scale
 if (log_transform_enable) {
   assessment_data_pred <- assessment_data_pred %>%
     mutate(
