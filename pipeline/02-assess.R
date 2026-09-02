@@ -64,6 +64,19 @@ assessment_data_pred <- assessment_data_pred %>%
     )
   )
 
+# Exponentiate predictions back to raw dollar scale, preserving
+# original log scale
+if (log_transform_enable) {
+  assessment_data_pred <- assessment_data_pred %>%
+    mutate(
+      pred_card_initial_fmv_log = pred_card_initial_fmv,
+      pred_card_initial_fmv = exp(pred_card_initial_fmv)
+    )
+} else {
+  assessment_data_pred <- assessment_data_pred %>%
+    mutate(pred_card_initial_fmv_log = NA_real_)
+}
+
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 3. Post-Modeling Adjustments -------------------------------------------------
@@ -160,6 +173,7 @@ assessment_data_merged %>%
   select(
     meta_year, meta_pin, meta_class, meta_card_num, meta_lline_num,
     meta_modeling_group, ends_with("_num_sale"), pred_card_initial_fmv,
+    pred_card_initial_fmv_log,
     all_of(params$model$predictor$all), township_code
   ) %>%
   ccao::vars_recode(
