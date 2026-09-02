@@ -305,9 +305,7 @@ assessment_pin_prepped <- assessment_pin %>%
     ),
     # Empty fields to be filled out via other means
     valuations_note = NA,
-    sale_ratio = NA,
-    total_mv = NA,
-    mv_difference = NA
+    sale_ratio = NA
   ) %>%
   # Add assessable permit flag
   left_join(flag_assessable_permits, by = c("meta_pin" = "pin")) %>%
@@ -319,8 +317,6 @@ assessment_pin_prepped <- assessment_pin %>%
     sale_recent_2_outlier_reason =
       if_else(sale_recent_2_is_outlier, sale_recent_2_outlier_reason, "")
   ) %>%
-  # This select statement aligns the pin dataframe with the pin detail schema
-  select(township_code, all_of(names(pin_detail_schema))) %>%
   mutate(
     across(starts_with("flag_"), as.numeric),
     across(where(is.numeric), ~ na_if(.x, Inf))
@@ -433,7 +429,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
       )
     ) %>%
     # This select statement aligns the pin dataframe with the pin detail schema
-    select(all_of(names(pin_detail_schema)))
+    select(all_of(setdiff(names(pin_detail_schema), c("total_mv", "mv_difference"))))
 
   # Get range of rows in the PIN data + number of header rows
   num_head <- 6
