@@ -428,11 +428,10 @@ for (town in unique(assessment_pin_prepped$township_code)) {
         )
       )
     ) %>%
-    # This select statement aligns the pin dataframe with the pin detail schema
-    select(all_of(setdiff(
-      names(pin_detail_schema),
-      c("total_mv", "mv_difference")
-    )))
+    # This select statement aligns the pin dataframe with the pin schema
+    # total_mv and mv_difference are written separately
+    # via writeFormula below to populate the pivot table
+    select(all_of(names(pin_detail_schema)), -total_mv, -mv_difference)
 
   # Get range of rows in the PIN data + number of header rows
   num_head <- 6
