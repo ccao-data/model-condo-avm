@@ -305,7 +305,9 @@ assessment_pin_prepped <- assessment_pin %>%
     ),
     # Empty fields to be filled out via other means
     valuations_note = NA,
-    sale_ratio = NA
+    sale_ratio = NA,
+    total_mv = NA,
+    mv_difference = NA
   ) %>%
   # Add assessable permit flag
   left_join(flag_assessable_permits, by = c("meta_pin" = "pin")) %>%
@@ -317,13 +319,8 @@ assessment_pin_prepped <- assessment_pin %>%
     sale_recent_2_outlier_reason =
       if_else(sale_recent_2_is_outlier, sale_recent_2_outlier_reason, "")
   ) %>%
-  # Select fields for output to workbook using schema order
-  select(
-    township_code,
-    all_of(names(pin_detail_schema)[
-      !vapply(pin_detail_schema, function(x) isTRUE(x$hidden), logical(1))
-    ])
-  ) %>%
+  # This select statement aligns the pin dataframe with the pin detail schema
+  select(township_code, all_of(names(pin_detail_schema))) %>%
   mutate(
     across(starts_with("flag_"), as.numeric),
     across(where(is.numeric), ~ na_if(.x, Inf))
@@ -435,7 +432,8 @@ for (town in unique(assessment_pin_prepped$township_code)) {
         )
       )
     ) %>%
-    select(-building_coord)
+    # This select statement aligns the pin dataframe with the pin detail schema
+    select(all_of(names(pin_detail_schema)))
 
   # Get range of rows in the PIN data + number of header rows
   num_head <- 6
