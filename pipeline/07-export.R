@@ -652,7 +652,7 @@ for (town in unique(assessment_pin_prepped$township_code)) {
   # Get range of rows in the building data + number of header rows
   num_head_bldg <- 4
   bldg_row_range <- (num_head_bldg + 1):
-  (nrow(assessment_pin10_filtered) + num_head_bldg)
+  (nrow(assessment_pin10_filtered) + num_head_bldg) # nolint
 
   # Add styles to bldg sheet using schema
   for (style_name in names(wb_styles)) {
