@@ -260,18 +260,6 @@ validate_schema_vs_template(
 fmv_round_col <- int2col(col_pos(pin_detail_schema, "pred_pin_final_fmv_round"))
 prior_near_tot_col <- int2col(col_pos(pin_detail_schema, "prior_near_tot"))
 sale1_price_col <- int2col(col_pos(pin_detail_schema, "sale_recent_1_price"))
-sale1_outlier_col <- int2col(
-  col_pos(pin_detail_schema, "sale_recent_1_outlier_reason")
-)
-sale2_outlier_col <- int2col(
-  col_pos(pin_detail_schema, "sale_recent_2_outlier_reason")
-)
-sale1_num_parcels_col <- int2col(
-  col_pos(pin_detail_schema, "sale_recent_1_num_parcels")
-)
-sale2_num_parcels_col <- int2col(
-  col_pos(pin_detail_schema, "sale_recent_2_num_parcels")
-)
 
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -385,7 +373,7 @@ cols_hidden <- function(schema) {
 
 # Write raw data to sheets for parcel details
 for (town in unique(assessment_pin_prepped$township_code)) {
-  message("Now processing: ", town_convert(town))
+  message("Now processing desk review: ", town_convert(town))
 
   ## 5.1. PIN-Level ------------------------------------------------------------
 
@@ -535,44 +523,30 @@ for (town in unique(assessment_pin_prepped$township_code)) {
       type = "colourScale"
     )
   )
-  # Format sale such that they are orange for adjusted multi-PIN sales
-  conditionalFormatting(
-    wb, pin_sheet_name,
-    cols = cols_with_cond(pin_detail_schema, "sale_outlier_1"),
-    rows = pin_row_range,
-    style = createStyle(bgFill = "#FFCC99"),
-    rule = paste0("$", sale1_num_parcels_col, num_head + 1, "=2"),
-    type = "expression"
-  )
-  conditionalFormatting(
-    wb, pin_sheet_name,
-    cols = cols_with_cond(pin_detail_schema, "sale_outlier_2"),
-    rows = pin_row_range,
-    style = createStyle(bgFill = "#FFCC99"),
-    rule = paste0("$", sale2_num_parcels_col, num_head + 1, "=2"),
-    type = "expression"
-  )
-
-  # Format sale columns such that they are red if the sale has an outlier flag
-  conditionalFormatting(
-    wb, pin_sheet_name,
-    cols = cols_with_cond(pin_detail_schema, "sale_outlier_1"),
-    rows = pin_row_range,
-    style = createStyle(bgFill = "#FF9999"),
-    rule = paste0("$", sale1_outlier_col, num_head + 1, '!=""'),
-    type = "expression"
-  )
-  # For some reason vector cols don't work with expressions, so we have
-  # to duplicate the conditional formatting for the sale outlier flag above
-  # to apply it to the second range of columns
-  conditionalFormatting(
-    wb, pin_sheet_name,
-    cols = cols_with_cond(pin_detail_schema, "sale_outlier_2"),
-    rows = pin_row_range,
-    style = createStyle(bgFill = "#FF9999"),
-    rule = paste0("$", sale2_outlier_col, num_head + 1, '!=""'),
-    type = "expression"
-  )
+  # Format sale columns: orange for multi-PIN sales, red when outlier flag is present
+  for (sale_num in 1:2) {
+    sale_cond <- paste0("sale_outlier_", sale_num)
+    num_parcels_col <- int2col(col_pos(
+      pin_detail_schema, paste0("sale_recent_", sale_num, "_num_parcels")
+    ))
+    outlier_col <- int2col(col_pos(
+      pin_detail_schema, paste0("sale_recent_", sale_num, "_outlier_reason")
+    ))
+    conditionalFormatting(wb, pin_sheet_name,
+      cols = cols_with_cond(pin_detail_schema, sale_cond),
+      rows = pin_row_range,
+      style = createStyle(bgFill = "#FFCC99"),
+      rule = paste0("$", num_parcels_col, num_head + 1, "=2"),
+      type = "expression"
+    )
+    conditionalFormatting(wb, pin_sheet_name,
+      cols = cols_with_cond(pin_detail_schema, sale_cond),
+      rows = pin_row_range,
+      style = createStyle(bgFill = "#FF9999"),
+      rule = paste0("$", outlier_col, num_head + 1, '!=""'),
+      type = "expression"
+    )
+  }
 
   # Write PIN-level data to workbook
   writeData(
@@ -783,7 +757,7 @@ upload_data_prepped <- assessment_pin %>%
 
 # Write each town to a headerless CSV for mass upload
 for (town in unique(upload_data_prepped$township_code)) {
-  message("Now processing: ", town_convert(town))
+  message("Now processing iasWorld upload: ", town_convert(town))
 
   upload_data_fil <- upload_data_prepped %>%
     filter(township_code == town, MV > 0, !is.na(MV)) %>%
