@@ -373,7 +373,7 @@ cols_hidden <- function(schema) {
 
 # Write raw data to sheets for parcel details
 for (town in unique(assessment_pin_prepped$township_code)) {
-  message("Now processing desk review: ", town_convert(town))
+  message("Now processing: ", town_convert(town))
 
   ## 5.1. PIN-Level ------------------------------------------------------------
 
@@ -523,7 +523,8 @@ for (town in unique(assessment_pin_prepped$township_code)) {
       type = "colourScale"
     )
   )
-  # Format sale columns: orange for multi-PIN sales, red when outlier flag is present
+  # Format sale columns: orange for multi-PIN sales
+  # red when outlier flag is present
   for (sale_num in 1:2) {
     sale_cond <- paste0("sale_outlier_", sale_num)
     num_parcels_col <- int2col(col_pos(
@@ -755,9 +756,11 @@ upload_data_prepped <- assessment_pin %>%
 # 7. Export iasWorld Upload ----------------------------------------------------
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+message("Preparing data for iasWorld export")
+
 # Write each town to a headerless CSV for mass upload
 for (town in unique(upload_data_prepped$township_code)) {
-  message("Now processing iasWorld upload: ", town_convert(town))
+  message("Now processing: ", town_convert(town))
 
   upload_data_fil <- upload_data_prepped %>%
     filter(township_code == town, MV > 0, !is.na(MV)) %>%
